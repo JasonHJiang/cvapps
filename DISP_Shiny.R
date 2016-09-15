@@ -56,6 +56,7 @@ choices <- c("", sort(topdrugs$drug_code))
 #### UI component ####
 ui <- dashboardPage(
   dashboardHeader(title = "CV Shiny WARNING: This is a beta product. Please do NOT use as sole evidence to support regulartory decisions.",  titleWidth = 1200),
+  
   dashboardSidebar(
     sidebarMenu(
       menuItem("Disproportionality Analysis", tabName = "data", icon = icon("fa fa-cogs")),
@@ -64,6 +65,7 @@ ui <- dashboardPage(
       # menuItem("Download", tabName = "downloaddata", icon = icon("fa fa-download")),
       menuItem("About", tabName = "aboutinfo", icon = icon("info"))
     ),
+    
     selectizeInput(inputId ="search_generic",
                    label = "Generic Name/Ingredient",
                    choices = choices,
@@ -74,7 +76,8 @@ ui <- dashboardPage(
                    choices = NULL,
                    options = list(placeholder = 'Start typing to search...',
                                   onInitialize = I('function() { this.setValue(""); }'))),
-    actionButton("searchButton", "Search")
+    
+    actionButton("searchButton", "Search", width = '100%')
   ), 
   
   dashboardBody(
@@ -86,20 +89,13 @@ ui <- dashboardPage(
                     "Time Plot",
                     plotOutput(outputId = "top10_prr_timeplot"),
                     tags$br(),
-                    dataTableOutput ("master_table"),
-                    # DT::datatable(
-                    #   master_table, extensions = 'Buttons', options = list(
-                    #     dom = 'Bfrtip',
-                    #     buttons = c('csv')
-                    #   )
-                    # ),
+                    dataTableOutput("master_table"),
                     tags$p("NOTE: The above table is ranked decreasingly by PRR value. All drug*reactions pairs that have PRR value of infinity are added at the end of the table."),
                     width = 12),
                   width=12
                   )
                   )
       ),
-      
       
       tabItem(tabName = "Documentation",
               fluidRow(
@@ -148,23 +144,24 @@ ui <- dashboardPage(
 
 #### Server component ####
 server <- function(input, output, session) {
-  menu_options <- reactive({if(is.na(input$search_generic) == TRUE){
-    drug_option <- ""
-  } else {
-    drug_option <- input$search_generic 
-  }
-    
-    # adverse events available 
-    event_option <- cv_prr %>% dplyr::filter(drug_code == drug_option) %>% dplyr::distinct(event_effect) %>% dplyr::select(event_effect) #%>% arrange(event.effect)
-    
-    return(event_option <- event_option)
-  })
   
-  # Design Reaction Dropdown Menu based on Drug selection
+  # Relabel rxns dropdown menu based on selected drug
   observe({
-    updateSelectInput(session, "search_rxn",
+    if ("" == input$search_generic) {
+      rxn_choices <- cv_prr %>%
+        dplyr::distinct(event_effect) %>%
+        as.data.frame() %>% `[[`(1) %>%
+        sort()
+    } else {
+      rxn_choices <- cv_prr %>%
+        dplyr::filter(drug_code == input$search_generic) %>%
+        dplyr::distinct(event_effect) %>%
+        as.data.frame() %>% `[[`(1) %>%
+        sort()
+    }
+    updateSelectizeInput(session, "search_rxn",
                       label = "Select Adverse Event:",
-                      choices = as.data.frame(menu_options())$event_effect)
+                      choices = rxn_choices)
   })
   
   # PRR tab 
@@ -237,6 +234,13 @@ server <- function(input, output, session) {
   })
 
   
+  # pass either datatable object or data to be turned into one to renderDataTable
+  # DT::datatable(
+  #   master_table, extensions = 'Buttons', options = list(
+  #     dom = 'Bfrtip',
+  #     buttons = c('csv')
+  #   )
+  # ),
   # PRR Tab: Reactions based on PRR associated with selected drug
   output$master_table <- renderDataTable({
     df <- as.data.frame(cv_prr_tab()[2]) 
