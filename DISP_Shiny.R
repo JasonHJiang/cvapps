@@ -13,34 +13,34 @@ library(stringr)
 library(utils)
 library(dplyr)
 
-#hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
-# cv_prr <- tbl(hcopen, "PRR_160826") %>% as.data.frame()%>% select(-row.names)
-# cv_bcpnn <- tbl(hcopen, "IC_160829")%>% as.data.frame()%>% select(-c(row.names,count,`expected count`,`n11/E`,`drug margin`, `event margin`,FDR,FNR,Se,Sp,postH0))
-# cv_bcpnn <- plyr::rename(cv_bcpnn,c("drug code" = "drug_code", "event effect" = "event_effect"))
-# 
-# cv_ror <- tbl(hcopen, "ROR_160826") %>% as.data.frame()%>% select(-row.names)
-# cv_drug_rxn <- tbl(hcopen, "cv_drug_rxn")
-# 
-# cv_drug_rxn_2006 <- cv_drug_rxn %>% filter(quarter >= 2006.1)
-# count_df_quarter <- dplyr::summarise(group_by(cv_drug_rxn_2006,ing,PT_NAME_ENG,quarter), count = n_distinct(REPORT_ID)) %>% as.data.frame()
-# 
-# master_table <- cv_prr %>% left_join(cv_bcpnn) %>% left_join(cv_ror) %>% filter(is.na(ROR) != TRUE)
-# master_table <- plyr::rename(master_table,c("Q_0.025(log(IC))" = "LB95_IC", "Q_0.975(log(IC))" = "UB95_IC", "LB95_CI_PRR" = "LB95_PRR"))%>% 
-#   mutate(PRR = round(PRR,3), UB95_PRR = round(UB95_PRR,3),LB95_PRR = round(LB95_PRR,3),log_PRR = round(log_PRR,3), LB95_log_PRR = round(LB95_log_PRR,3),
-#          UB95_log_PRR = round(UB95_log_PRR,3),LB95_IC = round(LB95_IC,3),UB95_IC = round(UB95_IC,3),IC = round(IC,3),ROR = round(ROR,3),
-#          UB95_ROR = round(UB95_ROR,3), LB95_ROR = round(LB95_ROR,3),log_ROR = round(log_ROR),UB95_log_ROR = round(UB95_log_ROR,3),
-#          LB95_log_ROR = round(LB95_log_ROR,3))
-load("count_quarter_df.RData")
- load("master_table.RData")
-load("topdrugrxns.RData")
+hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
+cv_prr <- tbl(hcopen, "PRR_160826") %>% as.data.frame()%>% select(-row.names)
+cv_bcpnn <- tbl(hcopen, "IC_160829")%>% as.data.frame()%>% select(-c(row.names,count,`expected count`,`n11/E`,`drug margin`, `event margin`,FDR,FNR,Se,Sp,postH0))
+cv_bcpnn <- plyr::rename(cv_bcpnn,c("drug code" = "drug_code", "event effect" = "event_effect"))
+
+cv_ror <- tbl(hcopen, "ROR_160826") %>% as.data.frame()%>% select(-row.names)
+cv_drug_rxn <- tbl(hcopen, "cv_drug_rxn")
+
+cv_drug_rxn_2006 <- cv_drug_rxn %>% filter(quarter >= 2006.1)
+count_df_quarter <- dplyr::summarise(group_by(cv_drug_rxn_2006,ing,PT_NAME_ENG,quarter), count = n_distinct(REPORT_ID)) %>% as.data.frame()
+
+master_table <- cv_prr %>% left_join(cv_bcpnn) %>% left_join(cv_ror) %>% filter(is.na(ROR) != TRUE)
+master_table <- plyr::rename(master_table,c("Q_0.025(log(IC))" = "LB95_IC", "Q_0.975(log(IC))" = "UB95_IC", "LB95_CI_PRR" = "LB95_PRR"))%>%
+  mutate(PRR = round(PRR,3), UB95_PRR = round(UB95_PRR,3),LB95_PRR = round(LB95_PRR,3),log_PRR = round(log_PRR,3), LB95_log_PRR = round(LB95_log_PRR,3),
+         UB95_log_PRR = round(UB95_log_PRR,3),LB95_IC = round(LB95_IC,3),UB95_IC = round(UB95_IC,3),IC = round(IC,3),ROR = round(ROR,3),
+         UB95_ROR = round(UB95_ROR,3), LB95_ROR = round(LB95_ROR,3),log_ROR = round(log_ROR),UB95_log_ROR = round(UB95_log_ROR,3),
+         LB95_log_ROR = round(LB95_log_ROR,3))
+load("/home/shared/DISP data/DISP_shiny_new/count_quarter_df.RData")
+load("/home/shared/DISP data/DISP_shiny_new/master_table.RData")
+load("/home/shared/DISP data/DISP_shiny_new/topdrugrxns.RData")
 # head(cv_prr)
 # head(cv_bcpnn)
 # head(cv_ror)
 # head(master_table)
 
 # drug and adverse event dropdown menu
-#topdrugs <- cv_prr %>% dplyr::distinct(drug_code) %>% as.data.frame()
-#toprxns <- cv_prr %>% semi_join(topdrugs) %>% dplyr::distinct(event_effect)%>% as.data.frame()
+topdrugs <- cv_prr %>% dplyr::distinct(drug_code) %>% as.data.frame()
+toprxns <- cv_prr %>% semi_join(topdrugs) %>% dplyr::distinct(event_effect)%>% as.data.frame()
 
 ############ UI for DISP shiny ################
 ui <- dashboardPage(
@@ -139,7 +139,6 @@ ui <- dashboardPage(
   skin = "blue"
       )
 
-options(shiny.trace = TRUE, shiny.reactlog=TRUE)
 
 ############################# Server of DISP Shiny #####################
 server <- function(input, output, session) {
@@ -242,4 +241,6 @@ server <- function(input, output, session) {
   })
   
 }
+
+options(shiny.trace = FALSE, shiny.reactlog = FALSE)
 shinyApp(ui, server)
