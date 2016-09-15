@@ -13,36 +13,47 @@ library(stringr)
 library(utils)
 library(dplyr)
 
+#### Data pre-processing and server connections ####
 hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
-cv_prr <- tbl(hcopen, "PRR_160826") %>% as.data.frame()%>% select(-row.names)
-cv_bcpnn <- tbl(hcopen, "IC_160829")%>% as.data.frame()%>% select(-c(row.names,count,`expected count`,`n11/E`,`drug margin`, `event margin`,FDR,FNR,Se,Sp,postH0))
-cv_bcpnn <- plyr::rename(cv_bcpnn,c("drug code" = "drug_code", "event effect" = "event_effect"))
 
-cv_ror <- tbl(hcopen, "ROR_160826") %>% as.data.frame()%>% select(-row.names)
+cv_prr <- tbl(hcopen, "PRR_160826") %>%
+  dplyr::select(-row.names)
+cv_bcpnn <- tbl(hcopen, "IC_160829")%>%
+  dplyr::select(-c(row.names,count,`expected count`,`n11/E`,`drug margin`, `event margin`,FDR,FNR,Se,Sp,postH0)) %>%
+  dplyr::rename(drug_code = `drug code`, event_effect = `event effect`)
+cv_ror <- tbl(hcopen, "ROR_160826") %>%
+  dplyr::select(-row.names)
 cv_drug_rxn <- tbl(hcopen, "cv_drug_rxn")
 
-cv_drug_rxn_2006 <- cv_drug_rxn %>% filter(quarter >= 2006.1)
-count_df_quarter <- dplyr::summarise(group_by(cv_drug_rxn_2006,ing,PT_NAME_ENG,quarter), count = n_distinct(REPORT_ID)) %>% as.data.frame()
+cv_drug_rxn_2006 <- cv_drug_rxn %>% dplyr::filter(quarter >= 2006.1)
+count_df_quarter <- group_by(cv_drug_rxn_2006,ing,PT_NAME_ENG,quarter) %>%
+  dplyr::summarize(count = n_distinct(REPORT_ID)) %>% as.data.frame()
+# load("/home/shared/DISP data/DISP_shiny_new/count_quarter_df.RData")
 
-master_table <- cv_prr %>% left_join(cv_bcpnn) %>% left_join(cv_ror) %>% filter(is.na(ROR) != TRUE)
-master_table <- plyr::rename(master_table,c("Q_0.025(log(IC))" = "LB95_IC", "Q_0.975(log(IC))" = "UB95_IC", "LB95_CI_PRR" = "LB95_PRR"))%>%
-  mutate(PRR = round(PRR,3), UB95_PRR = round(UB95_PRR,3),LB95_PRR = round(LB95_PRR,3),log_PRR = round(log_PRR,3), LB95_log_PRR = round(LB95_log_PRR,3),
-         UB95_log_PRR = round(UB95_log_PRR,3),LB95_IC = round(LB95_IC,3),UB95_IC = round(UB95_IC,3),IC = round(IC,3),ROR = round(ROR,3),
-         UB95_ROR = round(UB95_ROR,3), LB95_ROR = round(LB95_ROR,3),log_ROR = round(log_ROR),UB95_log_ROR = round(UB95_log_ROR,3),
-         LB95_log_ROR = round(LB95_log_ROR,3))
-load("/home/shared/DISP data/DISP_shiny_new/count_quarter_df.RData")
-load("/home/shared/DISP data/DISP_shiny_new/master_table.RData")
-load("/home/shared/DISP data/DISP_shiny_new/topdrugrxns.RData")
-# head(cv_prr)
-# head(cv_bcpnn)
-# head(cv_ror)
-# head(master_table)
+master_table <- cv_prr %>% left_join(cv_bcpnn, copy = TRUE) %>% left_join(cv_ror,  copy = TRUE) %>% filter(is.na(ROR) != TRUE) %>%
+  dplyr::rename(LB95_IC = `Q_0.025(log(IC))`, UB95_IC = `Q_0.975(log(IC))`, LB95_PRR= LB95_CI_PRR) %>% as.data.frame()
+  # dplyr::mutate(PRR = round(PRR,3),
+  #               UB95_PRR = round(UB95_PRR,3),
+  #               LB95_PRR = round(LB95_PRR,3),
+  #               log_PRR = round(log_PRR,3),
+  #               LB95_log_PRR = round(LB95_log_PRR,3),
+  #               UB95_log_PRR = round(UB95_log_PRR,3),
+  #               LB95_IC = round(LB95_IC,3),
+  #               UB95_IC = round(UB95_IC,3),
+  #               IC = round(IC,3),
+  #               ROR = round(ROR,3),
+  #               UB95_ROR = round(UB95_ROR,3),
+  #               LB95_ROR = round(LB95_ROR,3),
+  #               log_ROR = round(log_ROR,3),
+  #               UB95_log_ROR = round(UB95_log_ROR,3),
+  #               LB95_log_ROR = round(LB95_log_ROR,3))
+# load("/home/shared/DISP data/DISP_shiny_new/master_table.RData")
 
-# drug and adverse event dropdown menu
+# drug and adverse event dropdown menu choices
 topdrugs <- cv_prr %>% dplyr::distinct(drug_code) %>% as.data.frame()
-toprxns <- cv_prr %>% semi_join(topdrugs) %>% dplyr::distinct(event_effect)%>% as.data.frame()
+choices <- c("", sort(topdrugs$drug_code))
 
-############ UI for DISP shiny ################
+#### UI component ####
 ui <- dashboardPage(
   dashboardHeader(title = "CV Shiny WARNING: This is a beta product. Please do NOT use as sole evidence to support regulartory decisions.",  titleWidth = 1200),
   dashboardSidebar(
@@ -53,19 +64,15 @@ ui <- dashboardPage(
       # menuItem("Download", tabName = "downloaddata", icon = icon("fa fa-download")),
       menuItem("About", tabName = "aboutinfo", icon = icon("info"))
     ),
-    selectizeInput("search_generic", 
-                   "Generic Name/Ingredient",
-                   topdrugs$drug_code,
-                   #multiple = TRUE,
-                   options = list(create = TRUE,
-                                  placeholder = 'Please select an option below',
-                                  onInitialize = I('function() { this.setValue(""); }'))),
+    selectizeInput(inputId ="search_generic",
+                   label = "Generic Name/Ingredient",
+                   choices = choices,
+                   options = list(placeholder = 'Start typing to search...')),
     
-    selectizeInput("search_rxn", 
-                   "Adverse Event Term",
+    selectizeInput(inputId = "search_rxn",
+                   label = "Adverse Event Term",
                    choices = NULL,
-                   options = list(create = TRUE,
-                                  placeholder = 'Please select an option below',
+                   options = list(placeholder = 'Start typing to search...',
                                   onInitialize = I('function() { this.setValue(""); }'))),
     actionButton("searchButton", "Search")
   ), 
@@ -139,8 +146,7 @@ ui <- dashboardPage(
   skin = "blue"
       )
 
-
-############################# Server of DISP Shiny #####################
+#### Server component ####
 server <- function(input, output, session) {
   menu_options <- reactive({if(is.na(input$search_generic) == TRUE){
     drug_option <- ""
@@ -230,7 +236,6 @@ server <- function(input, output, session) {
     
   })
 
-  
   
   # PRR Tab: Reactions based on PRR associated with selected drug
   output$master_table <- renderDataTable({
