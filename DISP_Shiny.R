@@ -167,18 +167,11 @@ server <- function(input, output, session) {
   # PRR tab 
   cv_prr_tab <- reactive({
     input$searchButton
-    #codes about dplyr::select specific generic, brand and reaction name in search side bar, making sure they're not NA
-    current_drug <- isolate(ifelse(input$search_generic == "",
-                                   "ALL",
-                                   input$search_generic))
-    current_rxn <- isolate(ifelse(input$search_rxn == "",
-                                  "ALL",
-                                  input$search_rxn))
-    
+    isolate({
     # Inf in PRR and ROR means there are no other drug associated with that specific adverse reaction, so denomimator is zero!
     # master_table[master_table$event_effect == "Refraction disorder",]
     
-    if(current_drug == "ALL" & current_rxn == "ALL"){
+    if(input$search_generic == "" & input$search_rxn == ""){
       default_pairs <- master_table %>% filter(PRR != Inf) %>% arrange(desc(PRR)) %>% top_n(10, PRR) %>% select(drug_code, event_effect)
       default_count_df <- count_df_quarter[count_df_quarter$ing %in% default_pairs$drug_code & count_df_quarter$PT_NAME_ENG %in% default_pairs$event_effect,]
       
@@ -186,29 +179,28 @@ server <- function(input, output, session) {
       # rank master table by PRR & suppress Inf to the end
       prr_tab_df <- master_table %>% filter(is.infinite(PRR) == FALSE) %>% arrange(desc(PRR)) %>% bind_rows(master_table[is.infinite(master_table$PRR) == TRUE,])
     
-      } else if(current_drug != "ALL" & current_rxn == "ALL") {
-      timeplot_df <-  count_df_quarter %>% filter(ing == current_drug)
+      } else if(input$search_generic != "" & input$search_rxn == "") {
+      timeplot_df <-  count_df_quarter %>% filter(ing == input$search_generic)
       
       # rank master table by PRR & suppress Inf to the end
-      prr_tab_df1 <- master_table %>% filter(drug_code == current_drug) %>% filter(is.infinite(PRR) == FALSE) %>% arrange(desc(PRR))
+      prr_tab_df1 <- master_table %>% filter(drug_code == input$search_generic) %>% filter(is.infinite(PRR) == FALSE) %>% arrange(desc(PRR))
       prr_tab_df <- prr_tab_df1 %>% bind_rows(prr_tab_df1[is.infinite(prr_tab_df1$PRR) == TRUE,])
       
       timeplot_top10_rxn <- prr_tab_df[1:10,] %>% select(drug_code, event_effect)
       timeplot_df <- count_df_quarter[count_df_quarter$ing %in% timeplot_top10_rxn$drug_code & count_df_quarter$PT_NAME_ENG %in% timeplot_top10_rxn$event_effect,]
       } else {
-      timeplot_df <- count_df_quarter %>% filter(ing == current_drug, PT_NAME_ENG == current_rxn)
-      prr_tab_df <- master_table %>% filter(drug_code == current_drug, event_effect == current_rxn)
+      timeplot_df <- count_df_quarter %>% filter(ing == input$search_generic, PT_NAME_ENG == input$search_rxn)
+      prr_tab_df <- master_table %>% filter(drug_code == input$search_generic, event_effect == input$search_rxn)
     }
 
-    return(list(
-      timeplot_df <- timeplot_df,
-      prr_tab_df <- prr_tab_df))
+    list(timeplot_df, prr_tab_df)
+  })
   })
   #current_drug = "OXYCODONE HYDROCHLORIDE"
   
   # PRR Time Plot
   output$top10_prr_timeplot <- renderPlot({
-    df <- as.data.frame(cv_prr_tab()[1])
+    df <- cv_prr_tab()[[1]]
     current_drug <- isolate(ifelse(input$search_generic == "",
                                    "All Drugs",
                                    input$search_generic))
@@ -243,10 +235,9 @@ server <- function(input, output, session) {
   # ),
   # PRR Tab: Reactions based on PRR associated with selected drug
   output$master_table <- renderDataTable({
-    df <- as.data.frame(cv_prr_tab()[2]) 
-    df <- df %>%  select(-c(log_PRR,LB95_log_PRR,UB95_log_PRR,log_ROR,UB95_log_ROR,LB95_log_ROR))
-    data <- df[c(1,2,3,5,4,8,6,7,9,11,10)]
-    data
+    cv_prr_tab()[[2]] %>%
+      select(-c(log_PRR,LB95_log_PRR,UB95_log_PRR,log_ROR,UB95_log_ROR,LB95_log_ROR)) %>%
+      select(c(1,2,3,5,4,8,6,7,9,11,10))
   })
   
 }
