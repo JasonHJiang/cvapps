@@ -25,29 +25,12 @@ cv_ror <- tbl(hcopen, "ROR_160826") %>%
   dplyr::select(-row.names)
 cv_drug_rxn <- tbl(hcopen, "cv_drug_rxn")
 
-cv_drug_rxn_2006 <- cv_drug_rxn %>% dplyr::filter(quarter >= 2006.1)
+cv_drug_rxn_2006 <- cv_drug_rxn %>% filter(quarter >= 2006.1)
 count_df_quarter <- group_by(cv_drug_rxn_2006,ing,PT_NAME_ENG,quarter) %>%
   dplyr::summarize(count = n_distinct(REPORT_ID))
-# load("/home/shared/DISP data/DISP_shiny_new/count_quarter_df.RData")
 
 master_table <- cv_prr %>% left_join(cv_bcpnn, copy = TRUE) %>% left_join(cv_ror,  copy = TRUE) %>% filter(is.na(ROR) != TRUE) %>%
   dplyr::rename(LB95_IC = `Q_0.025(log(IC))`, UB95_IC = `Q_0.975(log(IC))`, LB95_PRR= LB95_CI_PRR)
-  # dplyr::mutate(PRR = round(PRR,3),
-  #               UB95_PRR = round(UB95_PRR,3),
-  #               LB95_PRR = round(LB95_PRR,3),
-  #               log_PRR = round(log_PRR,3),
-  #               LB95_log_PRR = round(LB95_log_PRR,3),
-  #               UB95_log_PRR = round(UB95_log_PRR,3),
-  #               LB95_IC = round(LB95_IC,3),
-  #               UB95_IC = round(UB95_IC,3),
-  #               IC = round(IC,3),
-  #               ROR = round(ROR,3),
-  #               UB95_ROR = round(UB95_ROR,3),
-  #               LB95_ROR = round(LB95_ROR,3),
-  #               log_ROR = round(log_ROR,3),
-  #               UB95_log_ROR = round(UB95_log_ROR,3),
-  #               LB95_log_ROR = round(LB95_log_ROR,3))
-# load("/home/shared/DISP data/DISP_shiny_new/master_table.RData")
 
 # drug and adverse event dropdown menu choices
 choices <- cv_prr %>% dplyr::distinct(drug_code) %>% as.data.frame()
@@ -153,7 +136,7 @@ server <- function(input, output, session) {
         sort()
     } else {
       rxn_choices <- cv_prr %>%
-        dplyr::filter(drug_code == input$search_drug) %>%
+        filter(drug_code == input$search_drug) %>%
         dplyr::distinct(event_effect) %>%
         as.data.frame() %>% `[[`(1) %>%
         sort()
@@ -174,16 +157,17 @@ server <- function(input, output, session) {
       # prr_tab_df is simply the table displayed at the bottom
       # ***** == "Infinity" is a way that currently works to filter equal to infinity in SQL with dplyr, might change
     if(input$search_drug == "" & input$search_rxn == ""){
-      default_pairs <- master_table %>% dplyr::filter(PRR != "Infinity") %>%
-        dplyr::arrange(PRR) %>% dplyr::top_n(10, PRR) %>% dplyr::select(drug_code, event_effect) %>% as.data.frame()
+      default_pairs <- master_table %>% filter(PRR != "Infinity") %>% dplyr::top_n(10, PRR) %>%
+        dplyr::select(drug_code, event_effect) %>% as.data.frame()
       timeplot_df <- count_df_quarter %>%
         filter(ing %in% default_pairs$drug_code &
                  PT_NAME_ENG %in% default_pairs$event_effect)
       
       # rank master table by PRR & suppress Inf to the end
-      prr_tab_inf <- master_table %>% dplyr::filter(PRR == "Infinity") %>% as.data.frame()
-      prr_tab_df <- master_table %>% dplyr::filter(PRR != "Infinity") %>%
-        dplyr::arrange(desc(PRR)) %>% as.data.frame() %>% bind_rows(prr_tab_inf)
+      prr_tab_inf <- master_table %>% filter(PRR == "Infinity") %>% as.data.frame()
+      prr_tab_df <- master_table %>% filter(PRR != "Infinity") %>%
+        dplyr::arrange(desc(PRR), drug_code, event_effect) %>%
+        as.data.frame() %>% bind_rows(prr_tab_inf)
     
     } else if(input$search_drug != "" & input$search_rxn == "") {
       prr_tab_inf <- master_table %>%
@@ -192,7 +176,7 @@ server <- function(input, output, session) {
       prr_tab_df <- master_table %>%
         filter(drug_code == input$search_drug) %>%
         filter(PRR != "Infinity") %>%
-        dplyr::arrange(desc(PRR)) %>%
+        dplyr::arrange(desc(PRR), drug_code, event_effect) %>%
         as.data.frame() %>%
         bind_rows(prr_tab_inf)
       
@@ -207,9 +191,24 @@ server <- function(input, output, session) {
       prr_tab_df <- master_table %>%
         filter(drug_code == input$search_drug, event_effect == input$search_rxn)
     }
+    prr_tab_df %<>% as.data.frame()
+    prr_tab_df %<>% dplyr::mutate(PRR = round(PRR,3),
+                                  UB95_PRR = round(UB95_PRR,3),
+                                  LB95_PRR = round(LB95_PRR,3),
+                                  log_PRR = round(log_PRR,3),
+                                  LB95_log_PRR = round(LB95_log_PRR,3),
+                                  UB95_log_PRR = round(UB95_log_PRR,3),
+                                  LB95_IC = round(LB95_IC,3),
+                                  UB95_IC = round(UB95_IC,3),
+                                  IC = round(IC,3),
+                                  ROR = round(ROR,3),
+                                  UB95_ROR = round(UB95_ROR,3),
+                                  LB95_ROR = round(LB95_ROR,3),
+                                  log_ROR = round(log_ROR,3),
+                                  UB95_log_ROR = round(UB95_log_ROR,3),
+                                  LB95_log_ROR = round(LB95_log_ROR,3))
+    list(timeplot_df %<>% as.data.frame(), prr_tab_df)
   })
-    list(timeplot_df %<>% as.data.frame(),
-         prr_tab_df %<>% as.data.frame())
   })
   
   # PRR Time Plot
