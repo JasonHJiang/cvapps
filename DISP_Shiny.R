@@ -16,24 +16,18 @@ library(dplyr)
 #### Data pre-processing and server connections ####
 hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
 
-cv_prr <- tbl(hcopen, "PRR_160826") %>%
-  dplyr::select(-row.names) %>%
-  dplyr::rename(LB95_PRR= LB95_CI_PRR)
+cv_prr <- tbl(hcopen, "PRR_160826") %>% dplyr::select(-row.names) %>% dplyr::rename(LB95_PRR= LB95_CI_PRR)
 cv_bcpnn <- tbl(hcopen, "IC_160829")%>%
-  dplyr::select(drug_code = `drug code`,
-                event_effect = `event effect`,
-                IC,
-                LB95_IC = `Q_0.025(log(IC))`,
-                UB95_IC = `Q_0.975(log(IC))`)
-cv_ror <- tbl(hcopen, "ROR_160826") %>%
-  dplyr::select(-row.names)
+  dplyr::select(drug_code = `drug code`, event_effect = `event effect`, IC,
+                LB95_IC = `Q_0.025(log(IC))`, UB95_IC = `Q_0.975(log(IC))`)
+cv_ror <- tbl(hcopen, "ROR_160826") %>% dplyr::select(-row.names)
 cv_drug_rxn <- tbl(hcopen, "cv_drug_rxn")
 
 cv_drug_rxn_2006 <- cv_drug_rxn %>% filter(quarter >= 2006.1)
 count_df_quarter <- group_by(cv_drug_rxn_2006,ing,PT_NAME_ENG,quarter) %>%
   dplyr::summarize(count = n_distinct(REPORT_ID))
 
-master_table <- cv_prr %>% left_join(cv_bcpnn) %>% left_join(cv_ror) %>% filter(is.na(ROR) != TRUE)
+master_table <- cv_prr %>% left_join(cv_bcpnn) %>% left_join(cv_ror)
 
 # drug and adverse event dropdown menu choices
 choices <- cv_prr %>% dplyr::distinct(drug_code) %>% as.data.frame()
@@ -41,7 +35,7 @@ choices <- c("", sort(choices$drug_code))
 
 #### UI component ####
 ui <- dashboardPage(
-  dashboardHeader(title = "Shiny DISP v0.01 WARNING: This is a beta product. Please do NOT use as sole evidence to support regulartory decisions.",  titleWidth = 1200),
+  dashboardHeader(title = "Shiny DISP v0.01\nWARNING: This is a beta product. Please do NOT use as sole evidence to support regulartory decisions.",  titleWidth = 1200),
   
   dashboardSidebar(
     sidebarMenu(
@@ -256,10 +250,11 @@ server <- function(input, output, session) {
   # PRR Tab: Reactions based on PRR associated with selected drug
   output$display_table <- renderDataTable({
     cv_prr_tab()[[2]] %>%
-      select(-c(log_PRR,LB95_log_PRR,UB95_log_PRR,log_ROR,UB95_log_ROR,LB95_log_ROR)) %>%
-      select(c(1,2,3,5,4,6,7,8,9,11,10))
+      select(drug_code, event_effect,
+             PRR, LB95_PRR, UB95_PRR,
+             IC,  LB95_IC,  UB95_IC,
+             ROR, LB95_ROR, UB95_ROR)
   })
-  
 }
 
 options(shiny.trace = FALSE, shiny.reactlog = FALSE)
