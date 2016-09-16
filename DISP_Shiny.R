@@ -17,10 +17,14 @@ library(dplyr)
 hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
 
 cv_prr <- tbl(hcopen, "PRR_160826") %>%
-  dplyr::select(-row.names)
+  dplyr::select(-row.names) %>%
+  dplyr::rename(LB95_PRR= LB95_CI_PRR)
 cv_bcpnn <- tbl(hcopen, "IC_160829")%>%
-  dplyr::select(-c(row.names,count,`expected count`,`n11/E`,`drug margin`, `event margin`,FDR,FNR,Se,Sp,postH0)) %>%
-  dplyr::rename(drug_code = `drug code`, event_effect = `event effect`)
+  dplyr::select(drug_code = `drug code`,
+                event_effect = `event effect`,
+                IC,
+                LB95_IC = `Q_0.025(log(IC))`,
+                UB95_IC = `Q_0.975(log(IC))`)
 cv_ror <- tbl(hcopen, "ROR_160826") %>%
   dplyr::select(-row.names)
 cv_drug_rxn <- tbl(hcopen, "cv_drug_rxn")
@@ -29,8 +33,7 @@ cv_drug_rxn_2006 <- cv_drug_rxn %>% filter(quarter >= 2006.1)
 count_df_quarter <- group_by(cv_drug_rxn_2006,ing,PT_NAME_ENG,quarter) %>%
   dplyr::summarize(count = n_distinct(REPORT_ID))
 
-master_table <- cv_prr %>% left_join(cv_bcpnn, copy = TRUE) %>% left_join(cv_ror,  copy = TRUE) %>% filter(is.na(ROR) != TRUE) %>%
-  dplyr::rename(LB95_IC = `Q_0.025(log(IC))`, UB95_IC = `Q_0.975(log(IC))`, LB95_PRR= LB95_CI_PRR)
+master_table <- cv_prr %>% left_join(cv_bcpnn) %>% left_join(cv_ror) %>% filter(is.na(ROR) != TRUE)
 
 # drug and adverse event dropdown menu choices
 choices <- cv_prr %>% dplyr::distinct(drug_code) %>% as.data.frame()
@@ -38,7 +41,7 @@ choices <- c("", sort(choices$drug_code))
 
 #### UI component ####
 ui <- dashboardPage(
-  dashboardHeader(title = "CV Shiny WARNING: This is a beta product. Please do NOT use as sole evidence to support regulartory decisions.",  titleWidth = 1200),
+  dashboardHeader(title = "Shiny DISP v0.01 WARNING: This is a beta product. Please do NOT use as sole evidence to support regulartory decisions.",  titleWidth = 1200),
   
   dashboardSidebar(
     sidebarMenu(
@@ -96,8 +99,9 @@ ui <- dashboardPage(
       tabItem(tabName = "aboutinfo",
               tags$h2("About the Shiny App"),
               tags$p("This is a prototyping platform to utilize open data sources (e.g. Canada Vigilance Adverse Reaction Online Database) 
-                      to conduct disproportionality analysis for safety signal detection. 
-                      It provides visualizations in an interactive format to demonstrate the results of multiple disproportionality analysis. 
+                      to conduct disproportionality analysis for safety signal detection.
+                      It provides visualizations in an interactive format to demonstrate the results of multiple disproportionality analysis.
+                      This version was last updated in September of 2016.
                       Data provided by the Canada Vigilance Adverse Reaction Online Database: "),
               tags$a(href="http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/index-eng.php", "Click here!"),
               tags$p("Detailed documentation on all disproportionality analyses can be found in Documentation tab."),
@@ -112,10 +116,16 @@ ui <- dashboardPage(
                   tags$p("daniel.buijs@hc-sc.gc.ca")
                 ),
                 box(
-                  tags$p("Sophia He, BSc in Progress"),
+                  tags$p("Sophia He, BSc (in progress)"),
                   tags$p("Jr. Data Scientist Co-op, Health Products and Food Branch"),
                   tags$p("Health Canada / Government of Canada"),
-                  tags$p("sophia.he@canada.ca & yunqingh@sfu.ca")
+                  tags$p("sophia.he@canada.ca or yunqingh@sfu.ca")
+                ),
+                box(
+                  tags$p("Kevin Thai, BSc (in progress)"),
+                  tags$p("Jr. Data Scientist Co-op, Health Products and Food Branch"),
+                  tags$p("Health Canada / Government of Canada"),
+                  tags$p("kevin.thai@canada.ca or kthai@uwaterloo.ca")
                 )
               )
       )
@@ -247,7 +257,7 @@ server <- function(input, output, session) {
   output$display_table <- renderDataTable({
     cv_prr_tab()[[2]] %>%
       select(-c(log_PRR,LB95_log_PRR,UB95_log_PRR,log_ROR,UB95_log_ROR,LB95_log_ROR)) %>%
-      select(c(1,2,3,5,4,8,6,7,9,11,10))
+      select(c(1,2,3,5,4,6,7,8,9,11,10))
   })
   
 }
