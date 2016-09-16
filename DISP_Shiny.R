@@ -31,7 +31,7 @@ count_df_quarter <- group_by(cv_drug_rxn_2006,ing,PT_NAME_ENG,quarter) %>%
 # load("/home/shared/DISP data/DISP_shiny_new/count_quarter_df.RData")
 
 master_table <- cv_prr %>% left_join(cv_bcpnn, copy = TRUE) %>% left_join(cv_ror,  copy = TRUE) %>% filter(is.na(ROR) != TRUE) %>%
-  dplyr::rename(LB95_IC = `Q_0.025(log(IC))`, UB95_IC = `Q_0.975(log(IC))`, LB95_PRR= LB95_CI_PRR) %>% as.data.frame()
+  dplyr::rename(LB95_IC = `Q_0.025(log(IC))`, UB95_IC = `Q_0.975(log(IC))`, LB95_PRR= LB95_CI_PRR)
   # dplyr::mutate(PRR = round(PRR,3),
   #               UB95_PRR = round(UB95_PRR,3),
   #               LB95_PRR = round(LB95_PRR,3),
@@ -50,8 +50,8 @@ master_table <- cv_prr %>% left_join(cv_bcpnn, copy = TRUE) %>% left_join(cv_ror
 # load("/home/shared/DISP data/DISP_shiny_new/master_table.RData")
 
 # drug and adverse event dropdown menu choices
-topdrugs <- cv_prr %>% dplyr::distinct(drug_code) %>% as.data.frame()
-choices <- c("", sort(topdrugs$drug_code))
+choices <- cv_prr %>% dplyr::distinct(drug_code) %>% as.data.frame()
+choices <- c("", sort(choices$drug_code))
 
 #### UI component ####
 ui <- dashboardPage(
@@ -172,33 +172,35 @@ server <- function(input, output, session) {
       # returns timeplot_df and prr_tab_df
       # timeplot_df is a data frame containing the counts per drug/rxn pair per quarter
       # prr_tab_df is simply the table displayed at the bottom
+      # ***** == "Infinity" is a way that currently works to filter equal to infinity in SQL with dplyr, might change
     if(input$search_drug == "" & input$search_rxn == ""){
-      default_pairs <- master_table %>% dplyr::filter(!is.infinite(PRR)) %>%
-        dplyr::arrange(PRR) %>% dplyr::top_n(10, PRR) %>% dplyr::select(drug_code, event_effect)
+      default_pairs <- master_table %>% dplyr::filter(PRR != "Infinity") %>%
+        dplyr::arrange(PRR) %>% dplyr::top_n(10, PRR) %>% dplyr::select(drug_code, event_effect) %>% as.data.frame()
       timeplot_df <- count_df_quarter %>%
         filter(ing %in% default_pairs$drug_code &
                  PT_NAME_ENG %in% default_pairs$event_effect)
       
       # rank master table by PRR & suppress Inf to the end
-      prr_tab_inf <- master_table %>% dplyr::filter(is.infinite(PRR)) %>% as.data.frame()
-      prr_tab_df <- master_table %>% dplyr::filter(!is.infinite(PRR)) %>%
-        dplyr::arrange(desc(PRR)) %>% bind_rows(prr_tab_inf)
+      prr_tab_inf <- master_table %>% dplyr::filter(PRR == "Infinity") %>% as.data.frame()
+      prr_tab_df <- master_table %>% dplyr::filter(PRR != "Infinity") %>%
+        dplyr::arrange(desc(PRR)) %>% as.data.frame() %>% bind_rows(prr_tab_inf)
     
     } else if(input$search_drug != "" & input$search_rxn == "") {
-      # rank master table by PRR & suppress Inf to the end
       prr_tab_inf <- master_table %>%
         filter(drug_code == input$search_drug) %>%
-        filter(is.infinite(PRR)) %>% as.data.frame()
+        filter(PRR == "Infinity") %>% as.data.frame()
       prr_tab_df <- master_table %>%
         filter(drug_code == input$search_drug) %>%
-        filter(!is.infinite(PRR)) %>%
-        arrange(desc(PRR)) %>%
+        filter(PRR != "Infinity") %>%
+        dplyr::arrange(desc(PRR)) %>%
+        as.data.frame() %>%
         bind_rows(prr_tab_inf)
       
       timeplot_top10_rxn <- prr_tab_df[1:10,] %>% select(drug_code, event_effect)
       timeplot_df <- count_df_quarter %>%
         filter(ing %in% timeplot_top10_rxn$drug_code &
                  PT_NAME_ENG %in% timeplot_top10_rxn$event_effect)
+    } else if(input$search_drug == "" & input$search_rxn != "") {
     } else {
       timeplot_df <- count_df_quarter %>%
         filter(ing == input$search_drug, PT_NAME_ENG == input$search_rxn)
