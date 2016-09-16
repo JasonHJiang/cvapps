@@ -27,7 +27,7 @@ cv_drug_rxn <- tbl(hcopen, "cv_drug_rxn")
 
 cv_drug_rxn_2006 <- cv_drug_rxn %>% dplyr::filter(quarter >= 2006.1)
 count_df_quarter <- group_by(cv_drug_rxn_2006,ing,PT_NAME_ENG,quarter) %>%
-  dplyr::summarize(count = n_distinct(REPORT_ID)) %>% as.data.frame()
+  dplyr::summarize(count = n_distinct(REPORT_ID))
 # load("/home/shared/DISP data/DISP_shiny_new/count_quarter_df.RData")
 
 master_table <- cv_prr %>% left_join(cv_bcpnn, copy = TRUE) %>% left_join(cv_ror,  copy = TRUE) %>% filter(is.na(ROR) != TRUE) %>%
@@ -66,7 +66,7 @@ ui <- dashboardPage(
       menuItem("About", tabName = "aboutinfo", icon = icon("info"))
     ),
     
-    selectizeInput(inputId ="search_generic",
+    selectizeInput(inputId ="search_drug",
                    label = "Generic Name/Ingredient",
                    choices = choices,
                    options = list(placeholder = 'Start typing to search...')),
@@ -77,7 +77,7 @@ ui <- dashboardPage(
                    options = list(placeholder = 'Start typing to search...',
                                   onInitialize = I('function() { this.setValue(""); }'))),
     
-    actionButton("searchButton", "Search", width = '100%')
+    actionButton("search_button", "Search", width = '100%')
   ), 
   
   dashboardBody(
@@ -89,7 +89,7 @@ ui <- dashboardPage(
                     "Time Plot",
                     plotOutput(outputId = "top10_prr_timeplot"),
                     tags$br(),
-                    dataTableOutput("master_table"),
+                    dataTableOutput("display_table"),
                     tags$p("NOTE: The above table is ranked decreasingly by PRR value. All drug*reactions pairs that have PRR value of infinity are added at the end of the table."),
                     width = 12),
                   width=12
@@ -144,17 +144,16 @@ ui <- dashboardPage(
 
 #### Server component ####
 server <- function(input, output, session) {
-  
   # Relabel rxns dropdown menu based on selected drug
   observe({
-    if ("" == input$search_generic) {
+    if ("" == input$search_drug) {
       rxn_choices <- cv_prr %>%
         dplyr::distinct(event_effect) %>%
         as.data.frame() %>% `[[`(1) %>%
         sort()
     } else {
       rxn_choices <- cv_prr %>%
-        dplyr::filter(drug_code == input$search_generic) %>%
+        dplyr::filter(drug_code == input$search_drug) %>%
         dplyr::distinct(event_effect) %>%
         as.data.frame() %>% `[[`(1) %>%
         sort()
@@ -166,47 +165,58 @@ server <- function(input, output, session) {
   
   # PRR tab 
   cv_prr_tab <- reactive({
-    input$searchButton
+    input$search_button # hacky way to get eventReactive but also initial load
     isolate({
-    # Inf in PRR and ROR means there are no other drug associated with that specific adverse reaction, so denomimator is zero!
+    # PRR and ROR values of Inf means there are no other drugs associated with that specific adverse reaction, so denomimator is zero!
     # master_table[master_table$event_effect == "Refraction disorder",]
-    
-    if(input$search_generic == "" & input$search_rxn == ""){
-      default_pairs <- master_table %>% filter(PRR != Inf) %>% arrange(desc(PRR)) %>% top_n(10, PRR) %>% select(drug_code, event_effect)
-      default_count_df <- count_df_quarter[count_df_quarter$ing %in% default_pairs$drug_code & count_df_quarter$PT_NAME_ENG %in% default_pairs$event_effect,]
-      
-      timeplot_df <- default_count_df
-      # rank master table by PRR & suppress Inf to the end
-      prr_tab_df <- master_table %>% filter(is.infinite(PRR) == FALSE) %>% arrange(desc(PRR)) %>% bind_rows(master_table[is.infinite(master_table$PRR) == TRUE,])
-    
-      } else if(input$search_generic != "" & input$search_rxn == "") {
-      timeplot_df <-  count_df_quarter %>% filter(ing == input$search_generic)
+      # returns timeplot_df and prr_tab_df
+      # timeplot_df is a data frame containing the counts per drug/rxn pair per quarter
+      # prr_tab_df is simply the table displayed at the bottom
+    if(input$search_drug == "" & input$search_rxn == ""){
+      default_pairs <- master_table %>% dplyr::filter(!is.infinite(PRR)) %>%
+        dplyr::arrange(PRR) %>% dplyr::top_n(10, PRR) %>% dplyr::select(drug_code, event_effect)
+      timeplot_df <- count_df_quarter %>%
+        filter(ing %in% default_pairs$drug_code &
+                 PT_NAME_ENG %in% default_pairs$event_effect)
       
       # rank master table by PRR & suppress Inf to the end
-      prr_tab_df1 <- master_table %>% filter(drug_code == input$search_generic) %>% filter(is.infinite(PRR) == FALSE) %>% arrange(desc(PRR))
-      prr_tab_df <- prr_tab_df1 %>% bind_rows(prr_tab_df1[is.infinite(prr_tab_df1$PRR) == TRUE,])
+      prr_tab_inf <- master_table %>% dplyr::filter(is.infinite(PRR)) %>% as.data.frame()
+      prr_tab_df <- master_table %>% dplyr::filter(!is.infinite(PRR)) %>%
+        dplyr::arrange(desc(PRR)) %>% bind_rows(prr_tab_inf)
+    
+    } else if(input$search_drug != "" & input$search_rxn == "") {
+      # rank master table by PRR & suppress Inf to the end
+      prr_tab_inf <- master_table %>%
+        filter(drug_code == input$search_drug) %>%
+        filter(is.infinite(PRR)) %>% as.data.frame()
+      prr_tab_df <- master_table %>%
+        filter(drug_code == input$search_drug) %>%
+        filter(!is.infinite(PRR)) %>%
+        arrange(desc(PRR)) %>%
+        bind_rows(prr_tab_inf)
       
       timeplot_top10_rxn <- prr_tab_df[1:10,] %>% select(drug_code, event_effect)
-      timeplot_df <- count_df_quarter[count_df_quarter$ing %in% timeplot_top10_rxn$drug_code & count_df_quarter$PT_NAME_ENG %in% timeplot_top10_rxn$event_effect,]
-      } else {
-      timeplot_df <- count_df_quarter %>% filter(ing == input$search_generic, PT_NAME_ENG == input$search_rxn)
-      prr_tab_df <- master_table %>% filter(drug_code == input$search_generic, event_effect == input$search_rxn)
+      timeplot_df <- count_df_quarter %>%
+        filter(ing %in% timeplot_top10_rxn$drug_code &
+                 PT_NAME_ENG %in% timeplot_top10_rxn$event_effect)
+    } else {
+      timeplot_df <- count_df_quarter %>%
+        filter(ing == input$search_drug, PT_NAME_ENG == input$search_rxn)
+      prr_tab_df <- master_table %>%
+        filter(drug_code == input$search_drug, event_effect == input$search_rxn)
     }
-
-    list(timeplot_df, prr_tab_df)
   })
+    list(timeplot_df %<>% as.data.frame(),
+         prr_tab_df %<>% as.data.frame())
   })
-  #current_drug = "OXYCODONE HYDROCHLORIDE"
   
   # PRR Time Plot
   output$top10_prr_timeplot <- renderPlot({
     df <- cv_prr_tab()[[1]]
-    current_drug <- isolate(ifelse(input$search_generic == "",
-                                   "All Drugs",
-                                   input$search_generic))
-    current_rxn <- isolate(ifelse(input$search_rxn == "",
-                                  "All Reactions",
-                                  input$search_rxn))
+    isolate({
+    current_drug <- ifelse(input$search_drug == "","All Drugs",input$search_drug)
+    current_rxn <- ifelse(input$search_rxn == "","All Reactions",input$search_rxn)
+    })
     if(current_rxn == "All Reactions"){
       plottitle <- paste("Non-Cumulative Report Count Time Plot for:", current_drug, "& Top 10 Reactions with Highest PRR Values")
     } else {
@@ -225,7 +235,6 @@ server <- function(input, output, session) {
     
   })
 
-  
   # pass either datatable object or data to be turned into one to renderDataTable
   # DT::datatable(
   #   master_table, extensions = 'Buttons', options = list(
@@ -234,7 +243,7 @@ server <- function(input, output, session) {
   #   )
   # ),
   # PRR Tab: Reactions based on PRR associated with selected drug
-  output$master_table <- renderDataTable({
+  output$display_table <- renderDataTable({
     cv_prr_tab()[[2]] %>%
       select(-c(log_PRR,LB95_log_PRR,UB95_log_PRR,log_ROR,UB95_log_ROR,LB95_log_ROR)) %>%
       select(c(1,2,3,5,4,8,6,7,9,11,10))
