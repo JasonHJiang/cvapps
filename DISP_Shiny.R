@@ -237,6 +237,7 @@ server <- function(input, output, session) {
     plottitle <- paste("Non-Cumulative Report Count Time Plot for:", current_drug, "&", current_rxn)
     
     p <- time_data() %>%
+      mutate(quarter = ((quarter %% 1)-0.1)*2.5 + (quarter %/% 1)) %>%
       ggplot(aes(x = quarter, y = count)) +
       geom_line(aes(colour=PT_NAME_ENG)) + geom_point()  + 
       ggtitle(plottitle) + 
