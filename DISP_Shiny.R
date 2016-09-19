@@ -171,7 +171,7 @@ server <- function(input, output, session) {
       dplyr::arrange(desc(PRR), drug_code, event_effect) %>%
       as.data.frame() %>%
       bind_rows(prr_tab_inf)
-    prr_tab_df %<>% as.data.frame() %>%
+    prr_tab_df %<>%
       dplyr::mutate(PRR = round(PRR,3),
                     UB95_PRR = round(UB95_PRR,3),
                     LB95_PRR = round(LB95_PRR,3),
@@ -197,33 +197,22 @@ server <- function(input, output, session) {
   
   # PRR tab 
   time_data <- reactive({
-    input$search_button # hacky way to get eventReactive but also initial load
+    cv_prr_tab() # always update when this table changes, since order of execution isn't guaranteed
     isolate({
-      # timeplot_df is a data frame containing the counts per drug/rxn pair per quarter
-      if(input$search_drug == "" & input$search_rxn == ""){
-        default_pairs <- master_table %>% filter(PRR != "Infinity") %>% dplyr::top_n(10, PRR) %>%
-          dplyr::select(drug_code, event_effect) %>% as.data.frame()
-        timeplot_df <- count_df_quarter %>%
-          filter(ing %in% default_pairs$drug_code &
-                   PT_NAME_ENG %in% default_pairs$event_effect)
-      } else if(input$search_drug != "" & input$search_rxn == "") {
-        prr_tab_df <- master_table %>%
-          filter(drug_code == input$search_drug) %>%
-          filter(PRR != "Infinity") %>%
-          dplyr::arrange(desc(PRR), drug_code, event_effect) %>%
-          as.data.frame()
-        
-        timeplot_top10_rxn <- prr_tab_df[1:10,] %>% select(drug_code, event_effect)
-        timeplot_df <- count_df_quarter %>%
-          filter(ing %in% timeplot_top10_rxn$drug_code &
-                   PT_NAME_ENG %in% timeplot_top10_rxn$event_effect)
-      } else if(input$search_drug == "" & input$search_rxn != "") {
-      } else {
-        timeplot_df <- count_df_quarter %>%
-          filter(ing == input$search_drug, PT_NAME_ENG == input$search_rxn)
-      }
-      timeplot_df %<>% as.data.frame()
-    })
+    top_pairs <- cv_prr_tab() %>%
+      filter(PRR != Inf) %>%   # this comparison is done in R, not SQL, so Inf rather than "Infinity"
+      dplyr::select(drug_code, event_effect) %>%
+      head(10)
+    if (1 == nrow(top_pairs)) {
+      # the SQL IN comparison complains if there's only one value to match to (when we specify both drug and rxn)
+      timeplot_df <- count_df_quarter %>% filter(ing == top_pairs$drug_code,
+                     PT_NAME_ENG == top_pairs$event_effect) %>% as.data.frame()
+    } else {
+      timeplot_df <- count_df_quarter %>% filter(ing %in% top_pairs$drug_code,
+                     PT_NAME_ENG %in% top_pairs$event_effect) %>% as.data.frame()
+    }
+    timeplot_df
+  })
   })
   
   # PRR Time Plot
