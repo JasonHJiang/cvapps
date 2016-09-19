@@ -6,6 +6,8 @@ library(data.table)
 library(ggplot2)
 library(magrittr)
 library(plotly)
+library(DBI)
+library(pool)
 library(shiny)
 library(DT)
 library(googleVis)
@@ -14,19 +16,29 @@ library(utils)
 library(dplyr)
 
 #### Data pre-processing and server connections ####
-hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
+# hcopen <- src_postgres(host = "shiny.hc.local",
+#                        dbname = "hcopen",
+#                        user = "hcreader",
+#                        password = "canada1")
+hcopen_pool <- dbPool(drv = "PostgreSQL",
+                 host = "shiny.hc.local",
+                 dbname = "hcopen",
+                 user = "hcreader",
+                 password = "canada1")
+hcopen <- src_pool(hcopen_pool)
 
-cv_prr <- tbl(hcopen, "PRR_160826") %>% dplyr::select(-row.names) %>% dplyr::rename(LB95_PRR= LB95_CI_PRR)
-cv_bcpnn <- tbl(hcopen, "IC_160829") %>%
+cv_prr <- hcopen %>% tbl("PRR_160826") %>% dplyr::select(-row.names) %>% dplyr::rename(LB95_PRR= LB95_CI_PRR)
+cv_bcpnn <- hcopen %>% tbl("IC_160829") %>%
   dplyr::select(drug_code = `drug code`, event_effect = `event effect`, IC,
                 LB95_IC = `Q_0.025(log(IC))`, UB95_IC = `Q_0.975(log(IC))`)
-cv_ror <- tbl(hcopen, "ROR_160826") %>% dplyr::select(-row.names)
-cv_drug_rxn <- tbl(hcopen, "cv_drug_rxn")
+cv_ror <- hcopen %>% tbl("ROR_160826") %>% dplyr::select(-row.names)
+cv_drug_rxn <- hcopen %>% tbl("cv_drug_rxn")
 
 cv_drug_rxn_2006 <- cv_drug_rxn %>% filter(quarter >= 2006.1)
 count_df_quarter <- group_by(cv_drug_rxn_2006,ing,PT_NAME_ENG,quarter) %>%
   dplyr::summarize(count = n_distinct(REPORT_ID))
 
+# using pool reaches an error here: dplyr can just join using SQL commands, but in pool you can't join
 master_table <- cv_prr %>% left_join(cv_bcpnn) %>% left_join(cv_ror)
 
 # drug and adverse event dropdown menu choices
@@ -69,7 +81,7 @@ ui <- dashboardPage(
                     "Time Plot",
                     plotOutput(outputId = "timeplot"),
                     tags$br(),
-                    dataTableOutput("display_table"),
+                    DT::dataTableOutput("display_table"),
                     tags$p("NOTE: The above table is ranked decreasingly by PRR value. All drug*reactions pairs that have PRR value of infinity are added at the end of the table."),
                     width = 12),
                   width=12
@@ -220,13 +232,9 @@ server <- function(input, output, session) {
     input$search_button # hacky way to get eventReactive but also initial load
     isolate({
     current_drug <- ifelse(input$search_drug == "","All Drugs",input$search_drug)
-    current_rxn <- ifelse(input$search_rxn == "","All Reactions",input$search_rxn)
+    current_rxn <- ifelse(input$search_rxn == "","Top 10 Reactions with Highest PRR Values",input$search_rxn)
     })
-    if(current_rxn == "All Reactions"){
-      plottitle <- paste("Non-Cumulative Report Count Time Plot for:", current_drug, "& Top 10 Reactions with Highest PRR Values")
-    } else {
-      plottitle <- paste("Non-Cumulative Report Count Time Plot for:", current_drug, "&", current_rxn)
-    }
+    plottitle <- paste("Non-Cumulative Report Count Time Plot for:", current_drug, "&", current_rxn)
     
     p <- time_data() %>%
       ggplot(aes(x = quarter, y = count)) +
@@ -248,7 +256,7 @@ server <- function(input, output, session) {
   #   )
   # ),
   # PRR Tab: Reactions based on PRR associated with selected drug
-  output$display_table <- renderDataTable(cv_prr_tab())
+  output$display_table <- DT::renderDataTable(cv_prr_tab())
 }
 
 options(shiny.trace = FALSE, shiny.reactlog = FALSE)
