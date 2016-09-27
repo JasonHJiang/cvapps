@@ -1,12 +1,10 @@
 library(shinydashboard)
 library(jsonlite)
 library(lubridate)
-library(plyr)
 library(data.table)
 library(ggplot2)
 library(magrittr)
 library(plotly)
-library(DBI)
 library(pool)
 library(shiny)
 library(DT)
@@ -27,11 +25,11 @@ hcopen_pool <- dbPool(drv = "PostgreSQL",
                  password = "canada1")
 hcopen <- src_pool(hcopen_pool)
 
-cv_prr <- hcopen %>% tbl("PRR_160826") %>% dplyr::select(-row.names) %>% dplyr::rename(LB95_PRR= LB95_CI_PRR)
+cv_prr <- hcopen %>% tbl("PT_PRR_160921")
 cv_bcpnn <- hcopen %>% tbl("IC_160829") %>%
   dplyr::select(drug_code = `drug code`, event_effect = `event effect`, IC,
                 LB95_IC = `Q_0.025(log(IC))`, UB95_IC = `Q_0.975(log(IC))`)
-cv_ror <- hcopen %>% tbl("ROR_160826") %>% dplyr::select(-row.names)
+cv_ror <- hcopen %>% tbl("PT_ROR_160921")
 cv_drug_rxn <- hcopen %>% tbl("cv_drug_rxn")
 
 cv_drug_rxn_2006 <- cv_drug_rxn %>% filter(quarter >= 2006.1)
@@ -187,19 +185,13 @@ server <- function(input, output, session) {
       dplyr::mutate(PRR = round(PRR,3),
                     UB95_PRR = round(UB95_PRR,3),
                     LB95_PRR = round(LB95_PRR,3),
-                    log_PRR = round(log_PRR,3),
-                    LB95_log_PRR = round(LB95_log_PRR,3),
-                    UB95_log_PRR = round(UB95_log_PRR,3),
                     LB95_IC = round(LB95_IC,3),
                     UB95_IC = round(UB95_IC,3),
                     IC = round(IC,3),
                     ROR = round(ROR,3),
                     UB95_ROR = round(UB95_ROR,3),
-                    LB95_ROR = round(LB95_ROR,3),
-                    log_ROR = round(log_ROR,3),
-                    UB95_log_ROR = round(UB95_log_ROR,3),
-                    LB95_log_ROR = round(LB95_log_ROR,3)) %>%
-      select(drug_code, event_effect,
+                    LB95_ROR = round(LB95_ROR,3)) %>%
+      dplyr::select(drug_code, event_effect,
              PRR, LB95_PRR, UB95_PRR,
              IC,  LB95_IC,  UB95_IC,
              ROR, LB95_ROR, UB95_ROR)
@@ -218,10 +210,10 @@ server <- function(input, output, session) {
     if (1 == nrow(top_pairs)) {
       # the SQL IN comparison complains if there's only one value to match to (when we specify both drug and rxn)
       timeplot_df <- count_df_quarter %>% filter(ing == top_pairs$drug_code,
-                     PT_NAME_ENG == top_pairs$event_effect) %>% as.data.frame()
+                                                 PT_NAME_ENG == top_pairs$event_effect) %>% as.data.frame()
     } else {
       timeplot_df <- count_df_quarter %>% filter(ing %in% top_pairs$drug_code,
-                     PT_NAME_ENG %in% top_pairs$event_effect) %>% as.data.frame()
+                                                 PT_NAME_ENG %in% top_pairs$event_effect) %>% as.data.frame()
     }
     timeplot_df
   })
