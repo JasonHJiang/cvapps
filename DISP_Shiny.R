@@ -1,6 +1,5 @@
 library(shinydashboard)
 library(jsonlite)
-library(lubridate)
 library(data.table)
 library(ggplot2)
 library(magrittr)
@@ -12,6 +11,7 @@ library(googleVis)
 library(stringr)
 library(utils)
 library(dplyr)
+library(zoo)
 
 #### Data pre-processing and server connections ####
 # hcopen <- src_postgres(host = "shiny.hc.local",
@@ -25,11 +25,11 @@ hcopen_pool <- dbPool(drv = "PostgreSQL",
                  password = "canada1")
 hcopen <- src_pool(hcopen_pool)
 
-cv_prr <- hcopen %>% tbl("PT_PRR_160921")
+cv_prr <- hcopen %>% tbl("PT_PRR_160927")
 cv_bcpnn <- hcopen %>% tbl("IC_160829") %>%
   dplyr::select(drug_code = `drug code`, event_effect = `event effect`, IC,
                 LB95_IC = `Q_0.025(log(IC))`, UB95_IC = `Q_0.975(log(IC))`)
-cv_ror <- hcopen %>% tbl("PT_ROR_160921")
+cv_ror <- hcopen %>% tbl("PT_ROR_160927")
 cv_drug_rxn <- hcopen %>% tbl("cv_drug_rxn")
 
 cv_drug_rxn_2006 <- cv_drug_rxn %>% filter(quarter >= 2006.1)
@@ -45,7 +45,7 @@ choices <- c("", sort(choices$drug_code))
 
 #### UI component ####
 ui <- dashboardPage(
-  dashboardHeader(title = "Shiny DISP v0.01\nWARNING: This is a beta product. Please do NOT use as sole evidence to support regulartory decisions.",  titleWidth = 1200),
+  dashboardHeader(title = "Shiny DISP v0.01\nWARNING: This is a beta product. DO NOT use as sole evidence to support regulatory decisions.",  titleWidth = 1200),
   
   dashboardSidebar(
     sidebarMenu(
@@ -228,15 +228,17 @@ server <- function(input, output, session) {
     })
     plottitle <- paste("Non-Cumulative Report Count Time Plot for:", current_drug, "&", current_rxn)
     
-    p <- time_data() %>%
-      mutate(quarter = ((quarter %% 1)-0.1)*2.5 + (quarter %/% 1)) %>%
-      ggplot(aes(x = quarter, y = count)) +
+    df <- time_data() %>%
+      mutate(qtr = as.yearqtr(quarter %>% as.character(), '%Y.%q'))
+    p <- ggplot(df, aes(x = qtr, y = count)) +
+      scale_x_yearqtr(breaks = seq(from = min(df$qtr), to = max(df$qtr), by = 0.25),
+                      format = "%Y Q%q") +
       geom_line(aes(colour=PT_NAME_ENG)) + geom_point()  + 
       ggtitle(plottitle) + 
       xlab("Quarter") + 
       ylab("Report Count") +
       theme_bw() +
-      theme(plot.title = element_text(lineheight=.8, face="bold"), axis.text.x = element_text(angle=90, vjust=1))
+      theme(plot.title = element_text(lineheight=.8, face="bold"), axis.text.x = element_text(angle=50, vjust=0.9, hjust=1))
     print(p)
     
   })
