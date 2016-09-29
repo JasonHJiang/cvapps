@@ -46,26 +46,35 @@ ui <- dashboardPage(
   dashboardHeader(title = "Shiny DISP v0.02\nWARNING: This is a beta product. DO NOT use as sole evidence to support regulatory decisions.",  titleWidth = 1200),
   
   dashboardSidebar(
-    sidebarMenu(
+    sidebarMenu(id = "sidebarmenu",
       menuItem("Disproportionality Analysis", tabName = "data", icon = icon("database")),
+      conditionalPanel(
+        "input.sidebarmenu === 'data'",
+        selectizeInput(inputId ="search_drug",
+                       label = "Generic Name/Ingredient",
+                       choices = choices,
+                       options = list(placeholder = 'Start typing to search...')),
+        
+        selectizeInput(inputId = "search_hlt",
+                       label = "Adverse Event High-Level Term",
+                       choices = NULL,
+                       options = list(placeholder = '[Currently unused]',
+                                      onInitialize = I('function() { this.setValue(""); }'))),
+        
+        selectizeInput(inputId = "search_pt",
+                       label = "Adverse Event Preferred Term",
+                       choices = NULL,
+                       options = list(placeholder = 'Start typing to search...',
+                                      onInitialize = I('function() { this.setValue(""); }'))),
+        
+        actionButton("search_button", "Search", width = '100%')
+      ),
+      
       menuItem("Documentation", tabName = "Documentation", icon = icon("flag")),
-      # menuItem("ROR", tabName = "rordata", icon = icon("fa fa-database")),
       # menuItem("Download", tabName = "downloaddata", icon = icon("fa fa-download")),
       menuItem("About", tabName = "aboutinfo", icon = icon("info"))
-    ),
+    )
     
-    selectizeInput(inputId ="search_drug",
-                   label = "Generic Name/Ingredient",
-                   choices = choices,
-                   options = list(placeholder = 'Start typing to search...')),
-    
-    selectizeInput(inputId = "search_rxn",
-                   label = "Adverse Event Term",
-                   choices = NULL,
-                   options = list(placeholder = 'Start typing to search...',
-                                  onInitialize = I('function() { this.setValue(""); }'))),
-    
-    actionButton("search_button", "Search", width = '100%')
   ), 
   
   dashboardBody(
@@ -153,7 +162,7 @@ server <- function(input, output, session) {
         as.data.frame() %>% `[[`(1) %>%
         sort()
     }
-    updateSelectizeInput(session, "search_rxn",
+    updateSelectizeInput(session, "search_pt",
                       label = "Select Adverse Event:",
                       choices = rxn_choices)
   })
@@ -166,7 +175,7 @@ server <- function(input, output, session) {
     # prr_tab_df is simply the table displayed at the bottom
     prr_tab <- master_table
     if(input$search_drug != "") prr_tab %<>% filter(drug_code == input$search_drug)
-    if(input$search_rxn != "") prr_tab %<>% filter(event_effect == input$search_rxn)
+    if(input$search_pt != "") prr_tab %<>% filter(event_effect == input$search_pt)
     
     # rank master table by PRR & suppress Inf to the end
     # ***** == "Infinity" is a way that currently works to filter equal to infinity in SQL with dplyr, might change
@@ -223,7 +232,7 @@ server <- function(input, output, session) {
     input$search_button # hacky way to get eventReactive but also initial load
     isolate({
     current_drug <- ifelse(input$search_drug == "","All Drugs",input$search_drug)
-    current_rxn <- ifelse(input$search_rxn == "","Top 10 Reactions with Highest PRR Values",input$search_rxn)
+    current_rxn <- ifelse(input$search_pt == "","Top 10 Reactions with Highest PRR Values",input$search_pt)
     })
     plottitle <- paste("Non-Cumulative Report Count Time Plot for:", current_drug, "&", current_rxn)
     
