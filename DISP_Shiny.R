@@ -58,7 +58,7 @@ ui <- dashboardPage(
         selectizeInput(inputId = "search_hlt",
                        label = "Adverse Event High-Level Term",
                        choices = NULL,
-                       options = list(placeholder = '[Currently unused]',
+                       options = list(placeholder = '[currently unused]',
                                       onInitialize = I('function() { this.setValue(""); }'))),
         
         selectizeInput(inputId = "search_pt",
@@ -96,7 +96,7 @@ ui <- dashboardPage(
       
       tabItem(tabName = "Documentation",
               fluidRow(
-                tabBox(
+                box(
                   tabPanel(
                     "Documentation",
                     includeMarkdown("/home/shared/DISP data/CopyOfDISP about/DISP_about.md"),
