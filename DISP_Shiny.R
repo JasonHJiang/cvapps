@@ -75,7 +75,7 @@ ui <- dashboardPage(
                 tabBox(
                   tabPanel(
                     "Time Plot",
-                    plotOutput(outputId = "timeplot", height = "275px"),
+                    plotOutput(outputId = "timeplot", height = "285px"),
                     tags$br(),
                     DT::dataTableOutput("display_table"),
                     tags$p("NOTE: The above table is ranked decreasingly by PRR value. All drug*reactions pairs that have PRR value of infinity are added at the end of the table."),
@@ -176,7 +176,7 @@ server <- function(input, output, session) {
       as.data.frame()
     prr_tab_df <- prr_tab %>%
       filter(PRR != "Infinity") %>%
-      dplyr::arrange(desc(PRR), drug_code, event_effect) %>%
+      dplyr::arrange(desc(PRR), desc(LB95_PRR), drug_code, event_effect) %>%
       as.data.frame() %>%
       bind_rows(prr_tab_inf)
     prr_tab_df %<>%
@@ -198,7 +198,7 @@ server <- function(input, output, session) {
   })
   })
   
-  # PRR tab 
+  # time-series data 
   time_data <- reactive({
     cv_prr_tab() # always update when this table changes, since order of execution isn't guaranteed
     isolate({
@@ -242,16 +242,16 @@ server <- function(input, output, session) {
     print(p)
     
   })
-
+  
   # pass either datatable object or data to be turned into one to renderDataTable
-  # DT::datatable(
-  #   master_table, extensions = 'Buttons', options = list(
-  #     dom = 'Bfrtip',
-  #     buttons = c('csv')
-  #   )
-  # ),
-  # PRR Tab: Reactions based on PRR associated with selected drug
-  output$display_table <- DT::renderDataTable(cv_prr_tab())
+  output$display_table <- DT::renderDataTable(DT::datatable(
+    cv_prr_tab(),
+    extensions = 'Buttons',
+    options = list(
+      scrollX = TRUE,
+      dom = 'Bfrtip',
+      buttons = c('copy', 'csv', 'pdf', 'colvis')
+    )))
 }
 
 options(shiny.trace = FALSE, shiny.reactlog = FALSE)
