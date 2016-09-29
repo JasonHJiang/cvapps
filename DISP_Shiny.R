@@ -26,10 +26,12 @@ cv_bcpnn <- hcopen %>% tbl("IC_160829") %>%
   dplyr::select(drug_code = `drug code`, event_effect = `event effect`, IC,
                 LB95_IC = `Q_0.025(log(IC))`, UB95_IC = `Q_0.975(log(IC))`)
 cv_ror <- hcopen %>% tbl("PT_ROR_160927")
-cv_drug_rxn <- hcopen %>% tbl("cv_drug_rxn")
+cv_drug_rxn_meddra <- hcopen %>% tbl("cv_drug_rxn_meddra")
 
-cv_drug_rxn_2006 <- cv_drug_rxn %>% filter(quarter >= 2006.1)
-count_df_quarter <- group_by(cv_drug_rxn_2006,ing,PT_NAME_ENG,quarter) %>%
+cv_drug_rxn_2006 <- cv_drug_rxn_meddra %>% filter(quarter >= 2006.1)
+count_quarter_pt <- group_by(cv_drug_rxn_2006, ing, PT_NAME_ENG, quarter) %>%
+  dplyr::summarize(count = n_distinct(REPORT_ID))
+count_quarter_hlt <- group_by(cv_drug_rxn_2006, ing, HLT_NAME_ENG, quarter) %>%
   dplyr::summarize(count = n_distinct(REPORT_ID))
 
 # using pool reaches an error here: dplyr can just join using SQL commands, but in pool you can't join
@@ -67,7 +69,13 @@ ui <- dashboardPage(
                        options = list(placeholder = 'Start typing to search...',
                                       onInitialize = I('function() { this.setValue(""); }'))),
         
-        actionButton("search_button", "Search", width = '100%')
+        checkboxInput(inputId = "checkbox_filter_pt",
+                      label = "Only see PTs from chosen HLT",
+                      value = FALSE),
+        
+        actionButton(inputId = "search_button",
+                     label = "Search",
+                     width = '100%')
       ),
       
       menuItem("Documentation", tabName = "Documentation", icon = icon("flag")),
@@ -217,10 +225,10 @@ server <- function(input, output, session) {
       head(10)
     if (1 == nrow(top_pairs)) {
       # the SQL IN comparison complains if there's only one value to match to (when we specify both drug and rxn)
-      timeplot_df <- count_df_quarter %>% filter(ing == top_pairs$drug_code,
+      timeplot_df <- count_quarter_pt %>% filter(ing == top_pairs$drug_code,
                                                  PT_NAME_ENG == top_pairs$event_effect) %>% as.data.frame()
     } else {
-      timeplot_df <- count_df_quarter %>% filter(ing %in% top_pairs$drug_code,
+      timeplot_df <- count_quarter_pt %>% filter(ing %in% top_pairs$drug_code,
                                                  PT_NAME_ENG %in% top_pairs$event_effect) %>% as.data.frame()
     }
     timeplot_df
