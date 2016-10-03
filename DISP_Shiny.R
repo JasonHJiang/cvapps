@@ -39,9 +39,15 @@ master_table <- cv_prr %>%
   left_join(cv_bcpnn, by = c("drug_code", "event_effect")) %>%
   left_join(cv_ror, by = c("drug_code", "event_effect"))
 
+# PT-HLT mapping
+drug_PT_HLT <- cv_drug_rxn_2006 %>%
+  dplyr::select(ing, PT_NAME_ENG, HLT_NAME_ENG) %>%
+  dplyr::distinct() %>%
+  dplyr::filter(!is.na(HLT_NAME_ENG)) %>% as.data.frame()
 # drug and adverse event dropdown menu choices
-choices <- cv_prr %>% dplyr::distinct(drug_code) %>% as.data.frame()
-choices <- c("", sort(choices$drug_code))
+drug_choices <- drug_PT_HLT %>% dplyr::distinct(ing) %>% as.data.frame()
+drug_choices <- sort(drug_choices$ing)
+
 
 ################################## UI component ####
 ui <- dashboardPage(
@@ -54,20 +60,18 @@ ui <- dashboardPage(
         "input.sidebarmenu === 'data'",
         selectizeInput(inputId ="search_drug",
                        label = "Generic Name/Ingredient",
-                       choices = choices,
+                       choices = c("", drug_choices),
                        options = list(placeholder = 'Start typing to search...')),
         
         selectizeInput(inputId = "search_hlt",
                        label = "Adverse Event High-Level Term",
                        choices = NULL,
-                       options = list(placeholder = '[currently unused]',
-                                      onInitialize = I('function() { this.setValue(""); }'))),
+                       options = list(placeholder = '[currently unused]')),
         
         selectizeInput(inputId = "search_pt",
                        label = "Adverse Event Preferred Term",
                        choices = NULL,
-                       options = list(placeholder = 'Start typing to search...',
-                                      onInitialize = I('function() { this.setValue(""); }'))),
+                       options = list(placeholder = 'Start typing to search...')),
         
         checkboxInput(inputId = "checkbox_filter_pt",
                       label = "Only see PTs from chosen HLT",
@@ -157,22 +161,59 @@ ui <- dashboardPage(
 ############################## Server component ####
 server <- function(input, output, session) {
   # Relabel rxns dropdown menu based on selected drug
-  observe({
-    if ("" == input$search_drug) {
-      rxn_choices <- cv_prr %>%
-        dplyr::distinct(event_effect) %>%
-        as.data.frame() %>% `[[`(1) %>%
-        sort()
-    } else {
-      rxn_choices <- cv_prr %>%
-        filter(drug_code == input$search_drug) %>%
-        dplyr::distinct(event_effect) %>%
-        as.data.frame() %>% `[[`(1) %>%
-        sort()
+  observeEvent(input$search_drug, {
+    hlt_choices <- drug_PT_HLT
+    pt_choices <- drug_PT_HLT
+    if ("" != input$search_drug) {
+      hlt_choices %<>% filter(ing == input$search_drug)
+      pt_choices %<>% filter(ing == input$search_drug)
     }
+    hlt_choices %<>%
+      dplyr::distinct(HLT_NAME_ENG) %>%
+      as.data.frame() %>% `[[`(1) %>%
+      sort()
+    pt_choices %<>%
+      dplyr::distinct(PT_NAME_ENG) %>%
+      as.data.frame() %>% `[[`(1) %>%
+      sort()
+    updateSelectizeInput(session, "search_hlt",
+                         choices = c("", hlt_choices))
     updateSelectizeInput(session, "search_pt",
-                      label = "Select Adverse Event:",
-                      choices = rxn_choices)
+                         choices = c("", pt_choices))
+  })
+  
+  # Relabel PT dropdown menu based on selected HLT
+  observe({
+    input$search_hlt
+    input$checkbox_filter_pt
+    isolate({
+      pt_choices <- drug_PT_HLT
+      pt_selected <- input$search_pt
+      if ("" != input$search_drug)
+        pt_choices %<>% filter(ing == input$search_drug)
+      if (input$checkbox_filter_pt & "" != input$search_hlt)
+        pt_choices %<>% filter(HLT_NAME_ENG == input$search_hlt)
+      pt_choices %<>%
+        dplyr::distinct(PT_NAME_ENG) %>%
+        as.data.frame() %>% `[[`(1) %>%
+        sort()
+      if (! pt_selected %in% pt_choices) pt_selected = ""
+      updateSelectizeInput(session, "search_pt",
+                           choices = c("", pt_choices),
+                           selected = pt_selected)
+  })
+  })
+  
+  # Select HLT dropdown menu based on selected PT
+  observeEvent(input$search_pt, {
+    if ("" != input$search_pt) {
+      hlt_mapped <- drug_PT_HLT %>%
+        filter(PT_NAME_ENG == input$search_pt) %>%
+        dplyr::distinct(HLT_NAME_ENG) %>%
+        as.data.frame() %>% `[[`(1)
+      updateSelectizeInput(session, "search_hlt",
+                           selected = hlt_mapped)
+    }
   })
   
   # PRR tab 
