@@ -26,18 +26,22 @@ cv_bcpnn <- hcopen %>% tbl("IC_160829") %>%
   dplyr::select(drug_code = `drug code`, event_effect = `event effect`, IC,
                 LB95_IC = `Q_0.025(log(IC))`, UB95_IC = `Q_0.975(log(IC))`)
 cv_ror <- hcopen %>% tbl("PT_ROR_160927")
-cv_drug_rxn_meddra <- hcopen %>% tbl("cv_drug_rxn_meddra")
+master_table <- cv_prr %>%
+  left_join(cv_bcpnn, by = c("drug_code", "event_effect")) %>%
+  left_join(cv_ror, by = c("drug_code", "event_effect"))
 
+hlt_prr <- hcopen %>% tbl("HLT_PRR_160927")
+hlt_ror <- hcopen %>% tbl("HLT_ROR_160927")
+master_table_hlt <- hlt_prr %>%
+  left_join(hlt_ror, by = c("drug_code", "event_effect"))
+
+cv_drug_rxn_meddra <- hcopen %>% tbl("cv_drug_rxn_meddra")
 cv_drug_rxn_2006 <- cv_drug_rxn_meddra %>% filter(quarter >= 2006.1)
 count_quarter_pt <- group_by(cv_drug_rxn_2006, ing, PT_NAME_ENG, quarter) %>%
   dplyr::summarize(count = n_distinct(REPORT_ID))
 count_quarter_hlt <- group_by(cv_drug_rxn_2006, ing, HLT_NAME_ENG, quarter) %>%
   dplyr::summarize(count = n_distinct(REPORT_ID))
 
-# using pool reaches an error here: dplyr can just join using SQL commands, but in pool you can't join
-master_table <- cv_prr %>%
-  left_join(cv_bcpnn, by = c("drug_code", "event_effect")) %>%
-  left_join(cv_ror, by = c("drug_code", "event_effect"))
 
 # PT-HLT mapping
 drug_PT_HLT <- cv_drug_rxn_2006 %>%
@@ -95,15 +99,22 @@ ui <- dashboardPage(
               fluidRow(
                 tabBox(
                   tabPanel(
-                    "Time Plot",
-                    plotOutput(outputId = "timeplot", height = "285px"),
+                    "Preferred Terms",
+                    plotOutput(outputId = "timeplot_pt", height = "285px"),
                     tags$br(),
-                    DT::dataTableOutput("display_table"),
+                    DT::dataTableOutput("table_pt"),
                     tags$p("NOTE: The above table is ranked decreasingly by PRR value. All drug*reactions pairs that have PRR value of infinity are added at the end of the table."),
                     width = 12),
-                  width=12
-                  )
-                  )
+                  tabPanel(
+                    "High-Level Terms",
+                    plotOutput(outputId = "timeplot_hlt", height = "285px"),
+                    tags$br(),
+                    DT::dataTableOutput("table_hlt"),
+                    tags$p("NOTE: The above table is ranked decreasingly by PRR value. All drug*reactions pairs that have PRR value of infinity are added at the end of the table."),
+                    width = 12),
+                  width = 12
+                )
+              )
       ),
       
       tabItem(tabName = "Documentation",
@@ -276,8 +287,64 @@ server <- function(input, output, session) {
   })
   })
   
+  # PRR tab 
+  hlt_table <- reactive({
+    input$search_button # hacky way to get eventReactive but also initial load
+    isolate({
+      # PRR and ROR values of Inf means there are no other drugs associated with that specific adverse reaction, so denomimator is zero!
+      # prr_tab_df is simply the table displayed at the bottom
+      prr_tab <- master_table_hlt
+      if(input$search_drug != "") prr_tab %<>% filter(drug_code == input$search_drug)
+      if(input$search_hlt != "") prr_tab %<>% filter(event_effect == input$search_hlt)
+      
+      # rank master table by PRR & suppress Inf to the end
+      # ***** == "Infinity" is a way that currently works to filter equal to infinity in SQL with dplyr, might change
+      prr_tab_inf <- prr_tab %>%
+        filter(PRR == "Infinity") %>%
+        dplyr::arrange(drug_code, event_effect) %>%
+        as.data.frame()
+      prr_tab_df <- prr_tab %>%
+        filter(PRR != "Infinity") %>%
+        dplyr::arrange(desc(PRR), desc(LB95_PRR), drug_code, event_effect) %>%
+        as.data.frame() %>%
+        bind_rows(prr_tab_inf)
+      prr_tab_df %<>%
+        dplyr::mutate(PRR = round(PRR,3),
+                      UB95_PRR = round(UB95_PRR,3),
+                      LB95_PRR = round(LB95_PRR,3),
+                      ROR = round(ROR,3),
+                      UB95_ROR = round(UB95_ROR,3),
+                      LB95_ROR = round(LB95_ROR,3)) %>%
+        dplyr::select(drug_code, event_effect,
+                      count = count.x, expected_count = expected_count.x,
+                      PRR, LB95_PRR, UB95_PRR,
+                      ROR, LB95_ROR, UB95_ROR)
+      prr_tab_df
+    })
+  })
+  
+  # time-series data 
+  time_data_hlt <- reactive({
+    hlt_table() # always update when this table changes, since order of execution isn't guaranteed
+    isolate({
+      top_pairs <- hlt_table() %>%
+        filter(PRR != Inf) %>%   # this comparison is done in R, not SQL, so Inf rather than "Infinity"
+        dplyr::select(drug_code, event_effect) %>%
+        head(10)
+      if (1 == nrow(top_pairs)) {
+        # the SQL IN comparison complains if there's only one value to match to (when we specify both drug and rxn)
+        timeplot_df <- count_quarter_hlt %>% filter(ing == top_pairs$drug_code,
+                                                   HLT_NAME_ENG == top_pairs$event_effect) %>% as.data.frame()
+      } else {
+        timeplot_df <- count_quarter_hlt %>% filter(ing %in% top_pairs$drug_code,
+                                                   HLT_NAME_ENG %in% top_pairs$event_effect) %>% as.data.frame()
+      }
+      timeplot_df
+    })
+  })
+  
   # PRR Time Plot
-  output$timeplot <- renderPlot({
+  output$timeplot_pt <- renderPlot({
     input$search_button # hacky way to get eventReactive but also initial load
     isolate({
     current_drug <- ifelse(input$search_drug == "","All Drugs",input$search_drug)
@@ -302,8 +369,43 @@ server <- function(input, output, session) {
   })
   
   # pass either datatable object or data to be turned into one to renderDataTable
-  output$display_table <- DT::renderDataTable(DT::datatable(
+  output$table_pt <- DT::renderDataTable(DT::datatable(
     cv_prr_tab(),
+    extensions = 'Buttons',
+    options = list(
+      scrollX = TRUE,
+      dom = 'Bfrtip',
+      buttons = c('copy', 'csv', 'pdf', 'colvis')
+    )))
+  
+  # PRR Time Plot
+  output$timeplot_hlt <- renderPlot({
+    input$search_button # hacky way to get eventReactive but also initial load
+    isolate({
+      current_drug <- ifelse(input$search_drug == "","All Drugs",input$search_drug)
+      current_rxn <- ifelse(input$search_hlt == "","Top 10 Reactions with Highest PRR Values",input$search_hlt)
+    })
+    plottitle <- paste("Non-Cumulative Report Count Time Plot for:", current_drug, "&", current_rxn)
+    
+    df <- time_data_hlt() %>%
+      mutate(qtr = as.yearqtr(quarter %>% as.character(), '%Y.%q'))
+    p <- ggplot(df, aes(x = qtr, y = count)) +
+      scale_x_yearqtr(breaks = seq(min(df$qtr), max(df$qtr), 0.25),
+                      format = "%Y Q%q") +
+      # scale_y_discrete(breaks = seq(-2, max(df$count)+2, 1)) +
+      geom_line(aes(colour=HLT_NAME_ENG)) + geom_point()  + 
+      ggtitle(plottitle) + 
+      xlab("Quarter") + 
+      ylab("Report Count") +
+      theme_bw() +
+      theme(plot.title = element_text(lineheight=.8, face="bold"), axis.text.x = element_text(angle=30, vjust=0.9, hjust=1))
+    print(p)
+    
+  })
+  
+  # pass either datatable object or data to be turned into one to renderDataTable
+  output$table_hlt <- DT::renderDataTable(DT::datatable(
+    hlt_table(),
     extensions = 'Buttons',
     options = list(
       scrollX = TRUE,
