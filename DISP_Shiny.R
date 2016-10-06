@@ -26,7 +26,7 @@ cv_bcpnn <- hcopen %>% tbl("IC_160829") %>%
   dplyr::select(drug_code = `drug code`, event_effect = `event effect`, IC,
                 LB95_IC = `Q_0.025(log(IC))`, UB95_IC = `Q_0.975(log(IC))`)
 cv_ror <- hcopen %>% tbl("PT_ROR_160927")
-master_table <- cv_prr %>%
+master_table_pt <- cv_prr %>%
   left_join(cv_bcpnn, by = c("drug_code", "event_effect")) %>%
   left_join(cv_ror, by = c("drug_code", "event_effect"))
 
@@ -70,7 +70,7 @@ ui <- dashboardPage(
         selectizeInput(inputId = "search_hlt",
                        label = "Adverse Event High-Level Term",
                        choices = NULL,
-                       options = list(placeholder = '[currently unused]')),
+                       options = list(placeholder = 'Start typing to search...')),
         
         selectizeInput(inputId = "search_pt",
                        label = "Adverse Event Preferred Term",
@@ -228,27 +228,27 @@ server <- function(input, output, session) {
   })
   
   # PRR tab 
-  cv_prr_tab <- reactive({
+  table_pt_data <- reactive({
     input$search_button # hacky way to get eventReactive but also initial load
     isolate({
     # PRR and ROR values of Inf means there are no other drugs associated with that specific adverse reaction, so denomimator is zero!
     # prr_tab_df is simply the table displayed at the bottom
-    prr_tab <- master_table
-    if(input$search_drug != "") prr_tab %<>% filter(drug_code == input$search_drug)
-    if(input$search_pt != "") prr_tab %<>% filter(event_effect == input$search_pt)
+    table <- master_table_pt
+    if(input$search_drug != "") table %<>% filter(drug_code == input$search_drug)
+    if(input$search_pt != "") table %<>% filter(event_effect == input$search_pt)
     
     # rank master table by PRR & suppress Inf to the end
     # ***** == "Infinity" is a way that currently works to filter equal to infinity in SQL with dplyr, might change
-    prr_tab_inf <- prr_tab %>%
+    table_inf <- table %>%
       filter(PRR == "Infinity") %>%
       dplyr::arrange(drug_code, event_effect) %>%
       as.data.frame()
-    prr_tab_df <- prr_tab %>%
+    table %<>%
       filter(PRR != "Infinity") %>%
       dplyr::arrange(desc(PRR), desc(LB95_PRR), drug_code, event_effect) %>%
       as.data.frame() %>%
-      bind_rows(prr_tab_inf)
-    prr_tab_df %<>%
+      bind_rows(table_inf)
+    table %<>%
       dplyr::mutate(PRR = round(PRR,3),
                     UB95_PRR = round(UB95_PRR,3),
                     LB95_PRR = round(LB95_PRR,3),
@@ -263,15 +263,15 @@ server <- function(input, output, session) {
                     PRR, LB95_PRR, UB95_PRR,
                     IC,  LB95_IC,  UB95_IC,
                     ROR, LB95_ROR, UB95_ROR)
-    prr_tab_df
+    table
   })
   })
   
   # time-series data 
-  time_data <- reactive({
-    cv_prr_tab() # always update when this table changes, since order of execution isn't guaranteed
+  time_data_pt <- reactive({
+    table_pt_data() # always update when this table changes, since order of execution isn't guaranteed
     isolate({
-    top_pairs <- cv_prr_tab() %>%
+    top_pairs <- table_pt_data() %>%
       filter(PRR != Inf) %>%   # this comparison is done in R, not SQL, so Inf rather than "Infinity"
       dplyr::select(drug_code, event_effect) %>%
       head(10)
@@ -287,28 +287,28 @@ server <- function(input, output, session) {
   })
   })
   
-  # PRR tab 
-  hlt_table <- reactive({
+  # 
+  table_hlt_data <- reactive({
     input$search_button # hacky way to get eventReactive but also initial load
     isolate({
       # PRR and ROR values of Inf means there are no other drugs associated with that specific adverse reaction, so denomimator is zero!
       # prr_tab_df is simply the table displayed at the bottom
-      prr_tab <- master_table_hlt
-      if(input$search_drug != "") prr_tab %<>% filter(drug_code == input$search_drug)
-      if(input$search_hlt != "") prr_tab %<>% filter(event_effect == input$search_hlt)
+      table <- master_table_hlt
+      if(input$search_drug != "") table %<>% filter(drug_code == input$search_drug)
+      if(input$search_hlt != "") table %<>% filter(event_effect == input$search_hlt)
       
       # rank master table by PRR & suppress Inf to the end
       # ***** == "Infinity" is a way that currently works to filter equal to infinity in SQL with dplyr, might change
-      prr_tab_inf <- prr_tab %>%
+      table_inf <- table %>%
         filter(PRR == "Infinity") %>%
         dplyr::arrange(drug_code, event_effect) %>%
         as.data.frame()
-      prr_tab_df <- prr_tab %>%
+      table %<>%
         filter(PRR != "Infinity") %>%
         dplyr::arrange(desc(PRR), desc(LB95_PRR), drug_code, event_effect) %>%
         as.data.frame() %>%
-        bind_rows(prr_tab_inf)
-      prr_tab_df %<>%
+        bind_rows(table_inf)
+      table %<>%
         dplyr::mutate(PRR = round(PRR,3),
                       UB95_PRR = round(UB95_PRR,3),
                       LB95_PRR = round(LB95_PRR,3),
@@ -319,15 +319,15 @@ server <- function(input, output, session) {
                       count = count.x, expected_count = expected_count.x,
                       PRR, LB95_PRR, UB95_PRR,
                       ROR, LB95_ROR, UB95_ROR)
-      prr_tab_df
+      table
     })
   })
   
   # time-series data 
   time_data_hlt <- reactive({
-    hlt_table() # always update when this table changes, since order of execution isn't guaranteed
+    table_hlt_data() # always update when this table changes, since order of execution isn't guaranteed
     isolate({
-      top_pairs <- hlt_table() %>%
+      top_pairs <- table_hlt_data() %>%
         filter(PRR != Inf) %>%   # this comparison is done in R, not SQL, so Inf rather than "Infinity"
         dplyr::select(drug_code, event_effect) %>%
         head(10)
@@ -343,6 +343,8 @@ server <- function(input, output, session) {
     })
   })
   
+  
+  
   # PRR Time Plot
   output$timeplot_pt <- renderPlot({
     input$search_button # hacky way to get eventReactive but also initial load
@@ -352,7 +354,7 @@ server <- function(input, output, session) {
     })
     plottitle <- paste("Non-Cumulative Report Count Time Plot for:", current_drug, "&", current_rxn)
     
-    df <- time_data() %>%
+    df <- time_data_pt() %>%
       mutate(qtr = as.yearqtr(quarter %>% as.character(), '%Y.%q'))
     p <- ggplot(df, aes(x = qtr, y = count)) +
       scale_x_yearqtr(breaks = seq(min(df$qtr), max(df$qtr), 0.25),
@@ -370,7 +372,7 @@ server <- function(input, output, session) {
   
   # pass either datatable object or data to be turned into one to renderDataTable
   output$table_pt <- DT::renderDataTable(DT::datatable(
-    cv_prr_tab(),
+    table_pt_data(),
     extensions = 'Buttons',
     options = list(
       scrollX = TRUE,
@@ -405,7 +407,7 @@ server <- function(input, output, session) {
   
   # pass either datatable object or data to be turned into one to renderDataTable
   output$table_hlt <- DT::renderDataTable(DT::datatable(
-    hlt_table(),
+    table_hlt_data(),
     extensions = 'Buttons',
     options = list(
       scrollX = TRUE,
