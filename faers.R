@@ -78,7 +78,7 @@ format1K <- function(x){
 }
 
 ui <- dashboardPage(
-  dashboardHeader(title = "Shiny FAERS (v0.04)"),
+  dashboardHeader(title = "Shiny FAERS (v0.05)"),
   dashboardSidebar(
     sidebarMenu(
       menuItem("Reports", tabName = "reportdata", icon = icon("hospital-o")),
@@ -549,7 +549,8 @@ server <- function(input, output) {
                          age_group = ifelse(term >= 18 & term < 65, "Adult", age_group),
                          age_group = ifelse(term >= 65, "Elderly", age_group),
                          age_group = ifelse(term >= 130, "Unknown", age_group)) %>%
-      count(age_group, wt = n, sort = TRUE)
+      count(age_group, wt = n, sort = TRUE) %>%
+      rename(n = nn)
     
     unknown <- data$openfda_query %>%
       fda_filter("_missing_", "patient.patientonsetage") %>%
