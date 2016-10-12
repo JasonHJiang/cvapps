@@ -233,7 +233,12 @@ server <- function(input, output, session) {
     isolate({
     # PRR and ROR values of Inf means there are no other drugs associated with that specific adverse reaction, so denomimator is zero!
     # prr_tab_df is simply the table displayed at the bottom
-    table <- master_table_pt
+    table <- master_table_pt %>%
+      dplyr::select(drug_code, event_effect,
+                    count = count.x, expected_count = expected_count.x,
+                    PRR, LB95_PRR, UB95_PRR,
+                    IC,  LB95_IC,  UB95_IC,
+                    ROR, LB95_ROR, UB95_ROR)
     if(input$search_drug != "") table %<>% filter(drug_code == input$search_drug)
     if(input$search_pt != "") table %<>% filter(event_effect == input$search_pt)
     
@@ -247,22 +252,9 @@ server <- function(input, output, session) {
       filter(PRR != "Infinity") %>%
       dplyr::arrange(desc(PRR), desc(LB95_PRR), drug_code, event_effect) %>%
       as.data.frame() %>%
-      bind_rows(table_inf)
-    table %<>%
-      dplyr::mutate(PRR = round(PRR,3),
-                    UB95_PRR = round(UB95_PRR,3),
-                    LB95_PRR = round(LB95_PRR,3),
-                    LB95_IC = round(LB95_IC,3),
-                    UB95_IC = round(UB95_IC,3),
-                    IC = round(IC,3),
-                    ROR = round(ROR,3),
-                    UB95_ROR = round(UB95_ROR,3),
-                    LB95_ROR = round(LB95_ROR,3)) %>%
-      dplyr::select(drug_code, event_effect,
-                    count = count.x, expected_count = expected_count.x,
-                    PRR, LB95_PRR, UB95_PRR,
-                    IC,  LB95_IC,  UB95_IC,
-                    ROR, LB95_ROR, UB95_ROR)
+      bind_rows(table_inf) %>%
+      lapply(function(x) {if(is.numeric(x)) round(x,3) else x}) %>%
+      as.data.frame()
     table
   })
   })
@@ -293,7 +285,11 @@ server <- function(input, output, session) {
     isolate({
       # PRR and ROR values of Inf means there are no other drugs associated with that specific adverse reaction, so denomimator is zero!
       # prr_tab_df is simply the table displayed at the bottom
-      table <- master_table_hlt
+      table <- master_table_hlt %>%
+        dplyr::select(drug_code, event_effect,
+                      count = count.x, expected_count = expected_count.x,
+                      PRR, LB95_PRR, UB95_PRR,
+                      ROR, LB95_ROR, UB95_ROR)
       if(input$search_drug != "") table %<>% filter(drug_code == input$search_drug)
       if(input$search_hlt != "") table %<>% filter(event_effect == input$search_hlt)
       
@@ -307,18 +303,9 @@ server <- function(input, output, session) {
         filter(PRR != "Infinity") %>%
         dplyr::arrange(desc(PRR), desc(LB95_PRR), drug_code, event_effect) %>%
         as.data.frame() %>%
-        bind_rows(table_inf)
-      table %<>%
-        dplyr::mutate(PRR = round(PRR,3),
-                      UB95_PRR = round(UB95_PRR,3),
-                      LB95_PRR = round(LB95_PRR,3),
-                      ROR = round(ROR,3),
-                      UB95_ROR = round(UB95_ROR,3),
-                      LB95_ROR = round(LB95_ROR,3)) %>%
-        dplyr::select(drug_code, event_effect,
-                      count = count.x, expected_count = expected_count.x,
-                      PRR, LB95_PRR, UB95_PRR,
-                      ROR, LB95_ROR, UB95_ROR)
+        bind_rows(table_inf) %>%
+        lapply(function(x) {if(is.numeric(x)) round(x,3) else x}) %>%
+        as.data.frame()
       table
     })
   })
@@ -359,7 +346,7 @@ server <- function(input, output, session) {
     p <- ggplot(df, aes(x = qtr, y = count)) +
       scale_x_yearqtr(breaks = seq(min(df$qtr), max(df$qtr), 0.25),
                       format = "%Y Q%q") +
-      # scale_y_discrete(breaks = seq(-2, max(df$count)+2, 1)) +
+      ylim(0, max(df$count)) +
       geom_line(aes(colour=PT_NAME_ENG)) + geom_point()  + 
       ggtitle(plottitle) + 
       xlab("Quarter") + 
@@ -394,7 +381,7 @@ server <- function(input, output, session) {
     p <- ggplot(df, aes(x = qtr, y = count)) +
       scale_x_yearqtr(breaks = seq(min(df$qtr), max(df$qtr), 0.25),
                       format = "%Y Q%q") +
-      # scale_y_discrete(breaks = seq(-2, max(df$count)+2, 1)) +
+      ylim(0, max(df$count)) +
       geom_line(aes(colour=HLT_NAME_ENG)) + geom_point()  + 
       ggtitle(plottitle) + 
       xlab("Quarter") + 
