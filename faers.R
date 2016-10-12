@@ -11,26 +11,32 @@ library(DT)
 library(googleVis)
 library(openfda)
 library(stringr)
+source("common_ui.R")
 
+
+#### Preamble ####
 dbuijs_api_key <- "QPV3z0OxVhzLfp5EGZTLT6QZGcTRrtXpYebmAs4n"
+# how to use
+# topdrugs <- fda_query("/drug/event.json") %>% 
+#   #fda_api_key(dbuijs_api_key) %>%
+#   fda_count("patient.drug.openfda.generic_name.exact") %>% 
+#   fda_limit(1000) %>% 
+#   fda_exec()
 
-topdrugs <- fda_query("/drug/event.json") %>% 
-  #fda_api_key(dbuijs_api_key) %>%
+
+topdrugs <- fda_query("/drug/event.json") %>%
   fda_count("patient.drug.openfda.generic_name.exact") %>% 
   fda_limit(1000) %>% 
   fda_exec()
-
 topbrands <- fda_query("/drug/event.json") %>%
-  #fda_api_key(dbuijs_api_key) %>%
   fda_count("patient.drug.openfda.brand_name.exact") %>% 
   fda_limit(1000) %>% 
   fda_exec()
-
-toprxns <- fda_query("/drug/event.json") %>% 
-  #fda_api_key(dbuijs_api_key) %>%
+toprxns <- fda_query("/drug/event.json") %>%
   fda_count("patient.reaction.reactionmeddrapt.exact") %>% 
   fda_limit(1000) %>% 
   fda_exec()
+
 
 reporter_code <- data.table(term = 1:5,
                             label = c("Physician",
@@ -45,12 +51,10 @@ outcome_code <- data.table(term = 1:6,
                                      "Recovered/resolved with sequelae",
                                      "Fatal",
                                      "Unknown"))
-
 sex_code <- data.table(term = 0:2,
                        label = c("Unknown",
                                  "Male",
                                  "Female"))
-
 age_code <- data.table(term = 800:805,
                        label = c("Decade",
                                  "Year",
@@ -77,6 +81,9 @@ format1K <- function(x){
   x/1000
 }
 
+
+
+#### UI ####
 ui <- dashboardPage(
   dashboardHeader(title = "Shiny FAERS (v0.05)"),
   dashboardSidebar(
@@ -109,7 +116,7 @@ ui <- dashboardPage(
                    "Date Range", 
                    start = "2000-01-01", 
                    startview = "year"),
-    actionButton("searchButton", "Search"),
+    actionButton("searchButton", "Search", width = '100%'),
     tags$br(),
     tags$h3(strong("Current Query:")),
     tableOutput("current_search")
@@ -134,19 +141,19 @@ ui <- dashboardPage(
                     tags$br(),
                     tags$p("Qualification of the person who filed the report."),
                     tags$p("Unknown is the number of reports without the primarysource.qualification field."),
-                    title = tags$h2("Reporter"), width = 4),
+                    title = tags$h2("Reporter"), width = 3),
                 box(htmlOutput("seriousplot"), 
                     tags$br(),
                     tags$p("Reports marked as serious."),
-                    title = tags$h2("Serious reports"), width = 4),
+                    title = tags$h2("Serious reports"), width = 3),
                 box(htmlOutput("seriousreasonsplot"), 
                     tags$br(),
                     tags$p("Total sums to more than 100% because reports can be marked serious for multiple reasons."),
-                    title = tags$h2("Reasons for serious reports"), width = 4),
+                    title = tags$h2("Reasons for serious reports"), width = 3),
                 box(htmlOutput("countryplot"), 
                     tags$br(),
                     tags$p("Country the reaction(s) occurred in. This is not necessarily the same country the report was received from."),
-                    title = tags$h2("Country"), width = 4)
+                    title = tags$h2("Country"), width = 3)
               )
       ),
       tabItem(tabName = "patientdata",
@@ -165,28 +172,25 @@ ui <- dashboardPage(
       tabItem(tabName = "drugdata",
               fluidRow(
                 box(plotOutput("indicationplot"),
-                    tags$br(),
                     tags$p("This plot includes all indications for all drugs associated with the matching reports.
                            The open.fda.gov search API does not allow searching or filtering within drugs.
                            The search query filters unique reports, which may have one or more drugs associated with them.
                            It is not currently possible to search for only those indications associated with a specific drug.
-                           "), width = 4),
+                           "), width = 6),
                 box(plotOutput("drugplot"),
-                    tags$br(),
                     tags$p("This plot includes all drugs associated with the matching reports, except the search term.
                            The open.fda.gov search API does not allow searching or filtering within drugs.
                            The search query filters unique reports, which may have one or more drugs associated with them.
-                           It is not currently possible to retrieve correlations between drugs."), width = 4),
+                           It is not currently possible to retrieve correlations between drugs."), width = 6),
                 box(plotOutput("drugclassplot"),
-                    tags$br(),
                     tags$p("This plot includes all drug classes associated with the matching reports, including the search term.
                            The total number of instances for each class will be geater 
                            than the number of reports when reports include more than one drug of the same class.
                            The open.fda.gov search API does not allow searching or filtering within drugs.
                            The search query filters unique reports, which may have one or more drugs associated with them.
-                           It is not currently possible to retrieve correlations between drugs."), width = 4)
-                    )
-                    ),
+                           It is not currently possible to retrieve correlations between drugs."), width = 6)
+              )
+      ),
       tabItem(tabName = "rxndata",
               fluidRow(
                 box(htmlOutput("outcomeplot"), title = tags$h2("Outcomes (all reactions)"))
@@ -194,45 +198,44 @@ ui <- dashboardPage(
       ),
       tabItem(tabName = "aboutinfo",
               tags$p("Data provided by the U.S. Food and Drug Administration (https://open.fda.gov)"),
-              tags$h2("About page goes here")
+              aboutAuthors()
       )
-                    )
-                    ), 
+    )
+  ), 
   skin = "blue"
-                )
+)
 
 
+#### server ####
 server <- function(input, output) {
   # Data structure to store current query info
-  faers_query <- reactive({
-    input$searchButton
-    current_generic <- isolate(ifelse(input$search_generic == "",
+  faers_query <- eventReactive(input$searchButton,{
+    current_generic <- ifelse(input$search_generic == "",
                                       NA,
                                       input$search_generic) %>% 
-                                 str_replace_all(" ", "+"))
-    current_brand <- isolate(ifelse(input$search_brand == "",
+                                 str_replace_all(" ", "+")
+    current_brand <- ifelse(input$search_brand == "",
                                     NA,
-                                    input$search_brand) %>% str_replace_all(" ", "+"))
-    current_rxn <- isolate(ifelse(input$search_rxn == "",
+                                    input$search_brand) %>% str_replace_all(" ", "+")
+    current_rxn <- ifelse(input$search_rxn == "",
                                   NA,
-                                  input$search_rxn) %>% str_replace_all(" ", "+"))
-    current_date_range <- isolate(input$searchDateRange)
-    querydate <- paste0("[", 
+                                  input$search_rxn) %>% str_replace_all(" ", "+")
+    current_date_range <- input$searchDateRange
+    querydate <- paste0("[",
                         paste(current_date_range, collapse = "+TO+"),
                         "]")
-    openfda_query <- fda_query("/drug/event.json") %>% 
-      #fda_api_key(dbuijs_api_key) %>% 
+    openfda_query <- fda_query("/drug/event.json") %>%
       fda_filter("receivedate", querydate)
-    if(!is.na(current_generic)) openfda_query <- openfda_query %>% 
+    if(!is.na(current_generic)) openfda_query <- openfda_query %>%
       fda_filter("patient.drug.openfda.generic_name.exact", paste0('"', current_generic, '"'))
-    if(!is.na(current_brand)) openfda_query <- openfda_query %>% 
+    if(!is.na(current_brand)) openfda_query <- openfda_query %>%
       fda_filter("patient.drug.openfda.brand_name.exact", paste0('"', current_brand, '"'))
-    if(!is.na(current_rxn)) openfda_query <- openfda_query %>% 
+    if(!is.na(current_rxn)) openfda_query <- openfda_query %>%
       fda_filter("patient.reaction.reactionmeddrapt.exact", paste0('"', current_rxn, '"'))
     
     query_url <- openfda_query %>% fda_search() %>% fda_url()
     
-    total_reports <- query_url %>% 
+    total_reports <- query_url %>%
       fda_fetch() %>%
       .$meta %>%
       .$results %>%
@@ -304,8 +307,9 @@ server <- function(input, output) {
       count(term, wt = count)
   })
   
-  output$search_url <- renderUI({url <- faers_query()$query_url 
-  tags$a(url, href=url)
+  output$search_url <- renderUI({
+    url <- faers_query()$query_url 
+    tags$a(url, href=url)
   })
   
   output$current_search <- renderTable({
@@ -330,8 +334,8 @@ server <- function(input, output) {
     
     data <- faers_query()
     
-    time_results <- data$openfda_query %>% 
-      fda_count("receivedate") %>% 
+    time_results <- data$openfda_query %>%
+      fda_count("receivedate") %>%
       fda_exec() 
     if(is.null(time_results)){
       time_results <- data.table(month = numeric(), count = numeric())
@@ -570,7 +574,6 @@ server <- function(input, output) {
                  options = list(pieHole = 0.4))
   })
   
-  
   output$agehist <- renderPlotly({
     ages <- ages()
     
@@ -649,7 +652,6 @@ server <- function(input, output) {
     p
   })
   
-  
   output$outcomeplot <- renderGvis({
     data <- faers_query()
     
@@ -667,12 +669,6 @@ server <- function(input, output) {
                  numvar = "count", 
                  options = list(pieHole = 0.4))
   })
-  
-  
-  
-  
-  
-  
   
   output$indicationplot <- renderPlot({
     data <- faers_query()
@@ -697,8 +693,6 @@ server <- function(input, output) {
       scale_y_continuous(labels = format1K)
     p
   })
-  
-  
   
   #   output$indicationstable
   #   output$drugclassestable

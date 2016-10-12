@@ -12,6 +12,7 @@ library(stringr)
 library(utils)
 library(dplyr)
 library(zoo)
+source("common_ui.R")
 
 #### Data pre-processing and server connections ####
 hcopen_pool <- dbPool(drv = "PostgreSQL",
@@ -133,35 +134,15 @@ ui <- dashboardPage(
       tabItem(tabName = "aboutinfo",
               tags$h2("About the Shiny App"),
               tags$p("This is a prototyping platform to utilize open data sources (e.g. Canada Vigilance Adverse Reaction Online Database) 
-                      to conduct disproportionality analysis for safety signal detection.
-                      It provides visualizations in an interactive format to demonstrate the results of multiple disproportionality analysis.
-                      This version was last updated in September of 2016.
-                      Data provided by the Canada Vigilance Adverse Reaction Online Database: "),
+          to conduct disproportionality analysis for safety signal detection.
+          It provides visualizations in an interactive format to demonstrate the results of multiple disproportionality analysis.
+          This version was last updated in September of 2016.
+          Data provided by the Canada Vigilance Adverse Reaction Online Database: "),
               tags$a(href="http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/index-eng.php", "Click here!"),
               tags$p("Detailed documentation on all disproportionality analyses can be found in Documentation tab."),
               #tags$a(href = "https://rstudio.hres.ca/?view=rmarkdown", "Documentation of Analysis"),
               tags$br(),
-              tags$strong("Authors:"),
-              fluidRow(
-                box(
-                  tags$p("Daniel Buijs, MSc"),
-                  tags$p("Data Scientist, Health Products and Food Branch"),
-                  tags$p("Health Canada / Government of Canada"),
-                  tags$p("daniel.buijs@hc-sc.gc.ca")
-                ),
-                box(
-                  tags$p("Sophia He, BSc (in progress)"),
-                  tags$p("Jr. Data Scientist Co-op, Health Products and Food Branch"),
-                  tags$p("Health Canada / Government of Canada"),
-                  tags$p("sophia.he@canada.ca or yunqingh@sfu.ca")
-                ),
-                box(
-                  tags$p("Kevin Thai, BSc (in progress)"),
-                  tags$p("Jr. Data Scientist Co-op, Health Products and Food Branch"),
-                  tags$p("Health Canada / Government of Canada"),
-                  tags$p("kevin.thai@canada.ca or kthai@uwaterloo.ca")
-                )
-              )
+              aboutAuthors()
       )
       )
       ), 
