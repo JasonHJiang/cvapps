@@ -209,7 +209,9 @@ ui <- dashboardPage(
 #### server ####
 server <- function(input, output) {
   # Data structure to store current query info
-  faers_query <- eventReactive(input$searchButton,{
+  faers_query <- reactive({
+    input$searchButton
+    isolate({
     current_generic <- ifelse(input$search_generic == "",
                                       NA,
                                       input$search_generic) %>% 
@@ -248,7 +250,7 @@ server <- function(input, output) {
                 query_url = query_url,
                 openfda_query = openfda_query,
                 total_reports = total_reports))
-  })
+  })})
   
   ages <- reactive({
     data <- faers_query()

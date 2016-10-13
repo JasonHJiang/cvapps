@@ -108,15 +108,6 @@ ui <- dashboardPage(
                   end = Sys.Date(),
                   startview = "year",
                   format = "yyyy-mm-dd"),
-    # dateInput("search_date_ini",
-    #           label = 'Date initial input: yyyy-mm-dd',
-    #           value = "1965-01-01"
-    # ),
-    # 
-    # dateInput("search_date_end",
-    #           label = 'Date end input: yyyy-mm-dd',
-    #           value = Sys.Date()
-    # ),
     
     actionButton("searchButton", "Search"),
     tags$br(),
@@ -179,19 +170,11 @@ ui <- dashboardPage(
               fluidRow(
                 box(htmlOutput("outcomeplot"), title = tags$h2("Outcomes (all reactions)"))
               )
-      ) # more tabs added here!
+      )
               )
     ), 
   skin = "blue"
       )
-
-
-############## Server of shiny ########################
-# connect to CV database
-hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
-
-#options(shiny.error = browser)
-# options(shiny.trace = TRUE, shiny.reactlog=TRUE)
 
 
 ############### Server Functions ###################
@@ -208,10 +191,6 @@ server <- function(input, output) {
   #                                 input$search_rxn)) 
   #   current_date_range <- isolate(input$searchDateRange)
   #   escape.POSIXt <- dplyr:::escape.Date
-  #   
-  #   setwd("~/CV_Shiny_DrugTabOnly")
-  #   source("DO_Reports_Tab_Func SHe.R")
-  #   reports_tab_df <- reports_tab(current_brand=current_brand,current_rxn=current_rxn,current_date_range=current_date_range)
   #   
   #   source("DO_Patients_Tab_Func SHe.R")
   #   patients_tab_df <- patients_tab(current_brand=current_brand,current_rxn=current_rxn,current_date_range=current_date_range)
@@ -243,28 +222,45 @@ server <- function(input, output) {
   # Data frame generate reactive function to be used to assign: data <- cv_reports_tab()
   cv_reports_tab <- reactive({
     input$searchButton
+    isolate({
     #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
-    current_brand <- isolate(ifelse(input$search_brand == "",
-                                    NA,
-                                    input$search_brand))
-    current_rxn <- isolate(ifelse(input$search_rxn == "",
-                                  NA,
-                                  input$search_rxn))
-    current_date_range <- isolate(input$searchDateRange)
-    escape.POSIXt <- dplyr:::escape.Date
-
-    source("DO_Reports_Tab_Func SHe.R")
-    reports_tab_df <- reports_tab(current_brand=current_brand,current_rxn=current_rxn,current_date_range=current_date_range)
-
-    return(reports_tab_df)
-  })
+    current_brand <- ifelse(input$search_brand == "", NA, input$search_brand)
+    current_rxn <- ifelse(input$search_rxn == "", NA, input$search_rxn)
+    current_date_range <- input$searchDateRange
+    
+    cv_reports_sorted_rp <- cv_reports %>%
+      select(REPORT_ID, SERIOUSNESS_ENG, REPORTER_TYPE_ENG, DEATH, DISABILITY, CONGENITAL_ANOMALY,LIFE_THREATENING, HOSP_REQUIRED, 
+             OTHER_MEDICALLY_IMP_COND, DATINTRECEIVED_CLEAN) %>%
+      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
+    cv_report_drug_rp <- if(is.na(current_brand) == FALSE){
+      cv_report_drug %>%
+        select(REPORT_ID, DRUGNAME) %>%
+        filter(DRUGNAME == current_brand)
+    } else {
+      cv_report_drug %>%
+        select(REPORT_ID, DRUGNAME)
+    }
+    cv_reactions_rp <- if(is.na(current_rxn) == FALSE){
+      cv_reactions %>%
+        select(REPORT_ID, PT_NAME_ENG) %>%
+        filter(PT_NAME_ENG == current_rxn)
+    } else {
+      cv_reactions %>%
+        select(REPORT_ID, PT_NAME_ENG)
+    }
+    
+    reports_tab_df <-  cv_reports_sorted_rp%>%
+      inner_join(cv_report_drug_rp) %>%
+      semi_join(cv_reactions_rp) %>%
+      collect()
+    reports_tab_df
+  })})
 
   # sample datasets of what is being graphed/used
   #output$outputReports <- renderTable({
   #  cv_reports_tab()[1:4,c("ACTIVE_INGREDIENT_NAME","DRUGNAME","DATINTRECEIVED_CLEAN","PT_NAME_ENG")]
   #})
 
-  #hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
   cv_search_tab <- reactive({
     input$searchButton
     #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
@@ -287,7 +283,6 @@ server <- function(input, output) {
     return(search_tab_df)
   })
 
-  #hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
   cv_patients_tab <- reactive({
     input$searchButton
     #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
@@ -307,7 +302,6 @@ server <- function(input, output) {
     return(patients_tab_df)
   })
 
-  #hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
   cv_drug_tab_topdrg <- reactive({
     input$searchButton
     #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
