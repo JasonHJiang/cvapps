@@ -12,6 +12,7 @@ library(googleVis)
 library(stringr)
 library(plyr)
 library(data.table)
+source("common_ui.R")
 
 
 ########## Codes to fetch top 1000 specific results to be used in dropdown menu ###############
@@ -87,7 +88,8 @@ ui <- dashboardPage(
       menuItem("Reports", tabName = "reportdata", icon = icon("hospital-o")),
       menuItem("Drugs", tabName = "drugdata", icon = icon("flask")),
       menuItem("Patients", tabName = "patientdata", icon = icon("user-md")),
-      menuItem("Reactions", tabName = "rxndata", icon = icon("heart-o"))
+      menuItem("Reactions", tabName = "rxndata", icon = icon("heart-o")),
+      menuItem("About", tabName = "aboutinfo", icon = icon("info"))
       
     ),
     selectizeInput("search_brand", 
@@ -123,8 +125,8 @@ ui <- dashboardPage(
                  Trendline is a local non-parametric regression calculated with the LOESS model. 
                  The shaded area is an approximation of the 95% confidence interval of the regression."),
           width = 12
-          )
-      ),
+      )
+    ),
     tabItems(
       tabItem(tabName = "reportdata",
               fluidRow(
@@ -164,17 +166,27 @@ ui <- dashboardPage(
                 box(plotOutput("drugplot"),
                     tags$br(),
                     tags$p("This plot includes top_25 most-reported drugs with most-reported indication assocaiated with the seached drug."), width = 4)
-                    )
-                    ),
+              )
+      ),
       tabItem(tabName = "rxndata",
               fluidRow(
                 box(htmlOutput("outcomeplot"), title = tags$h2("Outcomes (all reactions)"))
               )
+      ),
+      tabItem(tabName = "aboutinfo",
+              tags$h2("About the Shiny App"),
+              tags$p("This is a prototyping platform to utilize open data sources (e.g. 
+                     Canada Vigilance Adverse Reaction Online Database) and provide visualizations in an interactive format. 
+                     Further analysis can be conducted and added onto this platform to make better use of the data. 
+                     Data provided by the Canada Vigilance Adverse Reaction Online Database:"),
+              tags$a(href="http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/index-eng.php", "Click here!"),
+              br(),
+              aboutAuthors()
       )
-              )
-    ), 
+    )
+  ), 
   skin = "blue"
-      )
+)
 
 
 ############### Server Functions ###################
