@@ -93,7 +93,7 @@ reports_tab <- function(current_brand,current_rxn,current_gender,current_date_ra
   reports_tab_master <-  cv_reports_sorted_rp%>%
     semi_join(cv_report_drug_rp) %>%
     semi_join(cv_reactions_rp) %>%
-    collect(n = Inf)
+    as.data.frame()
   return(reports_tab_master) 
 }
 
@@ -130,7 +130,7 @@ patients_tab <- function( current_brand, current_rxn,current_gender,current_date
   patients_tab_master <-cv_reports_sorted_pt%>%
     semi_join(cv_report_drug_pt) %>%
     semi_join(cv_reactions_pt) %>%
-    collect(n = Inf)
+    as.data.frame()
   
   return(patients_tab_master) 
 }
@@ -178,7 +178,7 @@ drugs_tab_indt <- function(current_brand, current_rxn,current_gender, current_da
     semi_join(cv_report_drug_drg, by="REPORT_ID") %>% 
     semi_join(cv_reactions_drg, by="REPORT_ID") %>%
     inner_join(cv_report_drug_indication_drg) %>%
-    collect(n = Inf)
+    as.data.frame()
   
   return(drugs_tab_indication)
 }
@@ -220,7 +220,7 @@ drugs_tab_topdrg <- function(current_brand,current_rxn,current_gender,current_da
     inner_join(cv_report_drug_drg)%>%
     semi_join(cv_report_drug_indication_drg) %>%
     dplyr::select(REPORT_ID, DRUGNAME, GENDER_ENG) %>%
-    collect(n = Inf)
+    as.data.frame()
   
   return(drugs_tab_topdrg)
 }
@@ -263,7 +263,7 @@ reactions_tab <- function(current_brand,current_rxn,current_gender,current_date_
     semi_join(cv_report_drug_rxn) %>%
     semi_join(cv_reactions_rxn) %>%
     dplyr::select(REPORT_ID, OUTCOME_ENG) %>%
-    collect(n = Inf)
+    as.data.frame()
   
   return(reactions_tab_master)
 }
@@ -278,16 +278,16 @@ drugs_rxn <- function(current_brand,current_date_range){
     
     cv_reactions_rxn <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
     
-    drugs_rxn_df <- cv_reactions_rxn %>% inner_join(cv_report_drug_rxn) %>% collect(n = Inf)
+    drugs_rxn_df <- cv_reactions_rxn %>% inner_join(cv_report_drug_rxn) %>% as.data.frame()
     drugs_rxn_result <- dplyr::summarise(group_by(drugs_rxn_df, DRUGNAME,PT_NAME_ENG),count=n_distinct(REPORT_ID))%>% 
       dplyr::arrange(desc(count))%>%
       top_n(10) %>%
-      collect()
+      as.data.frame()
   } else {
     cv_reactions_rxn  <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
     
     toprxn <- dplyr::summarise(group_by(cv_reactions_rxn, PT_NAME_ENG),count=n_distinct(REPORT_ID))
-    drugs_rxn_result <- toprxn %>% dplyr::arrange(desc(count)) %>% top_n(10) %>% dplyr::select(PT_NAME_ENG, count) %>% collect()
+    drugs_rxn_result <- toprxn %>% dplyr::arrange(desc(count)) %>% top_n(10) %>% dplyr::select(PT_NAME_ENG, count) %>% as.data.frame()
   }
   
   return(drugs_rxn_result)
@@ -326,7 +326,7 @@ download <- function(current_brand,current_rxn,current_gender,current_date_range
     reports_tab_master <-  cv_reports_sorted_dl%>%
       semi_join(cv_report_drug_dl) %>%
       semi_join(cv_reactions_dl) %>%
-      collect(n = Inf) # all default search, size=176MB, dim = 440667*45
+      as.data.frame()
   }
   
   # Drug Info
@@ -360,7 +360,7 @@ download <- function(current_brand,current_rxn,current_gender,current_date_range
     reports_tab_master <-  cv_report_drug_dl%>%
       semi_join(cv_reports_sorted_dl) %>%
       semi_join(cv_reactions_dl) %>%
-      collect(n = Inf) # all default search, size=239MB, dim = 1486683*22
+      as.data.frame()
   }
   
   # Reaction Info
@@ -393,7 +393,7 @@ download <- function(current_brand,current_rxn,current_gender,current_date_range
     reports_tab_master <-  cv_reactions_dl%>%
       semi_join(cv_reports_sorted_dl) %>%
       semi_join(cv_report_drug_dl) %>%
-      collect(n = Inf) # all default search, size=107MB, dim = 1259812*12
+      as.data.frame()
   }
   
   return(reports_tab_master)
@@ -407,7 +407,7 @@ topbrands <- cv_report_drug %>%
   dplyr::summarize(count = n_distinct(REPORT_ID)) %>%
   top_n(100, count) %>%
   dplyr::select(DRUGNAME) %>%
-  collect()
+  as.data.frame()
 
 #Fetch top 1000 most-reported reaction names
 toprxns <- cv_reactions %>%
@@ -415,7 +415,7 @@ toprxns <- cv_reactions %>%
   dplyr::summarize(count = n_distinct(REPORT_ID)) %>%
   top_n(100, count) %>%
   dplyr::select(PT_NAME_ENG) %>%
-  collect()
+  as.data.frame()
 
 ########################################################## UI for REPORT Tab shiny ############################################################## 
 ui <- dashboardPage(
@@ -707,7 +707,7 @@ server <- function(input, output) {
       filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2]) %>%
       dplyr::select(REPORT_ID,DATINTRECEIVED_CLEAN) #%>% as.data.table(n=-1)
     
-    DISP_final <- dplyr::summarise(group_by(semi_join(part1,part2),ACTIVE_INGREDIENT_NAME,PT_NAME_ENG), count = n_distinct(REPORT_ID)) %>% collect()
+    DISP_final <- dplyr::summarise(group_by(semi_join(part1,part2),ACTIVE_INGREDIENT_NAME,PT_NAME_ENG), count = n_distinct(REPORT_ID)) %>% as.data.frame()
     
     DISP_date_range <- as.data.frame(
       paste("Data Range: ", current_date_range[1], "to", current_date_range[2])
@@ -769,7 +769,7 @@ server <- function(input, output) {
       filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2]) %>%
       dplyr::select(REPORT_ID,DATINTRECEIVED_CLEAN) #%>% as.data.table(n=-1)
     
-    DISP_final <- dplyr::summarise(group_by(semi_join(part1,part2),ACTIVE_INGREDIENT_NAME,PT_NAME_ENG), count = n_distinct(REPORT_ID)) %>% collect()
+    DISP_final <- dplyr::summarise(group_by(semi_join(part1,part2),ACTIVE_INGREDIENT_NAME,PT_NAME_ENG), count = n_distinct(REPORT_ID)) %>% as.data.frame()
     
     bayes_table <- as.PhViD(DISP_final, MARGIN.THRES = 1) 
     bayes_result <- BCPNN(bayes_table, RR0 = 1, MIN.n11 = 3, DECISION = 3,DECISION.THRES = 0.05, RANKSTAT = 2, MC=FALSE)
@@ -793,13 +793,13 @@ server <- function(input, output) {
       filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2]) %>%
       dplyr::select(REPORT_ID,DATINTRECEIVED_CLEAN) #%>% as.data.table()
     
-    DISP_final <- dplyr::summarise(group_by(semi_join(part1,part2),ACTIVE_INGREDIENT_NAME,PT_NAME_ENG), count = n_distinct(REPORT_ID)) %>% collect()
+    DISP_final <- dplyr::summarise(group_by(semi_join(part1,part2),ACTIVE_INGREDIENT_NAME,PT_NAME_ENG), count = n_distinct(REPORT_ID)) %>% as.data.frame()
     
     bayes_table_PRR <- as.PhViD(DISP_final, MARGIN.THRES = 1) 
     
     PRR_results <- PRR(bayes_table_PRR, RR0=1, MIN.n11 = 1, DECISION = 3, DECISION.THRES = 0.05, RANKSTAT = 2)
     
-    signals <-  PRR_results$SIGNAL %>% collect()
+    signals <-  PRR_results$SIGNAL %>% as.data.frame()
     signals_final <- signals %>% mutate(D_AR_Comb = paste(signals$`drug code`, " * ", signals$`event effect`)) %>% arrange(desc(`LB95(log(PRR))`)) %>% top_n(10,wt=`LB95(log(PRR))`)
     return(signals_final)
   })
@@ -860,11 +860,9 @@ server <- function(input, output) {
     
     data1 <- cv_search_tab()
     drug_selected <- data1$terms[1]
-    #drug_selected <- "abc"
     
     # specify the title of time plot based on reactive choice
     title <- ifelse(drug_selected == "Not Specified (All)", "All Drugs",drug_selected)
-    #title <- "xxx"
     plottitle <- paste("Drug Adverse Event Reports for", title)
     p <- adrplot(adrplot_test = data, plottitle = plottitle)
     #print(p)
