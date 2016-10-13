@@ -10,7 +10,6 @@ library(shiny)
 library(DT)
 library(googleVis)
 library(stringr)
-library(plyr)
 library(data.table)
 source("common_ui.R")
 
@@ -90,7 +89,6 @@ ui <- dashboardPage(
       menuItem("Patients", tabName = "patientdata", icon = icon("user-md")),
       menuItem("Reactions", tabName = "rxndata", icon = icon("heart-o")),
       menuItem("About", tabName = "aboutinfo", icon = icon("info"))
-      
     ),
     selectizeInput("search_brand", 
                    "Brand Name (US Trade Name)",
@@ -110,10 +108,9 @@ ui <- dashboardPage(
                   end = Sys.Date(),
                   startview = "year",
                   format = "yyyy-mm-dd"),
-    
     actionButton("searchButton", "Search"),
     tags$br(),
-    tags$h3(strong("Current Search:")),
+    tags$h3(strong("Current Query:")),
     tableOutput("current_search")
   ), 
   
@@ -268,11 +265,6 @@ server <- function(input, output) {
     reports_tab_df
   })})
 
-  # sample datasets of what is being graphed/used
-  #output$outputReports <- renderTable({
-  #  cv_reports_tab()[1:4,c("ACTIVE_INGREDIENT_NAME","DRUGNAME","DATINTRECEIVED_CLEAN","PT_NAME_ENG")]
-  #})
-
   cv_search_tab <- reactive({
     input$searchButton
     #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
@@ -389,7 +381,6 @@ server <- function(input, output) {
     return(drugs_tab_topdrg_df)
   })
 
-  #hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
   cv_drug_tab_indc <- reactive({
     input$searchButton
     #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
@@ -452,7 +443,6 @@ server <- function(input, output) {
     return(drugs_tab_indt_df)
   })
 
-  #hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
   cv_reactions_tab <- reactive({
     input$searchButton
     isolate({
@@ -495,16 +485,11 @@ server <- function(input, output) {
     })})
 #########################################################################################################################################
   
-  
-  
-  
-  
   ############## Construct Current_Query_Table for generic name, brand name, adverse reaction term & date range searched ############
   output$current_search <- renderTable({
      data<- cv_search_tab()
   }, include.rownames = FALSE, include.colnames = FALSE)
   
-  ############### Create time plot #####################
   output$timeplot <- renderPlotly({
     
     data <- cv_reports_tab()
@@ -522,8 +507,7 @@ server <- function(input, output) {
     print(p)
     ggplotly(p)
   })
-  
-  ############### Create Reporter pie chart ##############  
+   
   output$reporterplot <- renderGvis({
     data <- cv_reports_tab()
     # test
@@ -545,8 +529,7 @@ server <- function(input, output) {
     #                   numvar = "n", 
     #                   options = list(pieHole = 0.4)))
   })
-  
-  ################ Create Serious reports pie chart ##################   
+   
   output$seriousplot <- renderGvis({
     data <- cv_reports_tab()
     
@@ -566,7 +549,6 @@ server <- function(input, output) {
     #                  options = list(pieHole = 0.4)))
   })
   
-  ################ Create Serious Reason Reports chart ################## 
   output$seriousreasonsplot <- renderGvis({
     data <- cv_reports_tab()
    
@@ -719,7 +701,6 @@ server <- function(input, output) {
     )
   })
   
-  ################ Create Gender pie chart in Patient tab ##################  
   output$sexplot <- renderGvis({
     data <- cv_patients_tab()
     
@@ -733,8 +714,7 @@ server <- function(input, output) {
                  numvar = "count", 
                  options = list(pieHole = 0.4, pieSliceText="percentage", fontSize=12))
   })
-  
-  ################ Create Age Group pie chart in Patient tab ##################      
+ 
   output$agegroupplot <- renderGvis({
     data <- cv_patients_tab()
     
@@ -747,7 +727,6 @@ server <- function(input, output) {
                  options = list(pieHole = 0.4, pieSliceText='percentage', fontSize=12) )
   })
   
-  ################ Create Age Group histogram in Patient tab ##################   
   output$agehist <- renderPlotly({
     data <- cv_patients_tab()
     
@@ -825,11 +804,6 @@ server <- function(input, output) {
     print(p)
     ggplotly(p)
   })
-  
-  # sample datasets of what is being graphed/used
-  #output$outputReports <- renderTable(
-  #  cv_drug_tab_indc()
-  #)
   
   ################ Create Outcomes(all reactions) pie chart in Reaction tab ################## 
   output$outcomeplot <- renderGvis({
