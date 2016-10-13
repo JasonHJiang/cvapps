@@ -9,7 +9,6 @@ library(plotly)
 library(shiny)
 library(DT)
 library(googleVis)
-# library(openfda)
 library(stringr)
 library(plyr)
 library(data.table)
@@ -24,15 +23,22 @@ cv_report_drug <- tbl(hcopen,"cv_report_drug")
 cv_reactions <- tbl(hcopen,"cv_reactions") 
 cv_report_drug_indication <- tbl(hcopen,"cv_report_drug_indication")
 
-#data frames used in DRUGS tab for top 1000 drugs with most reports submitted
-#Fetch top 1000 most-reported ingredients
-source("CopyOfDropdown_Menu_Func.R")
 
 #Fetch top 1000 most-reported brand/drug names
-topbrands <- topdrug_func(n=100)
+topbrands <- cv_report_drug %>%
+  group_by(DRUGNAME) %>%
+  dplyr::summarize(count = n_distinct(REPORT_ID)) %>%
+  top_n(100, count) %>%
+  select(DRUGNAME) %>%
+  as.data.frame()
 
 #Count the number of times each unique value of field patient.reaction.reactionmeddrapt occurs in records matching the search parameters.
-toprxns <- toprxn_func(n=100)
+toprxn <- cv_reactions %>%
+  group_by(PT_NAME_ENG) %>%
+  dplyr::summarize(count = n_distinct(REPORT_ID)) %>%
+  top_n(100, count) %>%
+  select(PT_NAME_ENG) %>%
+  as.data.frame()
 
 
 ############### Create function ###################
