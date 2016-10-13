@@ -285,22 +285,42 @@ server <- function(input, output) {
 
   cv_patients_tab <- reactive({
     input$searchButton
-    #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
-    current_brand <- isolate(ifelse(input$search_brand == "",
-                                    NA,
-                                    input$search_brand))
-    current_rxn <- isolate(ifelse(input$search_rxn == "",
-                                  NA,
-                                  input$search_rxn))
-    current_date_range <- isolate(input$searchDateRange)
-    escape.POSIXt <- dplyr:::escape.Date
+    isolate({
+      #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
+      current_brand <- ifelse(input$search_brand == "", NA, input$search_brand)
+      current_rxn <- ifelse(input$search_rxn == "", NA, input$search_rxn)
+      current_date_range <- input$searchDateRange
 
-    source("DO_Patients_Tab_Func SHe.R")
+      # Import tables with particular search items with method to deal with unspecified search term
+      cv_reports_sorted_pt <- cv_reports %>%
+        select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG, AGE_GROUP_CLEAN) %>%
+        filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
 
-    patients_tab_df <- patients_tab(current_brand=current_brand,current_rxn=current_rxn,current_date_range=current_date_range)
-
-    return(patients_tab_df)
-  })
+      cv_report_drug_pt <- if(is.na(current_brand) == FALSE){
+        cv_report_drug %>%
+          select(REPORT_ID, DRUGNAME) %>%
+          filter(DRUGNAME == current_brand)
+      } else {
+        cv_report_drug %>%
+          select(REPORT_ID, DRUGNAME)
+      }
+      # cv_report_drug_pt <- cv_report_drug_pt[order(cv_report_drug_pt$DRUG_PRODUCT_ID),]  
+      
+      cv_reactions_pt <-if(is.na(current_rxn) == FALSE){
+        cv_reactions %>%
+          select(REPORT_ID, PT_NAME_ENG) %>%
+          filter(PT_NAME_ENG == current_rxn)
+      } else {
+        cv_reactions %>%
+          select(REPORT_ID, PT_NAME_ENG)
+      }
+      patients_tab_df <-cv_reports_sorted_pt%>%
+        semi_join(cv_report_drug_pt) %>%
+        semi_join(cv_reactions_pt) %>%
+        collect()
+      
+      return(patients_tab_df)
+    })})
 
   cv_drug_tab_topdrg <- reactive({
     input$searchButton
