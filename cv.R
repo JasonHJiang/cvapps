@@ -375,25 +375,44 @@ server <- function(input, output) {
   #hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
   cv_reactions_tab <- reactive({
     input$searchButton
-    #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
-    current_brand <- isolate(ifelse(input$search_brand == "",
-                                    NA,
-                                    input$search_brand))
-    current_rxn <- isolate(ifelse(input$search_rxn == "",
-                                  NA,
-                                  input$search_rxn))
-    current_date_range <- isolate(input$searchDateRange)
-    #date_ini <- isolate(as.POSIXct(input$search_date_ini))
-    #date_end <- isolate(as.POSIXct(input$search_date_end))
-
-    escape.POSIXt <- dplyr:::escape.Date
-
-    source("DO_Reactions_Tab_Func SHe.R")
-
-    reactions_tab_df <- reactions_tab(current_brand=current_brand,current_rxn=current_rxn,current_date_range=current_date_range)
-
-    return(reactions_tab_df)
-  })
+    isolate({
+      #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
+      current_brand <- ifelse(input$search_brand == "", NA, input$search_brand)
+      current_rxn <- ifelse(input$search_rxn == "", NA, input$search_rxn)
+      current_date_range <- input$searchDateRange
+      
+      # Import tables with particular search items with method to deal with unspecified search term
+      cv_reports_sorted_rxn <- cv_reports %>%
+        select(REPORT_ID, DATINTRECEIVED_CLEAN, OUTCOME_ENG) %>%
+        filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
+      
+      cv_report_drug_rxn <- if(is.na(current_brand) == FALSE){
+        cv_report_drug %>%
+          select(REPORT_ID,DRUG_PRODUCT_ID,DRUGNAME) %>%
+          filter(DRUGNAME == current_brand)
+      } else {
+        cv_report_drug %>%
+          select(REPORT_ID,DRUG_PRODUCT_ID,DRUGNAME)
+      }
+      cv_reactions_rxn <- if(is.na(current_rxn) == FALSE){
+        cv_reactions %>%
+          select(REPORT_ID, PT_NAME_ENG) %>%
+          filter(PT_NAME_ENG == current_rxn)
+      } else {
+        cv_reactions %>%
+          select(REPORT_ID, PT_NAME_ENG)
+      }
+      
+      # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each OUTCOME_ENG 
+      #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
+      reactions_tab_df <- cv_reports_sorted_rxn %>%
+        semi_join(cv_report_drug_rxn) %>%
+        semi_join(cv_reactions_rxn) %>%
+        select(REPORT_ID, OUTCOME_ENG) %>%
+        collect()
+      
+      reactions_tab_df
+    })})
 #########################################################################################################################################
   
   
