@@ -29,7 +29,7 @@ topbrands <- cv_report_drug %>%
   group_by(DRUGNAME) %>%
   dplyr::summarize(count = n_distinct(REPORT_ID)) %>%
   top_n(100, count) %>%
-  select(DRUGNAME) %>%
+  dplyr::select(DRUGNAME) %>%
   as.data.frame()
 
 #Count the number of times each unique value of field patient.reaction.reactionmeddrapt occurs in records matching the search parameters.
@@ -37,7 +37,7 @@ toprxn <- cv_reactions %>%
   group_by(PT_NAME_ENG) %>%
   dplyr::summarize(count = n_distinct(REPORT_ID)) %>%
   top_n(100, count) %>%
-  select(PT_NAME_ENG) %>%
+  dplyr::select(PT_NAME_ENG) %>%
   as.data.frame()
 
 
@@ -238,24 +238,24 @@ server <- function(input, output) {
     current_date_range <- input$searchDateRange
     
     cv_reports_sorted_rp <- cv_reports %>%
-      select(REPORT_ID, SERIOUSNESS_ENG, REPORTER_TYPE_ENG, DEATH, DISABILITY, CONGENITAL_ANOMALY,LIFE_THREATENING, HOSP_REQUIRED, 
+      dplyr::select(REPORT_ID, SERIOUSNESS_ENG, REPORTER_TYPE_ENG, DEATH, DISABILITY, CONGENITAL_ANOMALY,LIFE_THREATENING, HOSP_REQUIRED, 
              OTHER_MEDICALLY_IMP_COND, DATINTRECEIVED_CLEAN) %>%
       filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
     cv_report_drug_rp <- if(is.na(current_brand) == FALSE){
       cv_report_drug %>%
-        select(REPORT_ID, DRUGNAME) %>%
+        dplyr::select(REPORT_ID, DRUGNAME) %>%
         filter(DRUGNAME == current_brand)
     } else {
       cv_report_drug %>%
-        select(REPORT_ID, DRUGNAME)
+        dplyr::select(REPORT_ID, DRUGNAME)
     }
     cv_reactions_rp <- if(is.na(current_rxn) == FALSE){
       cv_reactions %>%
-        select(REPORT_ID, PT_NAME_ENG) %>%
+        dplyr::select(REPORT_ID, PT_NAME_ENG) %>%
         filter(PT_NAME_ENG == current_rxn)
     } else {
       cv_reactions %>%
-        select(REPORT_ID, PT_NAME_ENG)
+        dplyr::select(REPORT_ID, PT_NAME_ENG)
     }
     
     reports_tab_df <-  cv_reports_sorted_rp%>%

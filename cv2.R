@@ -14,6 +14,7 @@ library(googleVis)
 library(stringr)
 library(utils)
 library(PhViD)
+source("common_ui.R")
 
 
 ########## Codes to fetch top 1000 specific results to be used in dropdown menu ############### 
@@ -32,7 +33,7 @@ cv_report_drug_indication <- tbl(hcopen,"cv_report_drug_indication")
 # adrplot_test <- reports_tab(current_generic="ampicillin",current_brand="PENBRITIN",current_rxn="Urticaria",date_ini=ymd("19650101"),date_end=ymd("20151231"))
 #adrplot_df <- reports_tab(current_generic="ampicillin",current_brand="PENBRITIN",current_rxn="Urticaria",date_ini=ymd("19650101"),date_end=ymd("20151231"))
 
-adrplot <- function(adrplot_test, plottitle){
+adrplot <- function(adrplot_test, plottitle) {
   adrplot_test <- adrplot_test %>% 
     dplyr::select(REPORT_ID,DATINTRECEIVED_CLEAN) %>%
     mutate(plot_date = floor_date(ymd(adrplot_test$DATINTRECEIVED_CLEAN), "month")) %>%
@@ -56,35 +57,6 @@ adrplot <- function(adrplot_test, plottitle){
     theme(plot.title = element_text(lineheight=.8, face="bold"))
   
    #ggplotly(p= plot)
-}
-
-############## Function to create top 100 terms included in the dropdown menu #############
-topingd_func <- function(n){
-  cv_drug_product_ingredients_dm <- cv_drug_product_ingredients %>% dplyr::select(DRUG_PRODUCT_ID,ACTIVE_INGREDIENT_NAME)
-  cv_report_drug_dm <- cv_report_drug %>% dplyr::select(DRUG_PRODUCT_ID,REPORT_ID)
-  
-  topingd <-  dplyr::summarise(group_by(inner_join(cv_report_drug_dm,cv_drug_product_ingredients_dm),ACTIVE_INGREDIENT_NAME),count=n_distinct(REPORT_ID))%>%
-    as.data.frame()
-  topingd_final <-  topingd %>% dplyr::arrange(desc(count)) %>% top_n(n) %>% dplyr::select(ACTIVE_INGREDIENT_NAME)
-  return(topingd_final)
-}
-
-topdrug_func <- function(n){
-  cv_report_drug_dm <- cv_report_drug %>% dplyr::select(REPORT_ID, DRUGNAME)
-  
-  topdrugs <- dplyr::summarise(group_by(cv_report_drug_dm, DRUGNAME),count=n_distinct(REPORT_ID)) %>% as.data.frame()
-  topdrugs_final <- topdrugs %>% arrange(desc(count)) %>% top_n(n) %>% dplyr::select(DRUGNAME)
-  
-  return(topdrugs_final)
-} 
-
-toprxn_func <- function(n){
-  cv_reactions_dm <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
-  
-  toprxn <- dplyr::summarise(group_by(cv_reactions_dm, PT_NAME_ENG),count=n_distinct(REPORT_ID)) %>% as.data.frame()
-  toprxn_final <- toprxn %>% dplyr::arrange(desc(count)) %>% top_n(n) %>% dplyr::select(PT_NAME_ENG)
-  
-  return(toprxn_final)
 }
 
 ################################## Function for Report tab ################################## 
@@ -214,9 +186,7 @@ drugs_tab_indt <- function(current_brand, current_rxn,current_gender, current_da
 }
 
 
-drugs_tab_topdrg <- function(current_brand,current_rxn,current_gender,current_date_range) { 
-  # connect to CV database
-  hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
+drugs_tab_topdrg <- function(current_brand,current_rxn,current_gender,current_date_range) {
 
   df <- drugs_tab_indt(current_brand = current_brand, current_rxn = current_rxn, current_gender =current_gender, current_date_range=current_date_range)
   
@@ -259,8 +229,6 @@ drugs_tab_topdrg <- function(current_brand,current_rxn,current_gender,current_da
 
 ################################## Function for Reactions tab ################################## 
 reactions_tab <- function(current_brand,current_rxn,current_gender,current_date_range) { 
-  # connect to CV database
-  # hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
   
   # Import tables with particular search items with method to deal with unspecified search term
   cv_reports_sorted_rxn <- if(current_gender != "All"){
@@ -437,13 +405,20 @@ download <- function(current_brand,current_rxn,current_gender,current_date_range
 
 ####################### datasets for menu setup ####################### 
 #Fetch top 1000 most-reported brand/drug names
-topbrands <- topdrug_func(n=100)
+topbrands <- cv_report_drug %>%
+  group_by(DRUGNAME) %>%
+  dplyr::summarize(count = n_distinct(REPORT_ID)) %>%
+  top_n(100, count) %>%
+  dplyr::select(DRUGNAME) %>%
+  as.data.frame()
 
 #Fetch top 1000 most-reported reaction names
-toprxns <- toprxn_func(n=100)
-
-#Fetch top 1000 most-reported ingredient names
-topingd <- topingd_func(n=100)
+toprxns <- cv_reactions %>%
+  group_by(PT_NAME_ENG) %>%
+  dplyr::summarize(count = n_distinct(REPORT_ID)) %>%
+  top_n(100, count) %>%
+  dplyr::select(PT_NAME_ENG) %>%
+  as.data.frame()
 
 ########################################################## UI for REPORT Tab shiny ############################################################## 
 ui <- dashboardPage(
@@ -651,14 +626,6 @@ ui <- dashboardPage(
     )
 
 
-############## Server of shiny ########################
-# connect to CV database
-hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
-
-#options(shiny.error = browser)
-# options(shiny.trace = TRUE, shiny.reactlog=TRUE)
-
-
 ############### Server Functions ###################
 server <- function(input, output) {
   # Data frame generate reactive function to be used to assign: data <- cv_reports_tab()
@@ -689,7 +656,6 @@ server <- function(input, output) {
   
   #observe({updatedplyr::selectizeInput(session, )})
   
-  #hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
   cv_search_tab <- reactive({
     input$searchButton
     #codes about dplyr::select specific generic, brand and reaction name in search side bar, making sure they're not NA
@@ -716,7 +682,6 @@ server <- function(input, output) {
     return(search_tab_df)
   })
   
-  #hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
   cv_patients_tab <- reactive({
     input$searchButton
     #codes about dplyr::select specific generic, brand and reaction name in search side bar, making sure they're not NA
@@ -737,7 +702,6 @@ server <- function(input, output) {
     return(patients_tab_df)
   })
   
-  #hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
   cv_drug_tab_topdrg <- reactive({
     input$searchButton
     #codes about dplyr::select specific generic, brand and reaction name in search side bar, making sure they're not NA
@@ -758,7 +722,6 @@ server <- function(input, output) {
     return(drugs_tab_topdrg_df)
   })
   
-  #hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
   cv_drug_tab_indc <- reactive({
     input$searchButton
     #codes about dplyr::select specific generic, brand and reaction name in search side bar, making sure they're not NA
@@ -779,7 +742,6 @@ server <- function(input, output) {
     return(drugs_tab_indt_df)
   })
   
-  #hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
   cv_reactions_tab <- reactive({
     input$searchButton
     #codes about dplyr::select specific generic, brand and reaction name in search side bar, making sure they're not NA
