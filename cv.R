@@ -419,15 +419,18 @@ toprxns <- cv_reactions %>%
 
 ########################################################## UI for REPORT Tab shiny ############################################################## 
 ui <- dashboardPage(
-  dashboardHeader(title = "CV Shiny"),
+  dashboardHeader(title = "CV Shiny (v0.05) WARNING: This is a beta product. DO NOT use as sole evidence to support regulatory decisions.",
+                  titleWidth = 1200),
   dashboardSidebar(
     sidebarMenu(
       menuItem("Reports", tabName = "reportdata", icon = icon("hospital-o")),
       menuItem("Drugs", tabName = "drugdata", icon = icon("flask")),
       menuItem("Patients", tabName = "patientdata", icon = icon("user-md")),
       menuItem("Reactions", tabName = "rxndata", icon = icon("heart-o")),
+      conditionalPanel("false",
       menuItem("Signal Detection", tabName = "DISPdata", icon = icon("fa fa-binoculars")),
-      menuItem("Download", tabName = "downloaddata", icon = icon("fa fa-download")),
+      menuItem("Download", tabName = "downloaddata", icon = icon("fa fa-download"))
+      ),
       menuItem("About", tabName = "aboutinfo", icon = icon("info"))
     ),
     selectizeInput("search_brand", 
@@ -449,13 +452,17 @@ ui <- dashboardPage(
                    end = Sys.Date(),
                    startview = "year",
                    format = "yyyy-mm-dd"),
+    conditionalPanel("false",
     selectizeInput("search_gender",
                    "Gender",
                    choices = c("All", "Male", "Female"),  #"Not specified", "Unknown"
                    options = list(create = TRUE,
                                   placeholder = 'Please select an option below',
-                                  onInitialize = I('function() { this.setValue(""); }'))),
-    actionButton("searchButton", "Search"),
+                                  onInitialize = I('function() { this.setValue(""); }')))
+    ),
+    actionButton("searchButton",
+                 "Search",
+                 width = '100%'),
     tags$br(),
     tags$h3(strong("Current Query:")),
     tableOutput("current_search")
@@ -494,22 +501,22 @@ ui <- dashboardPage(
                 box(htmlOutput("sexplot"),
                     tags$br(),
                     tags$p("Unknown includes reports explicitly marked unknown and Not Specified includes reports with no gender information."),
-                    title = tags$h2("Gender"), width = 4),
+                    title = tags$h2("Gender"), width = 3),
                 box(htmlOutput("agegroupplot"),
                     tags$br(),
                     tags$p("Unknown includes reports with no age information."), 
-                    title = tags$h2("Age Groups"), width = 4),
-                box(plotlyOutput("agehist"), title = tags$h2("Age Histogram"), width = 4)
+                    title = tags$h2("Age Groups"), width = 3),
+                box(plotlyOutput("agehist"), title = tags$h2("Age Histogram"), width = 6)
               )
       ),
       tabItem(tabName = "drugdata",
               fluidRow(
                 box(plotOutput("indicationplot"),
                     tags$br(),
-                    tags$p("This plot includes top_10 indications for drugs associated with the matching reports."), width = 4),
+                    tags$p("This plot includes top_10 indications for drugs associated with the matching reports."), width = 6),
                 box(plotOutput("drugplot"),
                     tags$br(),
-                    tags$p("This plot includes top_10 most-reported drugs with most-reported indication assocaiated with the seached drug."), width = 4)
+                    tags$p("This plot includes top_10 most-reported drugs with most-reported indication assocaiated with the seached drug."), width = 6)
               )
       ),
       tabItem(tabName = "rxndata",
