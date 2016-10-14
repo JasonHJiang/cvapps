@@ -85,7 +85,8 @@ format1K <- function(x){
 
 #### UI ####
 ui <- dashboardPage(
-  dashboardHeader(title = "Shiny FAERS (v0.05)"),
+  dashboardHeader(title = titleWarning("Shiny FAERS (v0.05)"),
+                  titleWidth = 700),
   dashboardSidebar(
     sidebarMenu(
       menuItem("Reports", tabName = "reportdata", icon = icon("hospital-o")),
@@ -123,6 +124,7 @@ ui <- dashboardPage(
   ),
   
   dashboardBody(
+    customCSS(),
     fluidRow(
       box(plotlyOutput(outputId = "timeplot"),
           tags$br(),

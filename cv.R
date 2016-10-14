@@ -419,8 +419,8 @@ toprxns <- cv_reactions %>%
 
 ########################################################## UI for REPORT Tab shiny ############################################################## 
 ui <- dashboardPage(
-  dashboardHeader(title = "CV Shiny (v0.05) WARNING: This is a beta product. DO NOT use as sole evidence to support regulatory decisions.",
-                  titleWidth = 1200),
+  dashboardHeader(title = titleWarning("CV Shiny (v0.05)"),
+                  titleWidth = 700),
   dashboardSidebar(
     sidebarMenu(
       menuItem("Reports", tabName = "reportdata", icon = icon("hospital-o")),
@@ -469,6 +469,7 @@ ui <- dashboardPage(
   ), 
   
   dashboardBody(
+    customCSS(),
     fluidRow(
       box(plotlyOutput(outputId = "timeplot"),
           tags$br(),

@@ -1,3 +1,20 @@
+titleWarning <- function(title) {
+  list(title, span(
+  "WARNING: This is a beta product. DO NOT use", br(),
+  "as sole evidence to support regulatory decisions."))
+}
+
+customCSS <- function() {
+  tags$head(tags$style(HTML('
+.main-header .logo span {
+  display: inline-block;
+  line-height: normal;
+  vertical-align: middle;
+  font-size: smaller;
+  padding-left: inherit;
+}
+')))
+}
 
 aboutAuthors <- function() {list(
   tags$strong("Authors:"),
