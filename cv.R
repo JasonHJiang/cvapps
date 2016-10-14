@@ -10,10 +10,8 @@ library(plotly)
 library(shiny)
 library(DT)
 library(googleVis)
-# library(openfda)
 library(stringr)
 library(utils)
-library(PhViD)
 source("common_ui.R")
 
 
@@ -103,33 +101,16 @@ patients_tab <- function( current_brand, current_rxn,current_gender,current_date
 ################################## Function for Drug tab ################################## 
 drugs_tab_indt <- function(current_brand, current_rxn,current_gender, current_date_range) { 
   # Import tables with particular search items
-  cv_reports_sorted_drg <- if(current_gender != "All"){
-    cv_reports %>%
-      dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG) %>%
-      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2], GENDER_ENG == current_gender) 
-  } else {
-    cv_reports %>%
-      dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG) %>%
-      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
-  }
+  cv_reports_sorted_drg <- cv_reports %>%
+    dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG) %>%
+    filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
+  if(current_gender != "All") cv_reports_sorted_drg %<>% filter(GENDER_ENG == current_gender)
   
-  cv_report_drug_drg <- if(is.na(current_brand) == FALSE){
-    cv_report_drug %>%
-      dplyr::select(REPORT_ID,DRUGNAME) %>%
-      filter(DRUGNAME == current_brand)
-  } else {
-    cv_report_drug %>%
-      dplyr::select(REPORT_ID,DRUGNAME)
-  }
+  cv_report_drug_drg <- cv_report_drug %>% dplyr::select(REPORT_ID, DRUGNAME)
+  if(is.na(current_brand) == FALSE) cv_report_drug_drg %<>% filter(DRUGNAME == current_brand)
   
-  cv_reactions_drg <- if(is.na(current_rxn) == FALSE){
-    cv_reactions %>%
-      dplyr::select(REPORT_ID, PT_NAME_ENG) %>%
-      filter(PT_NAME_ENG == current_rxn)
-  } else {
-    cv_reactions %>%
-      dplyr::select(REPORT_ID, PT_NAME_ENG)
-  }
+  cv_reactions_drg <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
+  if(is.na(current_rxn) == FALSE) cv_reactions_drg %<>% filter(PT_NAME_ENG == current_rxn)
   
   cv_report_drug_indication_drg <- cv_report_drug_indication %>% dplyr::select(REPORT_ID, INDICATION_NAME_ENG)
   
@@ -152,34 +133,24 @@ drugs_tab_indt <- function(current_brand, current_rxn,current_gender, current_da
 drugs_tab_topdrg <- function(current_brand,current_rxn,current_gender,current_date_range) {
 
   df <- drugs_tab_indt(current_brand = current_brand, current_rxn = current_rxn, current_gender =current_gender, current_date_range=current_date_range)
-  
-  indications <-  dplyr::summarise(group_by(df, INDICATION_NAME_ENG),count=n_distinct(REPORT_ID))
-  top_indications<- indications %>% arrange(desc(count)) %>% top_n(n=1) %>% dplyr::select(INDICATION_NAME_ENG)
+  indications <- df %>%
+    group_by(INDICATION_NAME_ENG) %>%
+    dplyr::summarise(count=n_distinct(REPORT_ID))
+  top_indications <- indications %>% arrange(desc(count)) %>% top_n(n=1) %>% dplyr::select(INDICATION_NAME_ENG)
   top_indications_final <- top_indications$INDICATION_NAME_ENG
-  
   
   # indication import
   cv_report_drug_indication_drg <- cv_report_drug_indication %>%
     dplyr::select(REPORT_ID, INDICATION_NAME_ENG, DRUGNAME) %>%
     filter(INDICATION_NAME_ENG == top_indications_final)
-  cv_reports_sorted_drg <- if(current_gender != "All"){
-    cv_reports %>%
-      dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG) %>%
-      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2], GENDER_ENG == current_gender)
-  } else{
-    cv_reports %>%
-      dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG) %>%
-      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
-  }
   
-  cv_report_drug_drg <- if(is.na(current_brand) == FALSE){
-    cv_report_drug %>%
-      dplyr::select(REPORT_ID,DRUGNAME) %>%
-      filter(DRUGNAME != current_brand)
-  } else {
-    cv_report_drug %>%
-      dplyr::select(REPORT_ID,DRUGNAME)
-  }
+  cv_reports_sorted_drg <- cv_reports %>%
+    dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG) %>%
+    filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
+  if(current_gender != "All") cv_reports_sorted_drg %<>% filter(GENDER_ENG == current_gender)
+  
+  cv_report_drug_drg <- cv_report_drug %>% dplyr::select(REPORT_ID, DRUGNAME)
+  if(is.na(current_brand) == FALSE) cv_report_drug_drg %<>% filter(DRUGNAME != current_brand)
   
   drugs_tab_topdrg <- cv_reports_sorted_drg %>% 
     inner_join(cv_report_drug_drg)%>%

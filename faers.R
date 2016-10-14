@@ -163,28 +163,28 @@ ui <- dashboardPage(
                 box(htmlOutput("sexplot"),
                     tags$br(),
                     tags$p("Unknown includes both reports explicitly marked unknown and reports with no gender information."),
-                    title = tags$h2("Gender"), width = 4),
+                    title = tags$h2("Gender"), width = 3),
                 box(htmlOutput("agegroupplot"),
                     tags$br(),
                     tags$p("Unknown includes reports with no age information."), 
-                    title = tags$h2("Age Groups"), width = 4),
-                box(plotlyOutput("agehist"), title = tags$h2("Age Histogram"), width = 4)
+                    title = tags$h2("Age Groups"), width = 3),
+                box(plotlyOutput("agehist"), title = tags$h2("Age Histogram"), width = 6)
               )
       ),
       tabItem(tabName = "drugdata",
               fluidRow(
-                box(plotOutput("indicationplot"),
+                box(plotlyOutput("indicationplot"),
                     tags$p("This plot includes all indications for all drugs associated with the matching reports.
                            The open.fda.gov search API does not allow searching or filtering within drugs.
                            The search query filters unique reports, which may have one or more drugs associated with them.
                            It is not currently possible to search for only those indications associated with a specific drug.
                            "), width = 6),
-                box(plotOutput("drugplot"),
+                box(plotlyOutput("drugplot"),
                     tags$p("This plot includes all drugs associated with the matching reports, except the search term.
                            The open.fda.gov search API does not allow searching or filtering within drugs.
                            The search query filters unique reports, which may have one or more drugs associated with them.
                            It is not currently possible to retrieve correlations between drugs."), width = 6),
-                box(plotOutput("drugclassplot"),
+                box(plotlyOutput("drugclassplot"),
                     tags$p("This plot includes all drug classes associated with the matching reports, including the search term.
                            The total number of instances for each class will be geater 
                            than the number of reports when reports include more than one drug of the same class.
@@ -214,28 +214,17 @@ server <- function(input, output) {
   faers_query <- reactive({
     input$searchButton
     isolate({
-    current_generic <- ifelse(input$search_generic == "",
-                                      NA,
-                                      input$search_generic) %>% 
-                                 str_replace_all(" ", "+")
-    current_brand <- ifelse(input$search_brand == "",
-                                    NA,
-                                    input$search_brand) %>% str_replace_all(" ", "+")
-    current_rxn <- ifelse(input$search_rxn == "",
-                                  NA,
-                                  input$search_rxn) %>% str_replace_all(" ", "+")
+    current_generic <- ifelse(input$search_generic == "", NA, input$search_generic) %>% str_replace_all(" ", "+")
+    current_brand <- ifelse(input$search_brand == "", NA, input$search_brand) %>% str_replace_all(" ", "+")
+    current_rxn <- ifelse(input$search_rxn == "", NA, input$search_rxn) %>% str_replace_all(" ", "+")
     current_date_range <- input$searchDateRange
-    querydate <- paste0("[",
-                        paste(current_date_range, collapse = "+TO+"),
-                        "]")
+    querydate <- paste0("[", paste(current_date_range, collapse = "+TO+"), "]")
+    
     openfda_query <- fda_query("/drug/event.json") %>%
       fda_filter("receivedate", querydate)
-    if(!is.na(current_generic)) openfda_query <- openfda_query %>%
-      fda_filter("patient.drug.openfda.generic_name.exact", paste0('"', current_generic, '"'))
-    if(!is.na(current_brand)) openfda_query <- openfda_query %>%
-      fda_filter("patient.drug.openfda.brand_name.exact", paste0('"', current_brand, '"'))
-    if(!is.na(current_rxn)) openfda_query <- openfda_query %>%
-      fda_filter("patient.reaction.reactionmeddrapt.exact", paste0('"', current_rxn, '"'))
+    if(!is.na(current_generic)) openfda_query %<>% fda_filter("patient.drug.openfda.generic_name.exact", paste0('"', current_generic, '"'))
+    if(!is.na(current_brand)) openfda_query %<>% fda_filter("patient.drug.openfda.brand_name.exact", paste0('"', current_brand, '"'))
+    if(!is.na(current_rxn)) openfda_query %<>% fda_filter("patient.reaction.reactionmeddrapt.exact", paste0('"', current_rxn, '"'))
     
     query_url <- openfda_query %>% fda_search() %>% fda_url()
     
@@ -606,8 +595,7 @@ server <- function(input, output) {
     
   })
   
-  output$drugplot <- renderPlot({
-    
+  output$drugplot <- renderPlotly({
     data <- faers_query()
     
     drugs <- data$openfda_query %>%
@@ -629,10 +617,10 @@ server <- function(input, output) {
       theme(plot.title = element_text(lineheight=.8, face="bold"), 
             legend.position = "none") +
       scale_y_continuous(labels = format1K)
-    p
+    ggplotly(p)
   })
   
-  output$drugclassplot <- renderPlot({
+  output$drugclassplot <- renderPlotly({
     data <- faers_query()
     
     drugclass <- data$openfda_query %>%
@@ -653,7 +641,7 @@ server <- function(input, output) {
       theme(plot.title = element_text(lineheight=.8, face="bold"), 
             legend.position = "none") +
       scale_y_continuous(labels = format1K)
-    p
+    ggplotly(p)
   })
   
   output$outcomeplot <- renderGvis({
@@ -674,7 +662,7 @@ server <- function(input, output) {
                  options = list(pieHole = 0.4))
   })
   
-  output$indicationplot <- renderPlot({
+  output$indicationplot <- renderPlotly({
     data <- faers_query()
     
     indications <- data$openfda_query %>%
@@ -695,14 +683,8 @@ server <- function(input, output) {
       theme(plot.title = element_text(lineheight=.8, face="bold"), 
             legend.position = "none") +
       scale_y_continuous(labels = format1K)
-    p
+    ggplotly(p)
   })
-  
-  #   output$indicationstable
-  #   output$drugclassestable
-  #   output$drugstable
-  #   output$aerchart
-  #   output$aertermstable
   
   }
 
