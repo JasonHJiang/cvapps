@@ -55,40 +55,21 @@ adrplot <- function(adrplot_test, plottitle) {
     ylab("Number of Reports") +
     theme_bw() +
     theme(plot.title = element_text(lineheight=.8, face="bold"))
-  
-   #ggplotly(p= plot)
 }
 
 ################################## Function for Report tab ################################## 
-reports_tab <- function(current_brand,current_rxn,current_gender,current_date_range) { 
-  cv_reports_sorted_rp <- if(current_gender != "All"){
-    cv_reports %>%
-      dplyr::select(REPORT_ID, SERIOUSNESS_ENG, REPORTER_TYPE_ENG, DEATH, DISABILITY, CONGENITAL_ANOMALY,LIFE_THREATENING, HOSP_REQUIRED, 
-                    OTHER_MEDICALLY_IMP_COND, DATINTRECEIVED_CLEAN, GENDER_ENG) %>%
-      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2], GENDER_ENG == current_gender)
-  } else {
-    cv_reports %>%
-      dplyr::select(REPORT_ID, SERIOUSNESS_ENG, REPORTER_TYPE_ENG, DEATH, DISABILITY, CONGENITAL_ANOMALY,LIFE_THREATENING, HOSP_REQUIRED, 
-                    OTHER_MEDICALLY_IMP_COND, DATINTRECEIVED_CLEAN,GENDER_ENG) %>%
-      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
-  }
+reports_tab <- function(current_brand,current_rxn,current_gender,current_date_range) {
+  cv_reports_sorted_rp <- cv_reports %>%
+    dplyr::select(REPORT_ID, SERIOUSNESS_ENG, REPORTER_TYPE_ENG, DEATH, DISABILITY, CONGENITAL_ANOMALY,LIFE_THREATENING, HOSP_REQUIRED, 
+                  OTHER_MEDICALLY_IMP_COND, DATINTRECEIVED_CLEAN,GENDER_ENG) %>%
+    filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
+  if (current_gender != "All") cv_reports_sorted_rp %<>% filter(GENDER_ENG == current_gender)
   
-  cv_report_drug_rp <- if(is.na(current_brand) == FALSE){
-    cv_report_drug %>%
-      dplyr::select(REPORT_ID, DRUGNAME) %>%
-      filter(DRUGNAME == current_brand)
-  } else {
-    cv_report_drug %>%
-      dplyr::select(REPORT_ID, DRUGNAME)
-  }
-  cv_reactions_rp <- if(is.na(current_rxn) == FALSE){
-    cv_reactions %>%
-      dplyr::select(REPORT_ID, PT_NAME_ENG) %>%
-      filter(PT_NAME_ENG == current_rxn)
-  } else {
-    cv_reactions %>%
-      dplyr::select(REPORT_ID, PT_NAME_ENG)
-  }
+  cv_report_drug_rp <- cv_report_drug %>% dplyr::select(REPORT_ID, DRUGNAME)
+  if (is.na(current_brand) == FALSE) cv_report_drug_rp %<>% filter(DRUGNAME == current_brand)
+ 
+  cv_reactions_rp <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
+  if (current_gender != "All") cv_reactions_rp %<>% filter(PT_NAME_ENG == current_rxn)
   
   reports_tab_master <-  cv_reports_sorted_rp%>%
     semi_join(cv_report_drug_rp) %>%
@@ -100,33 +81,17 @@ reports_tab <- function(current_brand,current_rxn,current_gender,current_date_ra
 ################################## Function for Patient tab ################################## 
 patients_tab <- function( current_brand, current_rxn,current_gender,current_date_range) { 
   # Import tables with particular search items with method to deal with unspecified search term
-  cv_reports_sorted_pt <- if(current_gender != "All"){
-    cv_reports %>%
-      dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG, AGE_Y,AGE_GROUP_CLEAN) %>%
-      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2], GENDER_ENG == current_gender)
-  } else {
-    cv_reports %>%
-      dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG, AGE_Y,AGE_GROUP_CLEAN) %>%
-      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])  
-  }
+  cv_reports_sorted_pt <- cv_reports %>%
+    dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG, AGE_Y,AGE_GROUP_CLEAN) %>%
+    filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
+  if(current_gender != "All") cv_reports_sorted_pt %<>% filter(GENDER_ENG == current_gender)
   
-  cv_report_drug_pt <- if(is.na(current_brand) == FALSE){
-    cv_report_drug %>%
-      dplyr::select(REPORT_ID, DRUGNAME) %>%
-      filter(DRUGNAME == current_brand)
-  } else {
-    cv_report_drug %>%
-      dplyr::select(REPORT_ID, DRUGNAME)
-  }
+  cv_report_drug_pt <- cv_report_drug %>% dplyr::select(REPORT_ID, DRUGNAME)
+  if(is.na(current_brand) == FALSE) cv_report_drug_pt %<>% filter(DRUGNAME == current_brand)
   
-  cv_reactions_pt <-if(is.na(current_rxn) == FALSE){
-    cv_reactions %>%
-      dplyr::select(REPORT_ID, PT_NAME_ENG) %>%
-      filter(PT_NAME_ENG == current_rxn)
-  } else {
-    cv_reactions %>%
-      dplyr::select(REPORT_ID, PT_NAME_ENG)
-  }
+  cv_reactions_pt <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
+  if(is.na(current_rxn) == FALSE) cv_reactions_pt %<>% filter(PT_NAME_ENG == current_rxn)
+  
   patients_tab_master <-cv_reports_sorted_pt%>%
     semi_join(cv_report_drug_pt) %>%
     semi_join(cv_reactions_pt) %>%
@@ -174,7 +139,7 @@ drugs_tab_indt <- function(current_brand, current_rxn,current_gender, current_da
   
   # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name 
   #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq) 
-  drugs_tab_indication <- cv_reports_sorted_drg%>%
+  drugs_tab_indication <- cv_reports_sorted_drg %>%
     semi_join(cv_report_drug_drg, by="REPORT_ID") %>% 
     semi_join(cv_reactions_drg, by="REPORT_ID") %>%
     inner_join(cv_report_drug_indication_drg) %>%
@@ -229,33 +194,17 @@ drugs_tab_topdrg <- function(current_brand,current_rxn,current_gender,current_da
 reactions_tab <- function(current_brand,current_rxn,current_gender,current_date_range) { 
   
   # Import tables with particular search items with method to deal with unspecified search term
-  cv_reports_sorted_rxn <- if(current_gender != "All"){
-    cv_reports %>%
+  cv_reports_sorted_rxn <- cv_reports %>%
       dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, OUTCOME_ENG,GENDER_ENG) %>%
-      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2]) %>%
-      filter(GENDER_ENG == current_gender)
-  } else {
-    cv_reports %>%
-      dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, OUTCOME_ENG,GENDER_ENG) %>%
-      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])  
-  } 
+      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
+  if(current_gender != "All") cv_reports_sorted_rxn %<>% filter(GENDER_ENG == current_gender)
   
-  cv_report_drug_rxn <- if(is.na(current_brand) == FALSE){
-    cv_report_drug %>%
-      dplyr::select(REPORT_ID,DRUG_PRODUCT_ID,DRUGNAME) %>%
-      filter(DRUGNAME == current_brand)
-  } else {
-    cv_report_drug %>%
-      dplyr::select(REPORT_ID,DRUG_PRODUCT_ID,DRUGNAME)
-  }
-  cv_reactions_rxn <- if(is.na(current_rxn) == FALSE){
-    cv_reactions %>%
-      dplyr::select(REPORT_ID, PT_NAME_ENG) %>%
-      filter(PT_NAME_ENG == current_rxn)
-  } else {
-    cv_reactions %>%
-      dplyr::select(REPORT_ID, PT_NAME_ENG)
-  }
+  cv_report_drug_rxn <- cv_report_drug %>% dplyr::select(REPORT_ID,DRUG_PRODUCT_ID,DRUGNAME)
+  if(is.na(current_brand) == FALSE) cv_report_drug_rxn %<>% filter(DRUGNAME == current_brand)
+  
+  
+  cv_reactions_rxn <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
+  if(is.na(current_rxn) == FALSE) cv_reactions_rxn %<>% filter(PT_NAME_ENG == current_rxn)
   
   # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each OUTCOME_ENG 
   #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
@@ -270,24 +219,28 @@ reactions_tab <- function(current_brand,current_rxn,current_gender,current_date_
 
 
 
-drugs_rxn <- function(current_brand,current_date_range){
+drugs_rxn <- function(current_brand, current_date_range) {
+  cv_reactions_rxn <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
+  
   if(is.na(current_brand) == FALSE){
     cv_report_drug_rxn <- cv_report_drug %>%
       dplyr::select(REPORT_ID,DRUGNAME) %>%
       filter(DRUGNAME == current_brand)
-    
-    cv_reactions_rxn <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
-    
     drugs_rxn_df <- cv_reactions_rxn %>% inner_join(cv_report_drug_rxn) %>% as.data.frame()
-    drugs_rxn_result <- dplyr::summarise(group_by(drugs_rxn_df, DRUGNAME,PT_NAME_ENG),count=n_distinct(REPORT_ID))%>% 
-      dplyr::arrange(desc(count))%>%
+    drugs_rxn_result <- drugs_rxn_df %>%
+      group_by(DRUGNAME,PT_NAME_ENG) %>%
+      dplyr::summarise(count = n_distinct(REPORT_ID)) %>%
+      dplyr::arrange(desc(count)) %>%
       top_n(10) %>%
       as.data.frame()
   } else {
-    cv_reactions_rxn  <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
-    
-    toprxn <- dplyr::summarise(group_by(cv_reactions_rxn, PT_NAME_ENG),count=n_distinct(REPORT_ID))
-    drugs_rxn_result <- toprxn %>% dplyr::arrange(desc(count)) %>% top_n(10) %>% dplyr::select(PT_NAME_ENG, count) %>% as.data.frame()
+    drugs_rxn_result <- cv_reactions_rxn %>%
+      group_by(PT_NAME_ENG) %>%
+      dplyr::summarise(count = n_distinct(REPORT_ID)) %>%
+      dplyr::arrange(desc(count)) %>%
+      top_n(10) %>%
+      dplyr::select(PT_NAME_ENG, count) %>%
+      as.data.frame()
   }
   
   return(drugs_rxn_result)
@@ -427,10 +380,7 @@ ui <- dashboardPage(
       menuItem("Drugs", tabName = "drugdata", icon = icon("flask")),
       menuItem("Patients", tabName = "patientdata", icon = icon("user-md")),
       menuItem("Reactions", tabName = "rxndata", icon = icon("heart-o")),
-      conditionalPanel("false",
-      menuItem("Signal Detection", tabName = "DISPdata", icon = icon("fa fa-binoculars")),
-      menuItem("Download", tabName = "downloaddata", icon = icon("fa fa-download"))
-      ),
+      menuItem("Download", tabName = "downloaddata", icon = icon("fa fa-download")),
       menuItem("About", tabName = "aboutinfo", icon = icon("info"))
     ),
     selectizeInput("search_brand", 
@@ -452,14 +402,12 @@ ui <- dashboardPage(
                    end = Sys.Date(),
                    startview = "year",
                    format = "yyyy-mm-dd"),
-    conditionalPanel("false",
     selectizeInput("search_gender",
                    "Gender",
                    choices = c("All", "Male", "Female"),  #"Not specified", "Unknown"
                    options = list(create = TRUE,
                                   placeholder = 'Please select an option below',
-                                  onInitialize = I('function() { this.setValue(""); }')))
-    ),
+                                  onInitialize = I('function() { this.setValue(""); }'))),
     actionButton("searchButton",
                  "Search",
                  width = '100%'),
@@ -512,10 +460,10 @@ ui <- dashboardPage(
       ),
       tabItem(tabName = "drugdata",
               fluidRow(
-                box(plotOutput("indicationplot"),
+                box(plotlyOutput("indicationplot"),
                     tags$br(),
                     tags$p("This plot includes top_10 indications for drugs associated with the matching reports."), width = 6),
-                box(plotOutput("drugplot"),
+                box(plotlyOutput("drugplot"),
                     tags$br(),
                     tags$p("This plot includes top_10 most-reported drugs with most-reported indication assocaiated with the seached drug."), width = 6)
               )
@@ -524,18 +472,6 @@ ui <- dashboardPage(
               fluidRow(
                 box(htmlOutput("outcomeplot"), title = tags$h2("Outcomes (all reactions)")),
                 box(htmlOutput("rxnTbl"), title = tags$h2("Top10 Reactions Associated with Searched Drug"))
-              )
-      ),
-      tabItem(tabName = "DISPdata",
-              fluidRow(
-                box(
-                  htmlOutput("signalplot_BCPNN"), title = tags$h2("Top 10 Signals Detected By BCPNN Method"),width=4.5,
-                  tags$p("BCPNN method detects signals based on Information Component (IC) which evaluate the association between each Drug*AR pair. Those ICs are then sorted based on strength of the signals. Details about this method are explained in the About Tab.")
-                ),
-                box(
-                  htmlOutput("signalplot_PRR"), title = tags$h2("Top 10 Signals Detected By PRR Method"),width=4.5,
-                  tags$p("PRR method detects signals based on Proportional Reporting Ratio (PRR) which detects more-frequently-reported Drug*AR pairs. Those PRR are then sorted based on their respective strengths. Details about this method are explained in the About Tab.")
-                )
               )
       ),
       
@@ -595,6 +531,26 @@ ui <- dashboardPage(
 ############### Server Functions ###################
 server <- function(input, output) {
   # Data frame generate reactive function to be used to assign: data <- cv_reports_tab()
+  cv_search_tab <- reactive({
+    input$searchButton
+    isolate({
+      #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
+      current_brand <- ifelse(input$search_brand == "", NA, input$search_brand)
+      current_rxn <- ifelse(input$search_rxn == "", NA, input$search_rxn)
+      current_gender <- ifelse(input$search_gender == "", "All", input$search_gender)
+      current_date_range <- input$searchDateRange
+      
+      search_tab_df <- data.frame(names = c("Brand Name:",
+                                            "Adverse Reaction Term:",
+                                            "Gender",
+                                            "Date Range:"),
+                                  terms = c(current_brand,current_rxn,current_gender,paste(current_date_range[1]," to ", current_date_range[2])),
+                                  stringsAsFactors=FALSE)
+      
+      search_tab_df$terms[is.na(search_tab_df$terms) == TRUE] <- "Not Specified (All)"
+      return(search_tab_df)
+    })})
+  
   cv_reports_tab <- reactive({
     input$searchButton
     isolate({
@@ -608,34 +564,6 @@ server <- function(input, output) {
     
     return(reports_tab_df)
   })})
-  
-  # sample datasets of what is being graphed/used
-  #output$outputReports <- renderTable({
-  #  cv_reports_tab()[1:4,c("ACTIVE_INGREDIENT_NAME","DRUGNAME","DATINTRECEIVED_CLEAN","PT_NAME_ENG")]
-  #})
-  
-  #observe({updatedplyr::selectizeInput(session, )})
-  
-  cv_search_tab <- reactive({
-    input$searchButton
-    isolate({
-      #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
-      current_brand <- ifelse(input$search_brand == "", NA, input$search_brand)
-      current_rxn <- ifelse(input$search_rxn == "", NA, input$search_rxn)
-      current_gender <- ifelse(input$search_gender == "", "All", input$search_gender)
-      current_date_range <- input$searchDateRange
-      
-    search_tab_df <- data.frame(names = c("Brand Name:",
-                                          "Adverse Reaction Term:",
-                                          "Gender",
-                                          "Date Range:"),
-                                terms = c(current_brand,current_rxn,current_gender,paste(current_date_range[1]," to ", current_date_range[2])),
-                                stringsAsFactors=FALSE)
-    
-    search_tab_df$terms[is.na(search_tab_df$terms) == TRUE] <- "Not Specified (All)"
-    return(search_tab_df)
-  })})
-  
   cv_patients_tab <- reactive({
     input$searchButton
     isolate({
@@ -649,7 +577,6 @@ server <- function(input, output) {
     
     return(patients_tab_df)
   })})
-  
   cv_drug_tab_topdrg <- reactive({
     input$searchButton
     isolate({
@@ -663,7 +590,6 @@ server <- function(input, output) {
     
     return(drugs_tab_topdrg_df)
   })})
-  
   cv_drug_tab_indc <- reactive({
     input$searchButton
     isolate({
@@ -676,7 +602,6 @@ server <- function(input, output) {
       
       return(drugs_tab_indt_df)
     })})
-  
   cv_reactions_tab <- reactive({
     input$searchButton
     isolate({
@@ -689,7 +614,6 @@ server <- function(input, output) {
       
       return(reactions_tab_df)
     })})
-  
   cv_reactions_tbl <- reactive({
     input$searchButton
     isolate({
@@ -702,28 +626,25 @@ server <- function(input, output) {
     })})
   
   
+  
+  
   cv_download_DISP <- reactive({
     input$searchDISPButton
     current_date_range <- isolate(input$searchDateRange_DISP)
     escape.POSIXt <- dplyr:::escape.Date
-    
     part1 <-cv_drug_product_ingredients %>% dplyr::select(DRUG_PRODUCT_ID,ACTIVE_INGREDIENT_NAME) %>% left_join(cv_report_drug) %>% 
       dplyr::select(REPORT_ID,ACTIVE_INGREDIENT_NAME) %>% 
       left_join(cv_reactions) %>% dplyr::select(REPORT_ID,ACTIVE_INGREDIENT_NAME, PT_NAME_ENG) #%>% as.data.table(n=-1)
-    
     part2 <- cv_reports  %>% 
       filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2]) %>%
       dplyr::select(REPORT_ID,DATINTRECEIVED_CLEAN) #%>% as.data.table(n=-1)
-    
     DISP_final <- dplyr::summarise(group_by(semi_join(part1,part2),ACTIVE_INGREDIENT_NAME,PT_NAME_ENG), count = n_distinct(REPORT_ID)) %>% as.data.frame()
-    
     DISP_date_range <- as.data.frame(
       paste("Data Range: ", current_date_range[1], "to", current_date_range[2])
     )
     DISP_final_size <- as.data.frame(
       paste("Size of Dataset for Dispropotionality Analysis is ",round(as.numeric(object.size(DISP_final))/1000000,digits=0),"MB")
     )
-    
     return(list(DISP_final <- DISP_final,
                 DISP_date_range <- DISP_date_range,
                 DISP_final_size <- DISP_final_size))
@@ -760,57 +681,7 @@ server <- function(input, output) {
                   reports_tab_master_size <- reports_tab_master_size)) 
     })})
   
-  
-  ############################## DISP tab ##############################
-  # BCPNN
-  cv_disp_BCPNN <- reactive({
-    input$DISPButton
-    current_date_range <- isolate(input$searchDateRange_DISP_ANALYSIS)
-    #current_date_range <- c(ymd("20000401", ymd("20000630")))
-    escape.POSIXt <- dplyr:::escape.Date
-    
-    part1 <-cv_drug_product_ingredients %>% dplyr::select(DRUG_PRODUCT_ID,ACTIVE_INGREDIENT_NAME) %>% left_join(cv_report_drug) %>% 
-      dplyr::select(REPORT_ID,ACTIVE_INGREDIENT_NAME) %>% 
-      left_join(cv_reactions) %>% dplyr::select(REPORT_ID,ACTIVE_INGREDIENT_NAME, PT_NAME_ENG) #%>% as.data.table(n=-1)
-    
-    part2 <- cv_reports  %>% 
-      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2]) %>%
-      dplyr::select(REPORT_ID,DATINTRECEIVED_CLEAN) #%>% as.data.table(n=-1)
-    
-    DISP_final <- dplyr::summarise(group_by(semi_join(part1,part2),ACTIVE_INGREDIENT_NAME,PT_NAME_ENG), count = n_distinct(REPORT_ID)) %>% as.data.frame()
-    
-    bayes_table <- as.PhViD(DISP_final, MARGIN.THRES = 1) 
-    bayes_result <- BCPNN(bayes_table, RR0 = 1, MIN.n11 = 3, DECISION = 3,DECISION.THRES = 0.05, RANKSTAT = 2, MC=FALSE)
-    
-    signals <- as.data.frame(bayes_result$SIGNAL) 
-    signals_final <- signals %>% mutate(D_AR_Comb = paste(signals$`drug code`, " * ", signals$`event effect`))
-    return(signals_final)
-  })
-  
-  # PRR
-  cv_disp_PRR <- reactive({
-    input$DISPButton
-    current_date_range <- isolate(input$searchDateRange_DISP_ANALYSIS)
-    escape.POSIXt <- dplyr:::escape.Date
-    
-    part1 <-cv_drug_product_ingredients %>% dplyr::select(DRUG_PRODUCT_ID,ACTIVE_INGREDIENT_NAME) %>% left_join(cv_report_drug) %>% 
-      dplyr::select(REPORT_ID,ACTIVE_INGREDIENT_NAME) %>% 
-      left_join(cv_reactions) %>% dplyr::select(REPORT_ID,ACTIVE_INGREDIENT_NAME, PT_NAME_ENG) #%>% as.data.table()
-    
-    part2 <- cv_reports  %>% 
-      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2]) %>%
-      dplyr::select(REPORT_ID,DATINTRECEIVED_CLEAN) #%>% as.data.table()
-    
-    DISP_final <- dplyr::summarise(group_by(semi_join(part1,part2),ACTIVE_INGREDIENT_NAME,PT_NAME_ENG), count = n_distinct(REPORT_ID)) %>% as.data.frame()
-    
-    bayes_table_PRR <- as.PhViD(DISP_final, MARGIN.THRES = 1) 
-    
-    PRR_results <- PRR(bayes_table_PRR, RR0=1, MIN.n11 = 1, DECISION = 3, DECISION.THRES = 0.05, RANKSTAT = 2)
-    
-    signals <-  PRR_results$SIGNAL %>% as.data.frame()
-    signals_final <- signals %>% mutate(D_AR_Comb = paste(signals$`drug code`, " * ", signals$`event effect`)) %>% arrange(desc(`LB95(log(PRR))`)) %>% top_n(10,wt=`LB95(log(PRR))`)
-    return(signals_final)
-  })
+
 #########################################################################################################################################
   
   ############# Download Tab #################
@@ -822,17 +693,12 @@ server <- function(input, output) {
       write.csv(data, file)
     }
   )
-  
   output$current_DISP_search <-renderTable({
     data<- as.data.frame(cv_download_DISP()[2])
   }, include.rownames = FALSE, include.colnames = FALSE) 
-  
   output$current_DISP_size <-  renderTable({
     data <- as.data.frame(cv_download_DISP()[3])
   }, include.rownames = FALSE, include.colnames = FALSE)
-  
-  
-  
   
   ############ Download part ################
   output$download_reports <- downloadHandler(
@@ -842,11 +708,9 @@ server <- function(input, output) {
       write.csv(data, file)
     }
   )
-  
   output$download_reports_type <-renderTable({
     data <- as.data.frame(cv_download_reports()[2])
   }, include.rownames = FALSE, include.colnames = FALSE)
-  
   output$download_reports_size <- renderTable({
     data <- as.data.frame(cv_download_reports()[3])
   }, include.rownames = FALSE, include.colnames = FALSE)
@@ -873,7 +737,6 @@ server <- function(input, output) {
     title <- ifelse(drug_selected == "Not Specified (All)", "All Drugs",drug_selected)
     plottitle <- paste("Drug Adverse Event Reports for", title)
     p <- adrplot(adrplot_test = data, plottitle = plottitle)
-    #print(p)
     ggplotly(p)
   })
   
@@ -893,11 +756,6 @@ server <- function(input, output) {
                  labelvar = "REPORTER_TYPE_ENG",
                  numvar = "n", 
                  options = list(pieHole = 0.4))
-    # plot this pie chart
-    # plot(gvisPieChart(reporter_results, 
-    #                   labelvar = "REPORTER_TYPE_ENG",
-    #                   numvar = "n", 
-    #                   options = list(pieHole = 0.4)))
   })
   
   ################ Create Serious reports pie chart ##################   
@@ -914,10 +772,6 @@ server <- function(input, output) {
                  labelvar = "SERIOUSNESS_ENG",
                  numvar = "n", 
                  options = list(pieHole = 0.4))
-    #plot(gvisPieChart(serious_results, 
-    #                  labelvar = "SERIOUSNESS_ENG",
-    #                  numvar = "n", 
-    #                  options = list(pieHole = 0.4)))
   })
   
   ################ Create Serious Reason Reports chart ################## 
@@ -932,8 +786,7 @@ server <- function(input, output) {
     serious_reason_df <- data %>% mutate(SERIOUSNESS_ENG = ifelse(REPORT_ID == 645744, "Yes", SERIOUSNESS_ENG))
     # REPORT_ID = 645744 has serious_reason specifed but seriousness_eng is balnk
     
-    # Congenital               
-    #congenital_results <- ddply(serious_reason_df,c("SERIOUSNESS_ENG","CONGENITAL_ANOMALY"),count_func)
+    # Congenital
     congenital_results <- dplyr::summarise(group_by(serious_reason_df, SERIOUSNESS_ENG,CONGENITAL_ANOMALY),count=n_distinct(REPORT_ID))
     
     if(any(congenital_results$CONGENITAL_ANOMALY == 1, na.rm=TRUE) ==TRUE){
@@ -948,7 +801,6 @@ server <- function(input, output) {
     }
     
     # Death
-    #death_results <- ddply(serious_reason_df, c("SERIOUSNESS_ENG", "DEATH"),count_func)
     death_results <- dplyr::summarise(group_by(serious_reason_df, SERIOUSNESS_ENG,DEATH),count=n_distinct(REPORT_ID))
     
     if(any(death_results$DEATH == 1, na.rm=TRUE) ==TRUE){
@@ -963,7 +815,6 @@ server <- function(input, output) {
     }
     
     # Disability
-    #disabling_results <-  ddply(serious_reason_df, c("SERIOUSNESS_ENG", "DISABILITY"),count_func)
     disabling_results <- dplyr::summarise(group_by(serious_reason_df, SERIOUSNESS_ENG,DISABILITY),count=n_distinct(REPORT_ID))
     
     if(any(disabling_results$DISABILITY == 1, na.rm=TRUE) ==TRUE){
@@ -978,7 +829,6 @@ server <- function(input, output) {
     }
     
     # Hospitalization
-    #hospital_results <- ddply(serious_reason_df,c("SERIOUSNESS_ENG","HOSP_REQUIRED"),count_func)
     hospital_results <- dplyr::summarise(group_by(serious_reason_df, SERIOUSNESS_ENG,HOSP_REQUIRED),count=n_distinct(REPORT_ID))
     
     if(any(hospital_results$HOSP_REQUIRED == 1, na.rm=TRUE) ==TRUE ) {
@@ -992,8 +842,7 @@ server <- function(input, output) {
       hospital_results_final <- data.frame(Reasons,count)
     }
     
-    # Lifethreatening                  
-    #lifethreaten_results <- ddply(serious_reason_df, c("SERIOUSNESS_ENG", "LIFE_THREATENING"),count_func)
+    # Lifethreatening
     lifethreaten_results <- dplyr::summarise(group_by(serious_reason_df, SERIOUSNESS_ENG,LIFE_THREATENING),count=n_distinct(REPORT_ID))
     
     if(any(lifethreaten_results$LIFE_THREATENING == 1, na.rm=TRUE) ==TRUE){
@@ -1146,14 +995,12 @@ server <- function(input, output) {
       theme(plot.title = element_text(lineheight=.8, size = rel(0.85),face="bold")) + 
       theme(axis.title.x = element_text(size = rel(0.8)))+
       scale_x_continuous(limits=c(0,130))
-    
-    print(hist)
     ggplotly(hist)
     
   })
   
   ################ Create drug plots in Drug tab ################## 
-  output$drugplot <- renderPlot({
+  output$drugplot <- renderPlotly({
     
     data <- cv_drug_tab_topdrg()
     # replace blank in GENDER_ENG with character "Unknown"
@@ -1175,12 +1022,10 @@ server <- function(input, output) {
       theme(plot.title = element_text(lineheight=.8, face="bold"), 
             legend.position = "none") +
       scale_y_continuous(limits= c(0,10000))
-    p
-    print(p)
     ggplotly(p)
   })
   
-  output$indicationplot <- renderPlot({
+  output$indicationplot <- renderPlotly({
     data <- cv_drug_tab_indc()
     # replace blank in GENDER_ENG with character "Unknown"
     data$GENDER_ENG[data$GENDER_ENG == ""] <- "Unknown"
@@ -1201,15 +1046,9 @@ server <- function(input, output) {
       theme(plot.title = element_text(lineheight=.8, face="bold"), 
             legend.position = "none") +
       scale_y_continuous(limits=  c(0, max(indications_sorted$count)))
-    p
-    print(p)
     ggplotly(p)
   })
   
-  # sample datasets of what is being graphed/used
-  #output$outputReports <- renderTable(
-  #  cv_drug_tab_indc()
-  #)
   
   ################ Create Outcomes(all reactions) pie chart in Reaction tab ################## 
   output$outcomeplot <- renderGvis({
@@ -1241,52 +1080,6 @@ server <- function(input, output) {
                  )
     )
     
-  })
-  
-  ##################### Create DISP Tab Graphs #######################
-  output$signalplot_BCPNN<- renderGvis({
-    data <- cv_disp_BCPNN()
-    data_final <- data %>% top_n(10)
-    
-    # GoogleVis plot html: use plot() to graph it
-    gvisBarChart(data_final,
-                 xvar = "D_AR_Comb",
-                 yvar = "Q_0.025(log(IC))",
-                 options = list(
-                   #vAxes="[{title:'D*AR Combination'}",
-                   legend = "{position:'none'}",
-                   bars = 'horizontal',
-                   # axes= "x: {
-                   #   0: { side: 'top', label: 'Number of Reports'}}",
-                   bar = list(groupWidth =  '90%'),
-                   height=500,
-                   vAxis.textStyle = "{color:'black',fontName:'Courier',fontSize:5}",
-                   title = "Top 10 Signals Detected By BCPNN Method",
-                   hAxes="[{title:'Strength of Signal'}]"
-                 )
-    )
-    
-  })
-  
-  output$signalplot_PRR <- renderGvis({
-    data<- cv_disp_PRR()
-    
-    signals_plot <- gvisBarChart(data,
-                                 xvar = "D_AR_Comb",
-                                 yvar = "LB95(log(PRR))",
-                                 options = list(
-                                   #vAxes="[{title:'D*AR Combination'}",
-                                   legend = "{position:'none'}",
-                                   bars = 'horizontal',
-                                   # axes= "x: {
-                                   #   0: { side: 'top', label: 'Number of Reports'}}",
-                                   bar = list(groupWidth =  '90%'),
-                                   height=500,
-                                   vAxis.textStyle = "{color:'black',fontName:'Courier',fontSize:5}",
-                                   title = "Top 10 Signals Detected By PRR Method",
-                                   hAxes="[{title:'Strength of Signal'}]"
-                                 )
-    )
   })
 }
 

@@ -56,7 +56,7 @@ drug_choices <- sort(drug_choices$ing)
 
 ################################## UI component ####
 ui <- dashboardPage(
-  dashboardHeader(title = titleWarning("Shiny DISP (v0.05)"),
+  dashboardHeader(title = titleWarning("Shiny DISP (v0.03)"),
                   titleWidth = 700),
   
   dashboardSidebar(
