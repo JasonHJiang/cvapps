@@ -55,59 +55,46 @@ adrplot <- function(adrplot_test, plottitle) {
     theme(plot.title = element_text(lineheight=.8, face="bold"))
 }
 
-################################## Function for Report tab ################################## 
+################################## Function tab ################################## 
 merged_tab <- function(current_brand,current_rxn,current_gender,current_date_range,type) {
-  if (type == "reports") {
-  cv_reports_sorted_rp <- cv_reports %>%
-    dplyr::select(REPORT_ID, SERIOUSNESS_ENG, REPORTER_TYPE_ENG, DEATH, DISABILITY, CONGENITAL_ANOMALY,LIFE_THREATENING, HOSP_REQUIRED, 
-                  OTHER_MEDICALLY_IMP_COND, DATINTRECEIVED_CLEAN,GENDER_ENG) %>%
+  
+  cv_reports_sorted_merged <- cv_reports %>%
     filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
-  if (current_gender != "All") cv_reports_sorted_rp %<>% filter(GENDER_ENG == current_gender)
+  if (current_gender != "All") cv_reports_sorted_merged %<>% filter(GENDER_ENG == current_gender)
   
-  cv_report_drug_rp <- cv_report_drug %>% dplyr::select(REPORT_ID, DRUGNAME)
-  if (is.na(current_brand) == FALSE) cv_report_drug_rp %<>% filter(DRUGNAME == current_brand)
+  cv_report_drug_filtered <- cv_report_drug %>% dplyr::select(REPORT_ID, DRUGNAME)
+  if (is.na(current_brand) == FALSE) cv_report_drug_filtered %<>% filter(DRUGNAME == current_brand)
   
-  cv_reactions_rp <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
-  if (current_gender != "All") cv_reactions_rp %<>% filter(PT_NAME_ENG == current_rxn)
+  cv_reactions_filtered <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
+  if (is.na(current_rxn) == FALSE) cv_reactions_filtered %<>% filter(PT_NAME_ENG == current_rxn)
+  
+  if (type == "reports") {
+  cv_reports_sorted_rp <- cv_reports_sorted_merged %>%
+    dplyr::select(REPORT_ID, SERIOUSNESS_ENG, REPORTER_TYPE_ENG, DEATH, DISABILITY, CONGENITAL_ANOMALY,LIFE_THREATENING, HOSP_REQUIRED, 
+                  OTHER_MEDICALLY_IMP_COND, DATINTRECEIVED_CLEAN,GENDER_ENG)
   
   reports_tab_master <-  cv_reports_sorted_rp%>%
-    semi_join(cv_report_drug_rp) %>%
-    semi_join(cv_reactions_rp) %>%
+    semi_join(cv_report_drug_filtered) %>%
+    semi_join(cv_reactions_filtered) %>%
     as.data.frame()
   return(reports_tab_master)
+  
   } else if (type == "patients") {
-  # Import tables with particular search items with method to deal with unspecified search term
-  cv_reports_sorted_pt <- cv_reports %>%
-    dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG, AGE_Y,AGE_GROUP_CLEAN) %>%
-    filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
-  if(current_gender != "All") cv_reports_sorted_pt %<>% filter(GENDER_ENG == current_gender)
-  
-  cv_report_drug_pt <- cv_report_drug %>% dplyr::select(REPORT_ID, DRUGNAME)
-  if(is.na(current_brand) == FALSE) cv_report_drug_pt %<>% filter(DRUGNAME == current_brand)
-  
-  cv_reactions_pt <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
-  if(is.na(current_rxn) == FALSE) cv_reactions_pt %<>% filter(PT_NAME_ENG == current_rxn)
-  
+  cv_reports_sorted_pt <- cv_reports_sorted_merged %>%
+    dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG, AGE_Y,AGE_GROUP_CLEAN)
+
   patients_tab_master <-cv_reports_sorted_pt%>%
-    semi_join(cv_report_drug_pt) %>%
-    semi_join(cv_reactions_pt) %>%
+    semi_join(cv_report_drug_filtered) %>%
+    semi_join(cv_reactions_filtered) %>%
     as.data.frame()
   
   return(patients_tab_master)
-  } else if (type=="drugs_tab_indt"){ 
-  # Import tables with particular search items
-  cv_reports_sorted_drg <- cv_reports %>%
-    dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG) %>%
-    filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
-  if(current_gender != "All") cv_reports_sorted_drg %<>% filter(GENDER_ENG == current_gender)
   
-  cv_report_drug_drg <- cv_report_drug %>% dplyr::select(REPORT_ID, DRUGNAME)
-  if(is.na(current_brand) == FALSE) cv_report_drug_drg %<>% filter(DRUGNAME == current_brand)
-  
-  cv_reactions_drg <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
-  if(is.na(current_rxn) == FALSE) cv_reactions_drg %<>% filter(PT_NAME_ENG == current_rxn)
-  
-  cv_report_drug_indication_drg <- cv_report_drug_indication %>% dplyr::select(REPORT_ID, INDICATION_NAME_ENG)
+  } else if (type=="drugs_tab_indt") {
+  cv_reports_sorted_drg <- cv_reports_sorted_merged %>%
+    dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG)
+  cv_report_drug_indication_drg <- cv_report_drug_indication %>%
+    dplyr::select(REPORT_ID, INDICATION_NAME_ENG)
   
   # Data frame used to obtain Top_25_indication bar chart: Indication is only associated with individual drug
   # When brand name is unspecified, chart shows top 25 indications associated with DRUGNAME="REMICADE" + date_range
@@ -116,12 +103,13 @@ merged_tab <- function(current_brand,current_rxn,current_gender,current_date_ran
   # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name 
   #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq) 
   drugs_tab_indication <- cv_reports_sorted_drg %>%
-    semi_join(cv_report_drug_drg, by="REPORT_ID") %>% 
-    semi_join(cv_reactions_drg, by="REPORT_ID") %>%
+    semi_join(cv_report_drug_filtered, by="REPORT_ID") %>% 
+    semi_join(cv_reactions_filtered, by="REPORT_ID") %>%
     inner_join(cv_report_drug_indication_drg) %>%
     as.data.frame()
   
   return(drugs_tab_indication)
+  
   } else if (type=="drugs_tab_topdrg"){
 
   df <- merged_tab(current_brand,current_rxn, current_gender, current_date_range, "drugs_tab_indt")
@@ -133,12 +121,12 @@ merged_tab <- function(current_brand,current_rxn,current_gender,current_date_ran
   
   # indication import
   cv_report_drug_indication_drg <- cv_report_drug_indication %>%
-    dplyr::select(REPORT_ID, INDICATION_NAME_ENG, DRUGNAME) %>%
-    filter(INDICATION_NAME_ENG == top_indications_final)
+    filter(INDICATION_NAME_ENG == top_indications_final) %>%
+    dplyr::select(REPORT_ID, INDICATION_NAME_ENG, DRUGNAME)
   
   cv_reports_sorted_drg <- cv_reports %>%
-    dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG) %>%
-    filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
+    filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2]) %>%
+    dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG)
   if(current_gender != "All") cv_reports_sorted_drg %<>% filter(GENDER_ENG == current_gender)
   
   cv_report_drug_drg <- cv_report_drug %>% dplyr::select(REPORT_ID, DRUGNAME)
@@ -151,25 +139,16 @@ merged_tab <- function(current_brand,current_rxn,current_gender,current_date_ran
     as.data.frame()
   
   return(drugs_tab_topdrg)
+  
   } else if (type=="reactions"){
-  # Import tables with particular search items with method to deal with unspecified search term
-  cv_reports_sorted_rxn <- cv_reports %>%
-      dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, OUTCOME_ENG,GENDER_ENG) %>%
-      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
-  if(current_gender != "All") cv_reports_sorted_rxn %<>% filter(GENDER_ENG == current_gender)
-  
-  cv_report_drug_rxn <- cv_report_drug %>% dplyr::select(REPORT_ID,DRUG_PRODUCT_ID,DRUGNAME)
-  if(is.na(current_brand) == FALSE) cv_report_drug_rxn %<>% filter(DRUGNAME == current_brand)
-  
-  
-  cv_reactions_rxn <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
-  if(is.na(current_rxn) == FALSE) cv_reactions_rxn %<>% filter(PT_NAME_ENG == current_rxn)
+  cv_reports_sorted_rxn <- cv_reports_sorted_merged %>%
+    dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, OUTCOME_ENG,GENDER_ENG)
   
   # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each OUTCOME_ENG 
   #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
   reactions_tab_master <- cv_reports_sorted_rxn %>%
-    semi_join(cv_report_drug_rxn) %>%
-    semi_join(cv_reactions_rxn) %>%
+    semi_join(cv_report_drug_filtered, by = "REPORT_ID") %>%
+    semi_join(cv_reactions_filtered, by = "REPORT_ID") %>%
     dplyr::select(REPORT_ID, OUTCOME_ENG) %>%
     as.data.frame()
   
