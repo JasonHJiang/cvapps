@@ -18,10 +18,10 @@ source("common_ui.R")
 ########## Codes to fetch top 1000 specific results to be used in dropdown menu ############### 
 # Temperary solution: fetch all tables to local and run functions on them
 hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
-cv_reports <- tbl(hcopen, "cv_reports") 
+cv_reports <- tbl(hcopen, "cv_reports")
 cv_drug_product_ingredients <-  tbl(hcopen, "cv_drug_product_ingredients")
 cv_report_drug <- tbl(hcopen,"cv_report_drug")
-cv_reactions <- tbl(hcopen,"cv_reactions") 
+cv_reactions <- tbl(hcopen,"cv_reactions")
 cv_report_drug_indication <- tbl(hcopen,"cv_report_drug_indication")
 
 
@@ -61,55 +61,37 @@ merged_tab <- function(current_brand,current_rxn,current_gender,current_date_ran
   cv_reports_sorted_merged <- cv_reports %>%
     filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
   if (current_gender != "All") cv_reports_sorted_merged %<>% filter(GENDER_ENG == current_gender)
-  
   cv_report_drug_filtered <- cv_report_drug %>% dplyr::select(REPORT_ID, DRUGNAME)
   if (is.na(current_brand) == FALSE) cv_report_drug_filtered %<>% filter(DRUGNAME == current_brand)
-  
   cv_reactions_filtered <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
   if (is.na(current_rxn) == FALSE) cv_reactions_filtered %<>% filter(PT_NAME_ENG == current_rxn)
   
-  if (type == "reports") {
-  cv_reports_sorted_rp <- cv_reports_sorted_merged %>%
-    dplyr::select(REPORT_ID, SERIOUSNESS_ENG, REPORTER_TYPE_ENG, DEATH, DISABILITY, CONGENITAL_ANOMALY,LIFE_THREATENING, HOSP_REQUIRED, 
-                  OTHER_MEDICALLY_IMP_COND, DATINTRECEIVED_CLEAN,GENDER_ENG)
-  
-  reports_tab_master <-  cv_reports_sorted_rp%>%
-    semi_join(cv_report_drug_filtered) %>%
-    semi_join(cv_reactions_filtered) %>%
-    as.data.frame()
-  return(reports_tab_master)
-  
-  } else if (type == "patients") {
-  cv_reports_sorted_pt <- cv_reports_sorted_merged %>%
-    dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG, AGE_Y,AGE_GROUP_CLEAN)
-
-  patients_tab_master <-cv_reports_sorted_pt%>%
-    semi_join(cv_report_drug_filtered) %>%
-    semi_join(cv_reactions_filtered) %>%
-    as.data.frame()
-  
-  return(patients_tab_master)
-  
+  if (type == "") {
+    tab_master <-  cv_reports_sorted_merged%>%
+      semi_join(cv_report_drug_filtered, by = "REPORT_ID") %>%
+      semi_join(cv_reactions_filtered, by = "REPORT_ID") %>%
+      as.data.frame()
+    return(tab_master)
   } else if (type=="drugs_tab_indt") {
-  cv_reports_sorted_drg <- cv_reports_sorted_merged %>%
-    dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG)
-  cv_report_drug_indication_drg <- cv_report_drug_indication %>%
-    dplyr::select(REPORT_ID, INDICATION_NAME_ENG)
-  
-  # Data frame used to obtain Top_25_indication bar chart: Indication is only associated with individual drug
-  # When brand name is unspecified, chart shows top 25 indications associated with DRUGNAME="REMICADE" + date_range
-  # When brand name is specified, chart shows top 25 indications associated with specified drug + date_range
-  
-  # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name 
-  #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq) 
-  drugs_tab_indication <- cv_reports_sorted_drg %>%
-    semi_join(cv_report_drug_filtered, by="REPORT_ID") %>% 
-    semi_join(cv_reactions_filtered, by="REPORT_ID") %>%
-    inner_join(cv_report_drug_indication_drg) %>%
-    as.data.frame()
-  
-  return(drugs_tab_indication)
-  
+    cv_reports_sorted_drg <- cv_reports_sorted_merged %>%
+      dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG)
+    cv_report_drug_indication_drg <- cv_report_drug_indication %>%
+      dplyr::select(REPORT_ID, INDICATION_NAME_ENG)
+    
+    # Data frame used to obtain Top_25_indication bar chart: Indication is only associated with individual drug
+    # When brand name is unspecified, chart shows top 25 indications associated with DRUGNAME="REMICADE" + date_range
+    # When brand name is specified, chart shows top 25 indications associated with specified drug + date_range
+    
+    # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name 
+    #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq) 
+    drugs_tab_indication <- cv_reports_sorted_drg %>%
+      semi_join(cv_report_drug_filtered, by = "REPORT_ID") %>%
+      semi_join(cv_reactions_filtered, by = "REPORT_ID") %>%
+      inner_join(cv_report_drug_indication_drg) %>%
+      as.data.frame()
+    
+    return(drugs_tab_indication)
+    
   } else if (type=="drugs_tab_topdrg"){
 
   df <- merged_tab(current_brand,current_rxn, current_gender, current_date_range, "drugs_tab_indt")
@@ -140,32 +122,14 @@ merged_tab <- function(current_brand,current_rxn,current_gender,current_date_ran
   
   return(drugs_tab_topdrg)
   
-  } else if (type=="reactions"){
-  cv_reports_sorted_rxn <- cv_reports_sorted_merged %>%
-    dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, OUTCOME_ENG,GENDER_ENG)
-  
-  # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each OUTCOME_ENG 
-  #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
-  reactions_tab_master <- cv_reports_sorted_rxn %>%
-    semi_join(cv_report_drug_filtered, by = "REPORT_ID") %>%
-    semi_join(cv_reactions_filtered, by = "REPORT_ID") %>%
-    dplyr::select(REPORT_ID, OUTCOME_ENG) %>%
-    as.data.frame()
-  
-  return(reactions_tab_master)
-  }
-}
-
-
-
-drugs_rxn <- function(current_brand, current_date_range) {
+  } else if (type=="drugs_rxn"){
   cv_reactions_rxn <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
-  
   if(is.na(current_brand) == FALSE){
-    cv_report_drug_rxn <- cv_report_drug %>%
+    drugs_rxn_df <- cv_report_drug %>%
       dplyr::select(REPORT_ID,DRUGNAME) %>%
-      filter(DRUGNAME == current_brand)
-    drugs_rxn_df <- cv_reactions_rxn %>% inner_join(cv_report_drug_rxn) %>% as.data.frame()
+      filter(DRUGNAME == current_brand) %>%
+      inner_join(cv_report_drug_rxn) %>%
+      as.data.frame()
     drugs_rxn_result <- drugs_rxn_df %>%
       group_by(DRUGNAME,PT_NAME_ENG) %>%
       dplyr::summarise(count = n_distinct(REPORT_ID)) %>%
@@ -183,6 +147,7 @@ drugs_rxn <- function(current_brand, current_date_range) {
   }
   
   return(drugs_rxn_result)
+  }
 }
 
 ##################### Download Function ####################
@@ -469,6 +434,17 @@ ui <- dashboardPage(
 
 ############### Server Functions ###################
 server <- function(input, output) {
+  cv_master_tab <- reactive({
+    input$searchButton
+    isolate({
+      #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
+      current_brand <- ifelse(input$search_brand == "", NA, input$search_brand)
+      current_rxn <- ifelse(input$search_rxn == "", NA, input$search_rxn)
+      current_gender <- ifelse(input$search_gender == "", "All", input$search_gender)
+      current_date_range <- input$searchDateRange
+      merged_tab(current_brand,current_rxn,current_gender,current_date_range,"")
+    })})
+  
   # Data frame generate reactive function to be used to assign: data <- cv_reports_tab()
   cv_search_tab <- reactive({
     input$searchButton
@@ -490,32 +466,6 @@ server <- function(input, output) {
       return(search_tab_df)
     })})
   
-  cv_reports_tab <- reactive({
-    input$searchButton
-    isolate({
-      #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
-      current_brand <- ifelse(input$search_brand == "", NA, input$search_brand)
-      current_rxn <- ifelse(input$search_rxn == "", NA, input$search_rxn)
-      current_gender <- ifelse(input$search_gender == "", "All", input$search_gender)
-      current_date_range <- input$searchDateRange
-    
-    reports_tab_df <- merged_tab(current_brand,current_rxn,current_gender,current_date_range,"reports")
-    
-    return(reports_tab_df)
-  })})
-  cv_patients_tab <- reactive({
-    input$searchButton
-    isolate({
-      #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
-      current_brand <- ifelse(input$search_brand == "", NA, input$search_brand)
-      current_rxn <- ifelse(input$search_rxn == "", NA, input$search_rxn)
-      current_gender <- ifelse(input$search_gender == "", "All", input$search_gender)
-      current_date_range <- input$searchDateRange
-      
-    patients_tab_df <- merged_tab(current_brand,current_rxn,current_gender,current_date_range,"patients")
-    
-    return(patients_tab_df)
-  })})
   cv_drug_tab_topdrg <- reactive({
     input$searchButton
     isolate({
@@ -541,7 +491,7 @@ server <- function(input, output) {
       
       return(drugs_tab_indt_df)
     })})
-  cv_reactions_tab <- reactive({
+  cv_reactions_tbl <- reactive({
     input$searchButton
     isolate({
       #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
@@ -549,17 +499,7 @@ server <- function(input, output) {
       current_rxn <- ifelse(input$search_rxn == "", NA, input$search_rxn)
       current_gender <- ifelse(input$search_gender == "", "All", input$search_gender)
       current_date_range <- input$searchDateRange
-      reactions_tab_df <- merged_tab(current_brand,current_rxn,current_gender,current_date_range,"reactions")
-      
-      return(reactions_tab_df)
-    })})
-  cv_reactions_tbl <- reactive({
-    input$searchButton
-    isolate({
-      #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
-      current_brand <- ifelse(input$search_brand == "", NA, input$search_brand)
-      current_date_range <- input$searchDateRange
-      drugs_rxn_df <- drugs_rxn(current_brand=current_brand,current_date_range=current_date_range)
+      drugs_rxn_df <- merged_tab(current_brand,current_rxn,current_gender,current_date_range,"drugs_rxn")
       
       return(drugs_rxn_df)
     })})
@@ -570,7 +510,6 @@ server <- function(input, output) {
   cv_download_DISP <- reactive({
     input$searchDISPButton
     current_date_range <- isolate(input$searchDateRange_DISP)
-    escape.POSIXt <- dplyr:::escape.Date
     part1 <-cv_drug_product_ingredients %>% dplyr::select(DRUG_PRODUCT_ID,ACTIVE_INGREDIENT_NAME) %>% left_join(cv_report_drug) %>% 
       dplyr::select(REPORT_ID,ACTIVE_INGREDIENT_NAME) %>% 
       left_join(cv_reactions) %>% dplyr::select(REPORT_ID,ACTIVE_INGREDIENT_NAME, PT_NAME_ENG) #%>% as.data.table(n=-1)
@@ -602,11 +541,8 @@ server <- function(input, output) {
       
       # report type used for downloading dataset
       input$search_report_type_dl
-      current_report_type <- isolate(ifelse(input$search_dataset_type == "",
-                                            "Report Info",
-                                            input$search_dataset_type))
-      
-      reports_tab_master <- download(current_brand=current_brand,current_rxn=current_rxn,current_gender=current_gender,current_date_range=current_date_range,current_report_type=current_report_type)
+      current_report_type <- isolate(ifelse(input$search_dataset_type == "", "Report Info", input$search_dataset_type))
+      reports_tab_master <- download(current_brand,current_rxn,current_gender,current_date_range,current_report_type)
       
       download_type <- as.data.frame(
         paste("Report Type to be downloaded is ",current_report_type)
@@ -665,7 +601,9 @@ server <- function(input, output) {
   ############### Create time plot #####################
   output$timeplot <- renderPlotly({
     
-    data <- cv_reports_tab()
+    data <- cv_master_tab() %>%
+      dplyr::select(REPORT_ID, SERIOUSNESS_ENG, REPORTER_TYPE_ENG, DEATH, DISABILITY, CONGENITAL_ANOMALY,LIFE_THREATENING, HOSP_REQUIRED, 
+                    OTHER_MEDICALLY_IMP_COND, DATINTRECEIVED_CLEAN,GENDER_ENG)
     #data <-reports_tab(current_brand=current_brand,current_rxn=current_rxn,current_gender =current_gender,current_date_range=current_date_range)
     #drug_selected <- data$DRUGNAME[1] 
     
@@ -681,7 +619,9 @@ server <- function(input, output) {
   
   ############### Create Reporter pie chart ##############  
   output$reporterplot <- renderGvis({
-    data <- cv_reports_tab()
+    data <- cv_master_tab() %>%
+      dplyr::select(REPORT_ID, SERIOUSNESS_ENG, REPORTER_TYPE_ENG, DEATH, DISABILITY, CONGENITAL_ANOMALY,LIFE_THREATENING, HOSP_REQUIRED, 
+                    OTHER_MEDICALLY_IMP_COND, DATINTRECEIVED_CLEAN,GENDER_ENG)
     # test
     # data <- reports_tab(current_generic="ampicillin",current_brand="PENBRITIN",current_rxn="Urticaria",date_ini=ymd("19650101"),date_end=ymd("20151231"))
     
@@ -699,7 +639,9 @@ server <- function(input, output) {
   
   ################ Create Serious reports pie chart ##################   
   output$seriousplot <- renderGvis({
-    data <- cv_reports_tab()
+    data <- cv_master_tab() %>%
+      dplyr::select(REPORT_ID, SERIOUSNESS_ENG, REPORTER_TYPE_ENG, DEATH, DISABILITY, CONGENITAL_ANOMALY,LIFE_THREATENING, HOSP_REQUIRED, 
+                    OTHER_MEDICALLY_IMP_COND, DATINTRECEIVED_CLEAN,GENDER_ENG)
     
     serious_df <-  data%>%
       dplyr::select(REPORT_ID,SERIOUSNESS_ENG)
@@ -715,7 +657,9 @@ server <- function(input, output) {
   
   ################ Create Serious Reason Reports chart ################## 
   output$seriousreasonsplot <- renderGvis({
-    data <- cv_reports_tab()
+    data <- cv_master_tab() %>%
+      dplyr::select(REPORT_ID, SERIOUSNESS_ENG, REPORTER_TYPE_ENG, DEATH, DISABILITY, CONGENITAL_ANOMALY,LIFE_THREATENING, HOSP_REQUIRED, 
+                    OTHER_MEDICALLY_IMP_COND, DATINTRECEIVED_CLEAN,GENDER_ENG)
     
     # calculate total number of serious reports
     total_serious <- dplyr::summarise(group_by(data, SERIOUSNESS_ENG),count=n_distinct(REPORT_ID))
@@ -877,7 +821,8 @@ server <- function(input, output) {
   
   ################ Create Gender pie chart in Patient tab ##################  
   output$sexplot <- renderGvis({
-    data <- cv_patients_tab()
+    data <- cv_master_tab() %>%
+      dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG, AGE_Y, AGE_GROUP_CLEAN)
     
     # replace blank in GENDER_ENG with character "Unknown"
     data$GENDER_ENG[data$GENDER_ENG == ""] <- "Unknown"
@@ -892,7 +837,8 @@ server <- function(input, output) {
   
   ################ Create Age Group pie chart in Patient tab ##################      
   output$agegroupplot <- renderGvis({
-    data <- cv_patients_tab()
+    data <- cv_master_tab() %>%
+      dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG, AGE_Y, AGE_GROUP_CLEAN)
     
     # data1 <- cv_search_tab()
     # gender_selected <- data1$terms[3]
@@ -914,7 +860,8 @@ server <- function(input, output) {
   
   ################ Create Age Group histogram in Patient tab ##################   
   output$agehist <- renderPlotly({
-    data <- cv_patients_tab()
+    data <- cv_master_tab() %>%
+      dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG, AGE_Y, AGE_GROUP_CLEAN)
     
     # Age groups frequency table
     age_groups <- dplyr::summarise(group_by(data, AGE_GROUP_CLEAN),count=n_distinct(REPORT_ID))
@@ -991,7 +938,8 @@ server <- function(input, output) {
   
   ################ Create Outcomes(all reactions) pie chart in Reaction tab ################## 
   output$outcomeplot <- renderGvis({
-    data <- cv_reactions_tab()
+    data <- cv_master_tab() %>%
+      dplyr::select(REPORT_ID, OUTCOME_ENG)
     
     outcome_results <-  dplyr::summarise(group_by(data, OUTCOME_ENG),count=n_distinct(REPORT_ID))
     
