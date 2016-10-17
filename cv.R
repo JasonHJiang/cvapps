@@ -56,7 +56,8 @@ adrplot <- function(adrplot_test, plottitle) {
 }
 
 ################################## Function for Report tab ################################## 
-reports_tab <- function(current_brand,current_rxn,current_gender,current_date_range) {
+merged_tab <- function(current_brand,current_rxn,current_gender,current_date_range,type) {
+  if (type == "reports") {
   cv_reports_sorted_rp <- cv_reports %>%
     dplyr::select(REPORT_ID, SERIOUSNESS_ENG, REPORTER_TYPE_ENG, DEATH, DISABILITY, CONGENITAL_ANOMALY,LIFE_THREATENING, HOSP_REQUIRED, 
                   OTHER_MEDICALLY_IMP_COND, DATINTRECEIVED_CLEAN,GENDER_ENG) %>%
@@ -65,7 +66,7 @@ reports_tab <- function(current_brand,current_rxn,current_gender,current_date_ra
   
   cv_report_drug_rp <- cv_report_drug %>% dplyr::select(REPORT_ID, DRUGNAME)
   if (is.na(current_brand) == FALSE) cv_report_drug_rp %<>% filter(DRUGNAME == current_brand)
- 
+  
   cv_reactions_rp <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
   if (current_gender != "All") cv_reactions_rp %<>% filter(PT_NAME_ENG == current_rxn)
   
@@ -73,11 +74,8 @@ reports_tab <- function(current_brand,current_rxn,current_gender,current_date_ra
     semi_join(cv_report_drug_rp) %>%
     semi_join(cv_reactions_rp) %>%
     as.data.frame()
-  return(reports_tab_master) 
-}
-
-################################## Function for Patient tab ################################## 
-patients_tab <- function( current_brand, current_rxn,current_gender,current_date_range) { 
+  return(reports_tab_master)
+  } else if (type == "patients") {
   # Import tables with particular search items with method to deal with unspecified search term
   cv_reports_sorted_pt <- cv_reports %>%
     dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG, AGE_Y,AGE_GROUP_CLEAN) %>%
@@ -95,11 +93,8 @@ patients_tab <- function( current_brand, current_rxn,current_gender,current_date
     semi_join(cv_reactions_pt) %>%
     as.data.frame()
   
-  return(patients_tab_master) 
-}
-
-################################## Function for Drug tab ################################## 
-drugs_tab_indt <- function(current_brand, current_rxn,current_gender, current_date_range) { 
+  return(patients_tab_master)
+  } else if (type=="drugs_tab_indt"){ 
   # Import tables with particular search items
   cv_reports_sorted_drg <- cv_reports %>%
     dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG) %>%
@@ -127,12 +122,9 @@ drugs_tab_indt <- function(current_brand, current_rxn,current_gender, current_da
     as.data.frame()
   
   return(drugs_tab_indication)
-}
+  } else if (type=="drugs_tab_topdrg"){
 
-
-drugs_tab_topdrg <- function(current_brand,current_rxn,current_gender,current_date_range) {
-
-  df <- drugs_tab_indt(current_brand = current_brand, current_rxn = current_rxn, current_gender =current_gender, current_date_range=current_date_range)
+  df <- merged_tab(current_brand,current_rxn, current_gender, current_date_range, "drugs_tab_indt")
   indications <- df %>%
     group_by(INDICATION_NAME_ENG) %>%
     dplyr::summarise(count=n_distinct(REPORT_ID))
@@ -159,11 +151,7 @@ drugs_tab_topdrg <- function(current_brand,current_rxn,current_gender,current_da
     as.data.frame()
   
   return(drugs_tab_topdrg)
-}
-
-################################## Function for Reactions tab ################################## 
-reactions_tab <- function(current_brand,current_rxn,current_gender,current_date_range) { 
-  
+  } else if (type=="reactions"){
   # Import tables with particular search items with method to deal with unspecified search term
   cv_reports_sorted_rxn <- cv_reports %>%
       dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, OUTCOME_ENG,GENDER_ENG) %>%
@@ -186,6 +174,7 @@ reactions_tab <- function(current_brand,current_rxn,current_gender,current_date_
     as.data.frame()
   
   return(reactions_tab_master)
+  }
 }
 
 
@@ -531,7 +520,7 @@ server <- function(input, output) {
       current_gender <- ifelse(input$search_gender == "", "All", input$search_gender)
       current_date_range <- input$searchDateRange
     
-    reports_tab_df <- reports_tab(current_brand=current_brand,current_rxn=current_rxn,current_gender =current_gender,current_date_range=current_date_range)
+    reports_tab_df <- merged_tab(current_brand,current_rxn,current_gender,current_date_range,"reports")
     
     return(reports_tab_df)
   })})
@@ -544,7 +533,7 @@ server <- function(input, output) {
       current_gender <- ifelse(input$search_gender == "", "All", input$search_gender)
       current_date_range <- input$searchDateRange
       
-    patients_tab_df <- patients_tab(current_brand=current_brand,current_rxn=current_rxn,current_gender =current_gender,current_date_range=current_date_range)
+    patients_tab_df <- merged_tab(current_brand,current_rxn,current_gender,current_date_range,"patients")
     
     return(patients_tab_df)
   })})
@@ -557,7 +546,7 @@ server <- function(input, output) {
       current_gender <- ifelse(input$search_gender == "", "All", input$search_gender)
       current_date_range <- input$searchDateRange
       
-    drugs_tab_topdrg_df <- drugs_tab_topdrg(current_brand=current_brand,current_rxn=current_rxn,current_gender =current_gender,current_date_range=current_date_range)
+    drugs_tab_topdrg_df <- merged_tab(current_brand,current_rxn,current_gender,current_date_range,"drugs_tab_topdrg")
     
     return(drugs_tab_topdrg_df)
   })})
@@ -569,7 +558,7 @@ server <- function(input, output) {
       current_rxn <- ifelse(input$search_rxn == "", NA, input$search_rxn)
       current_gender <- ifelse(input$search_gender == "", "All", input$search_gender)
       current_date_range <- input$searchDateRange
-      drugs_tab_indt_df <- drugs_tab_indt(current_brand=current_brand,current_rxn=current_rxn,current_gender =current_gender,current_date_range=current_date_range)
+      drugs_tab_indt_df <- merged_tab(current_brand,current_rxn, current_gender, current_date_range, "drugs_tab_indt")
       
       return(drugs_tab_indt_df)
     })})
@@ -581,7 +570,7 @@ server <- function(input, output) {
       current_rxn <- ifelse(input$search_rxn == "", NA, input$search_rxn)
       current_gender <- ifelse(input$search_gender == "", "All", input$search_gender)
       current_date_range <- input$searchDateRange
-      reactions_tab_df <- reactions_tab(current_brand=current_brand,current_rxn=current_rxn,current_gender = current_gender,current_date_range=current_date_range)
+      reactions_tab_df <- merged_tab(current_brand,current_rxn,current_gender,current_date_range,"reactions")
       
       return(reactions_tab_df)
     })})
