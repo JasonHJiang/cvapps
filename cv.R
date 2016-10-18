@@ -154,31 +154,15 @@ merged_tab <- function(current_brand,current_rxn,current_gender,current_date_ran
 download <- function(current_brand,current_rxn,current_gender,current_date_range,current_report_type){
   # Report info type (only filtered cv_reports included)
   if(current_report_type == "Report Info"){
-    cv_reports_sorted_dl <- if(current_gender != "All"){
-      cv_reports %>%
-        filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2], GENDER_ENG == current_gender)
-    } else {
-      cv_reports %>%
-        filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
-    }
+    cv_reports_sorted_dl <- cv_reports %>%
+      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
+    if(current_gender != "All") cv_reports_sorted_dl %<>% filter(GENDER_ENG == current_gender)
     
-    cv_report_drug_dl <- if(is.na(current_brand) == FALSE){
-      cv_report_drug %>%
-        dplyr::select(REPORT_ID, DRUGNAME) %>%
-        filter(DRUGNAME == current_brand)
-    } else {
-      cv_report_drug %>%
-        dplyr::select(REPORT_ID, DRUGNAME)
-    }
-    cv_reactions_dl <- if(is.na(current_rxn) == FALSE){
-      cv_reactions %>%
-        dplyr::select(REPORT_ID, PT_NAME_ENG) %>%
-        filter(PT_NAME_ENG == current_rxn)
-    } else {
-      cv_reactions %>%
-        dplyr::select(REPORT_ID, PT_NAME_ENG)
-    }
+    cv_report_drug_dl <- cv_report_drug %>% dplyr::select(REPORT_ID, DRUGNAME)
+    if(is.na(current_brand) == FALSE) cv_report_drug_dl %<>% filter(DRUGNAME == current_brand)
     
+    cv_reactions_dl <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
+    if(is.na(current_rxn) == FALSE) cv_reactions_dl %<>% filter(PT_NAME_ENG == current_rxn)
     
     reports_tab_master <-  cv_reports_sorted_dl%>%
       semi_join(cv_report_drug_dl) %>%
@@ -188,31 +172,16 @@ download <- function(current_brand,current_rxn,current_gender,current_date_range
   
   # Drug Info
   if(current_report_type == "Drug Info"){
-    cv_reports_sorted_dl <- if(current_gender != "All"){
-      cv_reports %>%
-        dplyr::select(REPORT_ID)%>%
-        filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2], GENDER_ENG == current_gender)
-    } else {
-      cv_reports %>%
-        dplyr::select(REPORT_ID)%>%
-        filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
-    }
+    cv_reports_sorted_dl <- cv_reports %>%
+      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
+    if(current_gender != "All") cv_reports_sorted_dl %<>% filter(GENDER_ENG == current_gender)
+    cv_reports_sorted_dl %<>% dplyr::select(REPORT_ID)
     
-    cv_report_drug_dl <- if(is.na(current_brand) == FALSE){
-      cv_report_drug %>%
-        filter(DRUGNAME == current_brand)
-    } else {
-      cv_report_drug
-    }
-    cv_reactions_dl <- if(is.na(current_rxn) == FALSE){
-      cv_reactions %>%
-        dplyr::select(REPORT_ID, PT_NAME_ENG) %>%
-        filter(PT_NAME_ENG == current_rxn)
-    } else {
-      cv_reactions %>%
-        dplyr::select(REPORT_ID, PT_NAME_ENG)
-    }
-    
+    cv_report_drug_dl <- cv_report_drug
+    if(is.na(current_brand) == FALSE) cv_report_drug_dl %<>% filter(DRUGNAME == current_brand)
+ 
+    cv_reactions_dl <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
+    if(is.na(current_rxn) == FALSE) cv_reactions_dl %<>% filter(PT_NAME_ENG == current_rxn)
     
     reports_tab_master <-  cv_report_drug_dl%>%
       semi_join(cv_reports_sorted_dl) %>%
@@ -222,30 +191,16 @@ download <- function(current_brand,current_rxn,current_gender,current_date_range
   
   # Reaction Info
   if(current_report_type == "Reaction Info"){
-    cv_reports_sorted_dl <- if(current_gender != "All"){
-      cv_reports %>%
-        dplyr::select(REPORT_ID)%>%
-        filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2], GENDER_ENG == current_gender)
-    } else {
-      cv_reports %>%
-        dplyr::select(REPORT_ID)%>%
-        filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
-    }
+    cv_reports_sorted_dl <- cv_reports %>%
+      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
+    if(current_gender != "All") cv_reports_sorted_dl %<>% filter(GENDER_ENG == current_gender)
+    cv_reports_sorted_dl %<>% dplyr::select(REPORT_ID)
     
-    cv_report_drug_dl <- if(is.na(current_brand) == FALSE){
-      cv_report_drug %>%
-        dplyr::select(REPORT_ID, DRUGNAME) %>%
-        filter(DRUGNAME == current_brand)
-    } else {
-      cv_report_drug %>% dplyr::select(REPORT_ID, DRUGNAME)
-    }
+    cv_report_drug_dl <- cv_report_drug %>% dplyr::select(REPORT_ID, DRUGNAME)
+    if(is.na(current_brand) == FALSE) cv_report_drug_dl %<>% filter(DRUGNAME == current_brand)
     
-    cv_reactions_dl <- if(is.na(current_rxn) == FALSE){
-      cv_reactions %>%
-        filter(PT_NAME_ENG == current_rxn)
-    } else {
-      cv_reactions 
-    }
+    cv_reactions_dl <- cv_reactions
+    if(is.na(current_rxn) == FALSE) cv_reactions_dl %<>% filter(PT_NAME_ENG == current_rxn)
     
     reports_tab_master <-  cv_reactions_dl%>%
       semi_join(cv_reports_sorted_dl) %>%
@@ -288,12 +243,8 @@ ui <- dashboardPage(
       menuItem("About", tabName = "aboutinfo", icon = icon("info"))
     ),
     selectizeInput("search_brand", 
-                   "Brand Name (US Trade Name)",
-                   topbrands$DRUGNAME,
-                   options = list(create = TRUE,
-                                  placeholder = 'Please select an option below',
-                                  onInitialize = I('function() { this.setValue(""); }'))),
-    
+                "Brand Name (US Trade Name)",
+                c("Please select an option below" = "", topbrands$DRUGNAME)),
     selectizeInput("search_rxn", 
                    "Adverse Event Term",
                    toprxns$PT_NAME_ENG,
@@ -381,9 +332,6 @@ ui <- dashboardPage(
       
       tabItem(tabName = "downloaddata",
               fluidRow(
-                # box(plotOutput("indicationplot"),
-                #     tags$br(),
-                #     tags$p("This plot includes top_10 indications for drugs associated with the matching reports."), width = 4),
                 box(
                   title = tags$h2("Download Dataset for Disproportionality Analysis"),
                   dateRangeInput("searchDateRange_DISP",
@@ -392,29 +340,22 @@ ui <- dashboardPage(
                                  end = "2015-03-31",
                                  startview = "year",
                                  format = "yyyy-mm-dd"),
-                  actionButton("searchDISPButton", "Search"),
-                  tableOutput("current_DISP_search"),
-                  tableOutput("current_DISP_size"),
+                  actionButton("searchDISPButton", "Prepare download"),
+                  textOutput("current_DISP_search"),
+                  textOutput("current_DISP_size"),
                   downloadButton('downloadData_DISP', 'Download')
                 ),
-                
                 box(
                   tags$h2("Download Data Used for Current Searched Combination"),
                   tags$h3("Please select a category: "),
-                  selectizeInput("search_dataset_type",
+                  selectInput("search_dataset_type",
                                  "Information Category",
-                                 choices = c("Report Info", "Drug Info", "Reaction Info"),  
-                                 options = list(create = TRUE,
-                                                placeholder = 'Please select an option below',
-                                                onInitialize = I('function() { this.setValue(""); }'))),
-                  actionButton("search_report_type_dl","Go"),
-                  tableOutput("download_reports_type"),
-                  tableOutput("download_reports_size"),
+                                 c("Report Info", "Drug Info", "Reaction Info")),
+                  actionButton("search_report_type_dl","Prepare download"),
+                  textOutput("download_reports_type"),
+                  textOutput("download_reports_size"),
                   downloadButton('download_reports', 'Download')
                 )
-                # box(plotOutput("drugplot"),
-                #     tags$br(),
-                #     tags$p("This plot includes top_10 most-reported drugs with most-reported indication assocaiated with the seached drug."), width = 4)
               )
       ),
       tabItem(tabName = "aboutinfo",
@@ -507,91 +448,74 @@ server <- function(input, output) {
   
   
   
-  cv_download_DISP <- reactive({
-    input$searchDISPButton
-    current_date_range <- isolate(input$searchDateRange_DISP)
-    part1 <-cv_drug_product_ingredients %>% dplyr::select(DRUG_PRODUCT_ID,ACTIVE_INGREDIENT_NAME) %>% left_join(cv_report_drug) %>% 
-      dplyr::select(REPORT_ID,ACTIVE_INGREDIENT_NAME) %>% 
-      left_join(cv_reactions) %>% dplyr::select(REPORT_ID,ACTIVE_INGREDIENT_NAME, PT_NAME_ENG) #%>% as.data.table(n=-1)
-    part2 <- cv_reports  %>% 
-      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2]) %>%
-      dplyr::select(REPORT_ID,DATINTRECEIVED_CLEAN) #%>% as.data.table(n=-1)
-    DISP_final <- dplyr::summarise(group_by(semi_join(part1,part2),ACTIVE_INGREDIENT_NAME,PT_NAME_ENG), count = n_distinct(REPORT_ID)) %>% as.data.frame()
-    DISP_date_range <- as.data.frame(
-      paste("Data Range: ", current_date_range[1], "to", current_date_range[2])
-    )
-    DISP_final_size <- as.data.frame(
-      paste("Size of Dataset for Dispropotionality Analysis is ",round(as.numeric(object.size(DISP_final))/1000000,digits=0),"MB")
-    )
-    return(list(DISP_final <- DISP_final,
-                DISP_date_range <- DISP_date_range,
-                DISP_final_size <- DISP_final_size))
-  })
-  
-  
   ########## Download searched dataset ############# 
-  cv_download_reports <- reactive({
-    input$searchButton
-    isolate({
-      #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
-      current_brand <- ifelse(input$search_brand == "", NA, input$search_brand)
-      current_rxn <- ifelse(input$search_rxn == "", NA, input$search_rxn)
-      current_gender <- ifelse(input$search_gender == "", "All", input$search_gender)
-      current_date_range <- input$searchDateRange
-      
-      # report type used for downloading dataset
-      input$search_report_type_dl
-      current_report_type <- isolate(ifelse(input$search_dataset_type == "", "Report Info", input$search_dataset_type))
-      reports_tab_master <- download(current_brand,current_rxn,current_gender,current_date_range,current_report_type)
-      
-      download_type <- as.data.frame(
-        paste("Report Type to be downloaded is ",current_report_type)
-      )
-      
-      reports_tab_master_size <- as.data.frame(
-        paste("Size of Dataset is ",round(as.numeric(object.size(reports_tab_master))/1000000,digits=0),"MB")
-      )
-      return(list(reports_tab_master <- reports_tab_master,
-                  download_type <- download_type,
-                  reports_tab_master_size <- reports_tab_master_size)) 
-    })})
+  cv_download_DISP <- eventReactive(input$searchDISPButton, {
+    current_date_range <- input$searchDateRange_DISP
+    part1 <- cv_drug_product_ingredients %>%
+      dplyr::select(DRUG_PRODUCT_ID,ACTIVE_INGREDIENT_NAME) %>%
+      left_join(cv_report_drug) %>% 
+      dplyr::select(REPORT_ID,ACTIVE_INGREDIENT_NAME) %>% 
+      left_join(cv_reactions) %>%
+      dplyr::select(REPORT_ID,ACTIVE_INGREDIENT_NAME, PT_NAME_ENG)
+    reports_in_date_range <- cv_reports %>% 
+      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2]) %>%
+      dplyr::select(REPORT_ID,DATINTRECEIVED_CLEAN)
+    DISP_final <- semi_join(part1, reports_in_date_range) %>%
+      group_by(ACTIVE_INGREDIENT_NAME, PT_NAME_ENG) %>%
+      dplyr::summarise(count = n_distinct(REPORT_ID)) %>%
+      as.data.frame()
+    DISP_date_range <- paste("Data Range:", current_date_range[1], "to", current_date_range[2])
+    # browser()
+    # temp <- capture.output(write.csv(DISP_final, quote=FALSE, row.names=FALSE)) %>% paste(collapse=" ")
+    # DISP_final_size <- paste("Size of Dataset for Dispropotionality Analysis is",
+    #                          format(object.size(DISP_final),
+    #                                 units = "auto"))
+    DISP_final_size <- ""
+    return(list(DISP_final = DISP_final,
+                DISP_date_range = DISP_date_range,
+                DISP_final_size = DISP_final_size))
+  })
+  cv_download_reports <- eventReactive(input$search_report_type_dl, {
+    #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
+    current_brand <- ifelse(input$search_brand == "", NA, input$search_brand)
+    current_rxn <- ifelse(input$search_rxn == "", NA, input$search_rxn)
+    current_gender <- ifelse(input$search_gender == "", "All", input$search_gender)
+    current_date_range <- input$searchDateRange
+    
+    # report type used for downloading dataset
+    reports_tab_master <- download(current_brand,current_rxn,current_gender,current_date_range,input$search_dataset_type)
+    download_type <- paste("Report Type to be downloaded is", input$search_dataset_type)
+    # reports_tab_master_size <- paste("Size of Dataset is",
+    #                                  format(object.size(reports_tab_master),
+    #                                         units = "auto"))
+    reports_tab_master_size <- ""
+    
+    return(list(reports_tab_master = reports_tab_master,
+                download_type = download_type,
+                reports_tab_master_size = reports_tab_master_size)) 
+  })
   
 
 #########################################################################################################################################
   
   ############# Download Tab #################
-  ############# DISP download ##########
   output$downloadData_DISP <- downloadHandler(
-    filename = function() { paste('DISP_input', '.csv', sep='') },
+    filename = 'DISP_input.csv',
     content = function(file) {
-      data <- as.data.frame(cv_download_DISP()[1])
-      write.csv(data, file)
+      write.csv(cv_download_DISP()$DISP_final, file, quote=FALSE, row.names=FALSE)
     }
   )
-  output$current_DISP_search <-renderTable({
-    data<- as.data.frame(cv_download_DISP()[2])
-  }, include.rownames = FALSE, include.colnames = FALSE) 
-  output$current_DISP_size <-  renderTable({
-    data <- as.data.frame(cv_download_DISP()[3])
-  }, include.rownames = FALSE, include.colnames = FALSE)
-  
-  ############ Download part ################
+  output$current_DISP_search <- renderText(cv_download_DISP()$DISP_date_range) 
+  output$current_DISP_size <- renderText(cv_download_DISP()$DISP_final_size)
   output$download_reports <- downloadHandler(
-    filename = function() { paste('reports', '.csv', sep='') },
+    filename = paste0(input$search_dataset_type, '.csv'),
     content = function(file) {
       data <- as.data.frame(cv_download_reports()[1])
-      write.csv(data, file)
+      write.csv(data, file, quote = FALSE)
     }
   )
-  output$download_reports_type <-renderTable({
-    data <- as.data.frame(cv_download_reports()[2])
-  }, include.rownames = FALSE, include.colnames = FALSE)
-  output$download_reports_size <- renderTable({
-    data <- as.data.frame(cv_download_reports()[3])
-  }, include.rownames = FALSE, include.colnames = FALSE)
-  
-  
-  
+  output$download_reports_type <- renderText(cv_download_reports()$download_type)
+  output$download_reports_size <- renderText(cv_download_reports()$reports_tab_master_size)
   
   ############## Construct Current_Query_Table for generic name, brand name, adverse reaction term & date range searched ############
   output$current_search <- renderTable({
