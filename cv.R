@@ -269,6 +269,8 @@ ui <- dashboardPage(
     tags$br(),
     tags$h3(strong("Current Query:")),
     tableOutput("current_search")
+    # downloadButton(outputId = "hlt_data_dl",
+    #                label = "Export data")
   ), 
   
   dashboardBody(

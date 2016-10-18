@@ -36,7 +36,7 @@ hlt_ror <- hcopen %>% tbl("HLT_ROR_160927")
 master_table_hlt <- hlt_prr %>%
   left_join(hlt_ror, by = c("drug_code", "event_effect"))
 
-cv_drug_rxn_meddra <- hcopen %>% tbl("cv_drug_rxn_meddra")
+cv_drug_rxn_meddra <- hcopen %>% tbl("cv_drug_rxn_meddra") %>% as.data.frame()
 cv_drug_rxn_2006 <- cv_drug_rxn_meddra %>% filter(quarter >= 2006.1)
 count_quarter_pt <- group_by(cv_drug_rxn_2006, ing, PT_NAME_ENG, quarter) %>%
   dplyr::summarize(count = n_distinct(REPORT_ID))
@@ -86,9 +86,15 @@ ui <- dashboardPage(
       ),
       
       menuItem("Documentation", tabName = "Documentation", icon = icon("flag")),
-      # menuItem("Download", tabName = "downloaddata", icon = icon("fa fa-download")),
       menuItem("About", tabName = "aboutinfo", icon = icon("info"))
-    )
+    ),
+    
+    tags$h3(strong("Current Query:")),
+    tableOutput("current_search"),
+    downloadButton(outputId = "pt_data_dl",
+                   label = "Export PT data"),
+    downloadButton(outputId = "hlt_data_dl",
+                   label = "Export HLT data")
     
   ), 
   
@@ -206,6 +212,43 @@ server <- function(input, output, session) {
                            selected = hlt_mapped)
     }
   })
+  
+  # Data frame generate reactive function to be used to assign: data <- cv_reports_tab()
+  search_tab <- reactive({
+    input$searchButton
+    isolate({
+      #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
+      current_drug <- ifelse(input$search_drug == "", "Not Specified (All)", input$search_drug)
+      current_hlt <- ifelse(input$search_hlt == "", "Not Specified (All)", input$search_hlt)
+      current_pt <- ifelse(input$search_pt == "", "Not Specified (All)", input$search_pt)
+      
+      search_tab_df <- data.frame(names = c("Generic Name:",
+                                            "High-Level Term:",
+                                            "Preferred Term:"),
+                                  terms = c(current_drug,
+                                            current_hlt,
+                                            current_pt),
+                                  stringsAsFactors=FALSE)
+    })
+  })
+  # Display what query was searched
+  output$current_search <- renderTable(
+    search_tab(),
+    rownames = FALSE,
+    colnames = FALSE)
+  
+  output$pt_data_dl <- downloadHandler(
+    filename = 'pt_data.csv',
+    content = function(file) {
+      write.csv(table_pt_data(), file, row.names=FALSE)
+    }
+  )
+  output$hlt_data_dl <- downloadHandler(
+    filename = 'hlt_data.csv',
+    content = function(file) {
+      write.csv(table_hlt_data(), file, row.names=FALSE)
+    }
+  )
   
   # PRR tab 
   table_pt_data <- reactive({

@@ -13,6 +13,14 @@ customCSS <- function() {
   font-size: smaller;
   padding-left: inherit;
 }
+
+/*
+Text colour is greyed out
+http://stackoverflow.com/questions/36314780/shinydashboard-grayed-out-downloadbutton
+*/
+.skin-blue .sidebar .btn {
+  color: #444;
+}
 ')))
 }
 
