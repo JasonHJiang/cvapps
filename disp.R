@@ -36,12 +36,14 @@ hlt_ror <- hcopen %>% tbl("HLT_ROR_160927")
 master_table_hlt <- hlt_prr %>%
   left_join(hlt_ror, by = c("drug_code", "event_effect"))
 
-cv_drug_rxn_meddra <- hcopen %>% tbl("cv_drug_rxn_meddra") %>% as.data.frame()
+cv_drug_rxn_meddra <- hcopen %>% tbl("cv_drug_rxn_meddra")
 cv_drug_rxn_2006 <- cv_drug_rxn_meddra %>% filter(quarter >= 2006.1)
 count_quarter_pt <- group_by(cv_drug_rxn_2006, ing, PT_NAME_ENG, quarter) %>%
-  dplyr::summarize(count = n_distinct(REPORT_ID))
+  dplyr::summarize(count = n_distinct(REPORT_ID)) %>%
+  ungroup()
 count_quarter_hlt <- group_by(cv_drug_rxn_2006, ing, HLT_NAME_ENG, quarter) %>%
-  dplyr::summarize(count = n_distinct(REPORT_ID))
+  dplyr::summarize(count = n_distinct(REPORT_ID)) %>%
+  ungroup()
 
 
 # PT-HLT mapping
@@ -215,7 +217,7 @@ server <- function(input, output, session) {
   
   # Data frame generate reactive function to be used to assign: data <- cv_reports_tab()
   search_tab <- reactive({
-    input$searchButton
+    input$search_button
     isolate({
       #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
       current_drug <- ifelse(input$search_drug == "", "Not Specified (All)", input$search_drug)
@@ -235,7 +237,8 @@ server <- function(input, output, session) {
   output$current_search <- renderTable(
     search_tab(),
     rownames = FALSE,
-    colnames = FALSE)
+    colnames = FALSE
+  )
   
   output$pt_data_dl <- downloadHandler(
     filename = 'pt_data.csv',
@@ -250,7 +253,7 @@ server <- function(input, output, session) {
     }
   )
   
-  # PRR tab 
+  # PRR tab
   table_pt_data <- reactive({
     input$search_button # hacky way to get eventReactive but also initial load
     isolate({
@@ -264,25 +267,25 @@ server <- function(input, output, session) {
                     ROR, LB95_ROR, UB95_ROR)
     if(input$search_drug != "") table %<>% filter(drug_code == input$search_drug)
     if(input$search_pt != "") table %<>% filter(event_effect == input$search_pt)
-    
+
     # rank master table by PRR & suppress Inf to the end
     # ***** == "Infinity" is a way that currently works to filter equal to infinity in SQL with dplyr, might change
     table_inf <- table %>%
       filter(PRR == "Infinity") %>%
       dplyr::arrange(drug_code, event_effect) %>%
-      as.data.frame()
+      as.data.frame(stringsAsFactors = FALSE)
     table %<>%
       filter(PRR != "Infinity") %>%
       dplyr::arrange(desc(PRR), desc(LB95_PRR), drug_code, event_effect) %>%
-      as.data.frame() %>%
+      as.data.frame(stringsAsFactors = FALSE) %>%
       bind_rows(table_inf) %>%
       lapply(function(x) {if(is.numeric(x)) round(x,3) else x}) %>%
       as.data.frame()
     table
   })
   })
-  
-  # time-series data 
+
+  # time-series data
   time_data_pt <- reactive({
     table_pt_data() # always update when this table changes, since order of execution isn't guaranteed
     isolate({
@@ -298,11 +301,17 @@ server <- function(input, output, session) {
       timeplot_df <- count_quarter_pt %>% filter(ing %in% top_pairs$drug_code,
                                                  PT_NAME_ENG %in% top_pairs$event_effect) %>% as.data.frame()
     }
-    timeplot_df
+    
+    report_quarters <- count_quarter_hlt %>% select(quarter) %>% distinct() %>% as.data.frame()
+    pairs_df <- top_pairs %>% rename(ing = drug_code, PT_NAME_ENG = event_effect) %>% data.frame(count = 0, stringsAsFactors = FALSE)
+    quarters_df <- data.frame(quarter = report_quarters, count = 0)
+    filled_time_df <- full_join(pairs_df, quarters_df) %>% bind_rows(timeplot_df)
+    filled_time_df %<>% group_by(ing, PT_NAME_ENG, quarter) %>% summarise(count = sum(count))
+    filled_time_df
   })
   })
-  
-  # 
+
+
   table_hlt_data <- reactive({
     input$search_button # hacky way to get eventReactive but also initial load
     isolate({
@@ -315,25 +324,25 @@ server <- function(input, output, session) {
                       ROR, LB95_ROR, UB95_ROR)
       if(input$search_drug != "") table %<>% filter(drug_code == input$search_drug)
       if(input$search_hlt != "") table %<>% filter(event_effect == input$search_hlt)
-      
+
       # rank master table by PRR & suppress Inf to the end
       # ***** == "Infinity" is a way that currently works to filter equal to infinity in SQL with dplyr, might change
       table_inf <- table %>%
         filter(PRR == "Infinity") %>%
         dplyr::arrange(drug_code, event_effect) %>%
-        as.data.frame()
+        as.data.frame(stringsAsFactors = FALSE)
       table %<>%
         filter(PRR != "Infinity") %>%
         dplyr::arrange(desc(PRR), desc(LB95_PRR), drug_code, event_effect) %>%
-        as.data.frame() %>%
+        as.data.frame(stringsAsFactors = FALSE) %>%
         bind_rows(table_inf) %>%
         lapply(function(x) {if(is.numeric(x)) round(x,3) else x}) %>%
         as.data.frame()
       table
     })
   })
-  
-  # time-series data 
+
+  # time-series data
   time_data_hlt <- reactive({
     table_hlt_data() # always update when this table changes, since order of execution isn't guaranteed
     isolate({
@@ -344,17 +353,22 @@ server <- function(input, output, session) {
       if (1 == nrow(top_pairs)) {
         # the SQL IN comparison complains if there's only one value to match to (when we specify both drug and rxn)
         timeplot_df <- count_quarter_hlt %>% filter(ing == top_pairs$drug_code,
-                                                   HLT_NAME_ENG == top_pairs$event_effect) %>% as.data.frame()
+                                                    HLT_NAME_ENG == top_pairs$event_effect) %>% as.data.frame()
       } else {
         timeplot_df <- count_quarter_hlt %>% filter(ing %in% top_pairs$drug_code,
-                                                   HLT_NAME_ENG %in% top_pairs$event_effect) %>% as.data.frame()
+                                                    HLT_NAME_ENG %in% top_pairs$event_effect) %>% as.data.frame()
       }
-      timeplot_df
+      report_quarters <- count_quarter_hlt %>% select(quarter) %>% distinct() %>% as.data.frame()
+      pairs_df <- top_pairs %>% rename(ing = drug_code, HLT_NAME_ENG = event_effect) %>% data.frame(count = 0)
+      quarters_df <- data.frame(quarter = report_quarters, count = 0)
+      filled_time_df <- full_join(pairs_df, quarters_df) %>% bind_rows(timeplot_df)
+      filled_time_df %<>% group_by(ing, HLT_NAME_ENG, quarter) %>% summarise(count = sum(count))
+      filled_time_df
     })
   })
   
-  
-  
+
+
   # PRR Time Plot
   output$timeplot_pt <- renderPlot({
     input$search_button # hacky way to get eventReactive but also initial load
@@ -363,23 +377,22 @@ server <- function(input, output, session) {
     current_rxn <- ifelse(input$search_pt == "","Top 10 Reactions with Highest PRR Values",input$search_pt)
     })
     plottitle <- paste("Non-Cumulative Report Count Time Plot for:", current_drug, "&", current_rxn)
-    
+
     df <- time_data_pt() %>%
       mutate(qtr = as.yearqtr(quarter %>% as.character(), '%Y.%q'))
     p <- ggplot(df, aes(x = qtr, y = count)) +
       scale_x_yearqtr(breaks = seq(min(df$qtr), max(df$qtr), 0.25),
                       format = "%Y Q%q") +
-      ylim(0, max(df$count)) +
-      geom_line(aes(colour=PT_NAME_ENG)) + geom_point()  + 
-      ggtitle(plottitle) + 
-      xlab("Quarter") + 
+      geom_line(aes(colour=PT_NAME_ENG)) + geom_point()  +
+      ggtitle(plottitle) +
+      xlab("Quarter") +
       ylab("Report Count") +
       theme_bw() +
       theme(plot.title = element_text(lineheight=.8, face="bold"), axis.text.x = element_text(angle=30, vjust=0.9, hjust=1))
     print(p)
-    
+
   })
-  
+
   # pass either datatable object or data to be turned into one to renderDataTable
   output$table_pt <- DT::renderDataTable(DT::datatable(
     table_pt_data(),
@@ -389,7 +402,7 @@ server <- function(input, output, session) {
       dom = 'Bfrtip',
       buttons = I('colvis')
     )))
-  
+
   # PRR Time Plot
   output$timeplot_hlt <- renderPlot({
     input$search_button # hacky way to get eventReactive but also initial load
@@ -398,23 +411,22 @@ server <- function(input, output, session) {
       current_rxn <- ifelse(input$search_hlt == "","Top 10 Reactions with Highest PRR Values",input$search_hlt)
     })
     plottitle <- paste("Non-Cumulative Report Count Time Plot for:", current_drug, "&", current_rxn)
-    
+
     df <- time_data_hlt() %>%
       mutate(qtr = as.yearqtr(quarter %>% as.character(), '%Y.%q'))
     p <- ggplot(df, aes(x = qtr, y = count)) +
       scale_x_yearqtr(breaks = seq(min(df$qtr), max(df$qtr), 0.25),
                       format = "%Y Q%q") +
-      ylim(0, max(df$count)) +
-      geom_line(aes(colour=HLT_NAME_ENG)) + geom_point()  + 
-      ggtitle(plottitle) + 
-      xlab("Quarter") + 
+      geom_line(aes(colour=HLT_NAME_ENG)) + geom_point()  +
+      ggtitle(plottitle) +
+      xlab("Quarter") +
       ylab("Report Count") +
       theme_bw() +
       theme(plot.title = element_text(lineheight=.8, face="bold"), axis.text.x = element_text(angle=30, vjust=0.9, hjust=1))
     print(p)
-    
+
   })
-  
+
   # pass either datatable object or data to be turned into one to renderDataTable
   output$table_hlt <- DT::renderDataTable(DT::datatable(
     table_hlt_data(),
