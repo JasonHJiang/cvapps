@@ -65,7 +65,7 @@ age_code <- data.table(term = 800:805,
 
 adrplot <- function(monthlyadrdata, plottitle){
   nreports <- sum(monthlyadrdata$n)
-  plottitle <- paste0(str_replace_all(plottitle, "\\+", " "), " (", nreports, " reports)") 
+  plottitle <- paste0(str_replace_all(plottitle, "\\+", " "), " (", nreports, " reports)")
   plot <- monthlyadrdata %>%
     ggplot(aes(x = month, y = n)) +
     geom_line(stat = "identity", size = 0.1) +
@@ -337,13 +337,12 @@ server <- function(input, output) {
     } else{
       time_results <- time_results %>%
         mutate(month = floor_date(ymd(time), "month")) %>%
-        count(month, wt = count)
+        dplyr::count(month, wt = count)
     }
     
     title <- ifelse(!is.na(data$current_search[[1]]), data$current_search[[1]], data$current_search[[2]])
     plottitle <- paste("Drug Adverse Event Reports for", title)
     p <- adrplot(time_results, plottitle)
-    #print(p)
     ggplotly(p)
   })
   
@@ -548,7 +547,7 @@ server <- function(input, output) {
                          age_group = ifelse(term >= 18 & term < 65, "Adult", age_group),
                          age_group = ifelse(term >= 65, "Elderly", age_group),
                          age_group = ifelse(term >= 130, "Unknown", age_group)) %>%
-      count(age_group, wt = n, sort = TRUE) %>%
+      dplyr::count(age_group, wt = n, sort = TRUE) %>%
       rename(n = nn)
     
     unknown <- data$openfda_query %>%
