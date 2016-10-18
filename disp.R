@@ -66,18 +66,15 @@ ui <- dashboardPage(
         "input.sidebarmenu === 'data'",
         selectizeInput(inputId ="search_drug",
                        label = "Generic Name/Ingredient",
-                       choices = c("", drug_choices),
-                       options = list(placeholder = 'Start typing to search...')),
+                       choices = c("Start typing to search..." = "", drug_choices)),
         
         selectizeInput(inputId = "search_hlt",
                        label = "Adverse Event High-Level Term",
-                       choices = NULL,
-                       options = list(placeholder = 'Start typing to search...')),
+                       choices = c("Loading..." = "")),
         
         selectizeInput(inputId = "search_pt",
                        label = "Adverse Event Preferred Term",
-                       choices = NULL,
-                       options = list(placeholder = 'Start typing to search...')),
+                       choices = c("Loading..." = "")),
         
         checkboxInput(inputId = "checkbox_filter_pt",
                       label = "Only see PTs from chosen HLT",
@@ -171,9 +168,9 @@ server <- function(input, output, session) {
       as.data.frame() %>% `[[`(1) %>%
       sort()
     updateSelectizeInput(session, "search_hlt",
-                         choices = c("", hlt_choices))
+                         choices = c("Start typing to search..." = "", hlt_choices))
     updateSelectizeInput(session, "search_pt",
-                         choices = c("", pt_choices))
+                         choices = c("Start typing to search..." = "", pt_choices))
   })
   
   # Relabel PT dropdown menu based on selected HLT
@@ -193,7 +190,7 @@ server <- function(input, output, session) {
         sort()
       if (! pt_selected %in% pt_choices) pt_selected = ""
       updateSelectizeInput(session, "search_pt",
-                           choices = c("", pt_choices),
+                           choices = c("Start typing to search..." = "", pt_choices),
                            selected = pt_selected)
   })
   })
@@ -347,7 +344,7 @@ server <- function(input, output, session) {
     options = list(
       scrollX = TRUE,
       dom = 'Bfrtip',
-      buttons = c('copy', 'csv', 'pdf', 'colvis')
+      buttons = I('colvis')
     )))
   
   # PRR Time Plot
@@ -382,7 +379,7 @@ server <- function(input, output, session) {
     options = list(
       scrollX = TRUE,
       dom = 'Bfrtip',
-      buttons = c('copy', 'csv', 'pdf', 'colvis')
+      buttons = I('colvis')
     )))
 }
 
