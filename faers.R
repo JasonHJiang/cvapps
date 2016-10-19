@@ -1,16 +1,25 @@
-library(shinydashboard)
-library(jsonlite)
+# data manip + utils
+library(magrittr)
 library(lubridate)
 library(dplyr)
+# use this more widely instead of data.frames?
 library(data.table)
-library(ggplot2)
-library(magrittr)
-library(plotly)
-library(shiny)
-library(DT)
-library(googleVis)
-library(openfda)
 library(stringr)
+library(utils)
+library(zoo)
+library(pool)
+
+# data visualizations
+library(plotly)
+library(ggplot2)
+library(googleVis)
+
+# Shiny libraries
+library(shiny)
+library(shinydashboard)
+library(DT)
+
+library(openfda)
 source("common_ui.R")
 
 
