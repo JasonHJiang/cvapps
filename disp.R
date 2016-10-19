@@ -278,7 +278,8 @@ server <- function(input, output, session) {
                     count = count.x, expected_count = expected_count.x,
                     PRR, LB95_PRR, UB95_PRR,
                     IC,  LB95_IC,  UB95_IC,
-                    ROR, LB95_ROR, UB95_ROR)
+                    ROR, LB95_ROR, UB95_ROR) %>%
+      filter(count >= input$min_count)
     if(input$search_drug != "") table %<>% filter(drug_code == input$search_drug)
     if(input$search_pt != "") table %<>% filter(event_effect == input$search_pt)
 
@@ -291,10 +292,13 @@ server <- function(input, output, session) {
     table %<>%
       filter(PRR != "Infinity") %>%
       dplyr::arrange(desc(PRR), desc(LB95_PRR), drug_code, event_effect) %>%
-      as.data.frame(stringsAsFactors = FALSE) %>%
+      as.data.frame(stringsAsFactors = FALSE)
+    if (!input$inf_filter_pt) {
+    table %<>%
       bind_rows(table_inf) %>%
       lapply(function(x) {if(is.numeric(x)) round(x,3) else x}) %>%
       as.data.frame()
+    }
     table
   })
   })
@@ -335,7 +339,8 @@ server <- function(input, output, session) {
         dplyr::select(drug_code, event_effect,
                       count = count.x, expected_count = expected_count.x,
                       PRR, LB95_PRR, UB95_PRR,
-                      ROR, LB95_ROR, UB95_ROR)
+                      ROR, LB95_ROR, UB95_ROR) %>%
+        filter(count >= input$min_count)
       if(input$search_drug != "") table %<>% filter(drug_code == input$search_drug)
       if(input$search_hlt != "") table %<>% filter(event_effect == input$search_hlt)
 
@@ -348,10 +353,13 @@ server <- function(input, output, session) {
       table %<>%
         filter(PRR != "Infinity") %>%
         dplyr::arrange(desc(PRR), desc(LB95_PRR), drug_code, event_effect) %>%
-        as.data.frame(stringsAsFactors = FALSE) %>%
+        as.data.frame(stringsAsFactors = FALSE)
+      if (!input$inf_filter_pt) {
+      table %<>%
         bind_rows(table_inf) %>%
         lapply(function(x) {if(is.numeric(x)) round(x,3) else x}) %>%
         as.data.frame()
+      }
       table
     })
   })
