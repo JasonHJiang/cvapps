@@ -243,13 +243,25 @@ server <- function(input, output, session) {
   )
   
   output$pt_data_dl <- downloadHandler(
-    filename = 'pt_data.csv',
+    filename = function() {
+      current_drug <- search_tab()$terms[1]
+      if (current_drug == "Not Specified (All)") current_drug <- "all"
+      current_drug <- gsub(" ", "_", current_drug)
+      current_drug <- gsub("\\|", "-", current_drug)
+      paste0('pt_data_', current_drug, '.csv')
+    },
     content = function(file) {
       write.csv(table_pt_data(), file, row.names=FALSE)
     }
   )
   output$hlt_data_dl <- downloadHandler(
-    filename = 'hlt_data.csv',
+    filename = function() {
+      current_drug <- search_tab()$terms[1]
+      if (current_drug == "Not Specified (All)") current_drug <- "all"
+      current_drug <- gsub(" ", "_", current_drug)
+      current_drug <- gsub("\\|", "-", current_drug)
+      paste0('hlt_data_', current_drug, '.csv')
+    },
     content = function(file) {
       write.csv(table_hlt_data(), file, row.names=FALSE)
     }
