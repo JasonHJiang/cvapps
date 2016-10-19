@@ -50,7 +50,7 @@ count_quarter_hlt <- group_by(cv_drug_rxn_2006, ing, HLT_NAME_ENG, quarter) %>%
 drug_PT_HLT <- cv_drug_rxn_2006 %>%
   dplyr::select(ing, PT_NAME_ENG, HLT_NAME_ENG) %>%
   dplyr::distinct() %>%
-  dplyr::filter(!is.na(HLT_NAME_ENG)) %>% as.data.frame()
+  dplyr::filter(!is.na(HLT_NAME_ENG))
 # drug and adverse event dropdown menu choices
 drug_choices <- drug_PT_HLT %>% dplyr::distinct(ing) %>% as.data.frame()
 drug_choices <- sort(drug_choices$ing)
@@ -62,41 +62,43 @@ ui <- dashboardPage(
                   titleWidth = 700),
   
   dashboardSidebar(
-    sidebarMenu(id = "sidebarmenu",
+    sidebarMenu(
+      id = "sidebarmenu",
       menuItem("Disproportionality Analysis", tabName = "data", icon = icon("database")),
-      conditionalPanel(
-        "input.sidebarmenu === 'data'",
-        selectizeInput(inputId ="search_drug",
-                       label = "Generic Name/Ingredient",
-                       choices = c("Start typing to search..." = "", drug_choices)),
-        
-        selectizeInput(inputId = "search_hlt",
-                       label = "Adverse Event High-Level Term",
-                       choices = c("Loading..." = "")),
-        
-        selectizeInput(inputId = "search_pt",
-                       label = "Adverse Event Preferred Term",
-                       choices = c("Loading..." = "")),
-        
-        checkboxInput(inputId = "checkbox_filter_pt",
-                      label = "Only see PTs from chosen HLT",
-                      value = FALSE),
-        
-        actionButton(inputId = "search_button",
-                     label = "Search",
-                     width = '100%')
+      selectizeInput(inputId ="search_drug",
+                     label = "Generic Name/Ingredient",
+                     choices = c("Start typing to search..." = "", drug_choices)),
+      selectizeInput(inputId = "search_hlt",
+                     label = "Adverse Event High-Level Term",
+                     choices = c("Loading..." = "")),
+      selectizeInput(inputId = "search_pt",
+                     label = "Adverse Event Preferred Term",
+                     choices = c("Loading..." = "")),
+      checkboxInput(inputId = "checkbox_filter_pt",
+                    label = "Only see PTs from chosen HLT",
+                    value = FALSE),
+      sliderInput(inputId = "min_count",
+                  label = "Minimum count:", 
+                  min=1, max=20, value=1),
+      checkboxInput(inputId = "inf_filter_pt",
+                    label = "Exclude Inf PRR from table",
+                    value = TRUE),
+      # hacky way to get borders correct
+      tags$div(class="form-group shiny-input-container",
+      actionButton(inputId = "search_button",
+                   label = "Search",
+                   width = '100%'),
+      tags$h3(strong("Current Query:")),
+      tableOutput("current_search"),
+      downloadButton(outputId = "pt_data_dl",
+                     label = "Export PT data"),
+      downloadButton(outputId = "hlt_data_dl",
+                     label = "Export HLT data")
       ),
       
       menuItem("Documentation", tabName = "Documentation", icon = icon("flag")),
       menuItem("About", tabName = "aboutinfo", icon = icon("info"))
-    ),
-    
-    tags$h3(strong("Current Query:")),
-    tableOutput("current_search"),
-    downloadButton(outputId = "pt_data_dl",
-                   label = "Export PT data"),
-    downloadButton(outputId = "hlt_data_dl",
-                   label = "Export HLT data")
+    )
     
   ), 
   
@@ -301,7 +303,7 @@ server <- function(input, output, session) {
       timeplot_df <- count_quarter_pt %>% filter(ing %in% top_pairs$drug_code,
                                                  PT_NAME_ENG %in% top_pairs$event_effect) %>% as.data.frame()
     }
-    
+
     report_quarters <- count_quarter_hlt %>% select(quarter) %>% distinct() %>% as.data.frame()
     pairs_df <- top_pairs %>% rename(ing = drug_code, PT_NAME_ENG = event_effect) %>% data.frame(count = 0, stringsAsFactors = FALSE)
     quarters_df <- data.frame(quarter = report_quarters, count = 0)
