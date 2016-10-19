@@ -311,6 +311,11 @@ server <- function(input, output, session) {
       filter(PRR != Inf) %>%   # this comparison is done in R, not SQL, so Inf rather than "Infinity"
       dplyr::select(drug_code, event_effect) %>%
       head(10)
+    if (0 == nrow(top_pairs)) {
+      top_pairs <- table_pt_data() %>%
+        dplyr::select(drug_code, event_effect) %>%
+        head(10)
+    }
     if (1 == nrow(top_pairs)) {
       # the SQL IN comparison complains if there's only one value to match to (when we specify both drug and rxn)
       timeplot_df <- count_quarter_pt %>% filter(ing == top_pairs$drug_code,
@@ -320,7 +325,7 @@ server <- function(input, output, session) {
                                                  PT_NAME_ENG %in% top_pairs$event_effect) %>% as.data.frame()
     }
 
-    report_quarters <- count_quarter_hlt %>% select(quarter) %>% distinct() %>% as.data.frame()
+    report_quarters <- count_quarter_pt %>% select(quarter) %>% distinct() %>% as.data.frame()
     pairs_df <- top_pairs %>% rename(ing = drug_code, PT_NAME_ENG = event_effect) %>% data.frame(count = 0, stringsAsFactors = FALSE)
     quarters_df <- data.frame(quarter = report_quarters, count = 0)
     filled_time_df <- full_join(pairs_df, quarters_df) %>% bind_rows(timeplot_df)
@@ -372,6 +377,11 @@ server <- function(input, output, session) {
         filter(PRR != Inf) %>%   # this comparison is done in R, not SQL, so Inf rather than "Infinity"
         dplyr::select(drug_code, event_effect) %>%
         head(10)
+      if (0 == nrow(top_pairs)) {
+        top_pairs <- table_pt_data() %>%
+          dplyr::select(drug_code, event_effect) %>%
+          head(10)
+      }
       if (1 == nrow(top_pairs)) {
         # the SQL IN comparison complains if there's only one value to match to (when we specify both drug and rxn)
         timeplot_df <- count_quarter_hlt %>% filter(ing == top_pairs$drug_code,
@@ -381,7 +391,7 @@ server <- function(input, output, session) {
                                                     HLT_NAME_ENG %in% top_pairs$event_effect) %>% as.data.frame()
       }
       report_quarters <- count_quarter_hlt %>% select(quarter) %>% distinct() %>% as.data.frame()
-      pairs_df <- top_pairs %>% rename(ing = drug_code, HLT_NAME_ENG = event_effect) %>% data.frame(count = 0)
+      pairs_df <- top_pairs %>% rename(ing = drug_code, HLT_NAME_ENG = event_effect) %>% data.frame(count = 0, stringsAsFactors = FALSE)
       quarters_df <- data.frame(quarter = report_quarters, count = 0)
       filled_time_df <- full_join(pairs_df, quarters_df) %>% bind_rows(timeplot_df)
       filled_time_df %<>% group_by(ing, HLT_NAME_ENG, quarter) %>% summarise(count = sum(count))
