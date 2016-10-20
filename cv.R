@@ -27,9 +27,10 @@ source("common_ui.R")
 hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
 cv_reports <- tbl(hcopen, "cv_reports")
 cv_drug_product_ingredients <-  tbl(hcopen, "cv_drug_product_ingredients")
-cv_report_drug <- tbl(hcopen,"cv_report_drug")
-cv_reactions <- tbl(hcopen,"cv_reactions")
-cv_report_drug_indication <- tbl(hcopen,"cv_report_drug_indication")
+cv_report_drug <- tbl(hcopen, "cv_report_drug")
+cv_reactions <- tbl(hcopen, "cv_reactions")
+cv_report_drug_indication <- tbl(hcopen, "cv_report_drug_indication")
+meddra <- tbl(hcopen, "meddra") %>% filter(MEDDRA_VERSION == "v.19.0", Primary_SOC_flag == "Y") %>% select(PT_Term, HLT_Term)
 
 ############### Create function ###################
 # function to plot adverse reaction plot
@@ -367,6 +368,7 @@ server <- function(input, output) {
       #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq) 
       drugs_tab_indication <- cv_master_tab_tbl() %>%
         inner_join(cv_report_drug_indication_drg, by = "REPORT_ID") %>%
+        inner_join(meddra, by = c("PT_Term" = "INDICATION_NAME_ENG")) %>%
         as.data.frame()
     })})
   
@@ -430,7 +432,25 @@ server <- function(input, output) {
         top_n(10, count) %>%
         as.data.frame()
     })})
-  
+  cv_reactions_hlt_tbl <- reactive({
+    input$searchButton
+    isolate({
+      drugs_rxn_result <- cv_reactions %>%
+        dplyr::select(REPORT_ID, PT_NAME_ENG)  %>%
+        inner_join(meddra, by = c("PT_Term" = "PT_NAME_ENG"))
+      if(input$search_brand != "") {
+        cv_reports_filtered <- cv_report_drug %>%
+          filter(DRUGNAME == input$search_brand)
+        drugs_rxn_result %<>%
+          semi_join(cv_reports_filtered, by = "REPORT_ID")
+      }
+      drugs_rxn_result %<>%
+        group_by(HLT_Term) %>%
+        dplyr::summarise(count = n_distinct(REPORT_ID)) %>%
+        top_n(10, count) %>%
+        as.data.frame()
+    })})
+
   
   ########## Download searched dataset ##
   cv_download_DISP <- eventReactive(input$searchDISPButton, {
@@ -810,29 +830,52 @@ server <- function(input, output) {
     ggplotly(p)
   })
   
-  # output$indicationplot <- renderPlotly({
-  #   data <- cv_drug_tab_indc()
-  #   # replace blank in GENDER_ENG with character "Unknown"
-  #   data$GENDER_ENG[data$GENDER_ENG == ""] <- "Unknown"
-  #   
-  #   
-  #   indications <-  dplyr::summarise(group_by(data, INDICATION_NAME_ENG),count=n_distinct(REPORT_ID))
-  #   indications_sorted<- indications %>% dplyr::arrange(desc(count)) %>% top_n(n=10)
-  #   
-  #   library(scales)
-  #   p <- ggplot(indications_sorted, aes(x = INDICATION_NAME_ENG, y = count, fill = INDICATION_NAME_ENG)) + 
-  #     geom_bar(stat = "identity") + 
-  #     scale_x_discrete(limits = rev(indications_sorted$INDICATION_NAME_ENG)) + 
-  #     coord_flip() +
-  #     ggtitle("Top 10 Indications") +
-  #     xlab("Indication") + 
-  #     ylab("Number") +
-  #     theme_bw() +
-  #     theme(plot.title = element_text(lineheight=.8, face="bold"), 
-  #           legend.position = "none") +
-  #     scale_y_continuous(limits=  c(0, max(indications_sorted$count)))
-  #   ggplotly(p)
-  # })
+  output$indicationptplot <- renderPlotly({
+    data <- cv_drug_tab_indc()
+    # replace blank in GENDER_ENG with character "Unknown"
+    data$GENDER_ENG[data$GENDER_ENG == ""] <- "Unknown"
+
+
+    indications <-  dplyr::summarise(group_by(data, INDICATION_NAME_ENG),count=n_distinct(REPORT_ID))
+    indications_sorted<- indications %>% dplyr::arrange(desc(count)) %>% top_n(n=10)
+
+    library(scales)
+    p <- ggplot(indications_sorted, aes(x = INDICATION_NAME_ENG, y = count, fill = INDICATION_NAME_ENG)) +
+      geom_bar(stat = "identity") +
+      scale_x_discrete(limits = rev(indications_sorted$INDICATION_NAME_ENG)) +
+      coord_flip() +
+      ggtitle("Top 10 Indications") +
+      xlab("Indication") +
+      ylab("Number") +
+      theme_bw() +
+      theme(plot.title = element_text(lineheight=.8, face="bold"),
+            legend.position = "none") +
+      scale_y_continuous(limits=  c(0, max(indications_sorted$count)))
+    ggplotly(p)
+  })
+  output$indicationhltplot <- renderPlotly({
+    data <- cv_drug_tab_indc()
+    # replace blank in GENDER_ENG with character "Unknown"
+    data$GENDER_ENG[data$GENDER_ENG == ""] <- "Unknown"
+
+
+    indications <-  dplyr::summarise(group_by(data, HLT_Term),count=n_distinct(REPORT_ID))
+    indications_sorted<- indications %>% dplyr::arrange(desc(count)) %>% top_n(n=10)
+
+    library(scales)
+    p <- ggplot(indications_sorted, aes(x = HLT_Term, y = count, fill = HLT_Term)) +
+      geom_bar(stat = "identity") +
+      scale_x_discrete(limits = rev(indications_sorted$HLT_Term)) +
+      coord_flip() +
+      ggtitle("Top 10 Indications") +
+      xlab("Indication") +
+      ylab("Number") +
+      theme_bw() +
+      theme(plot.title = element_text(lineheight=.8, face="bold"),
+            legend.position = "none") +
+      scale_y_continuous(limits=  c(0, max(indications_sorted$count)))
+    ggplotly(p)
+  })
   
   
   ################ Create Outcomes(all reactions) pie chart in Reaction tab ################## 
@@ -848,20 +891,34 @@ server <- function(input, output) {
                  options = list(pieHole = 0.4))
   })
   
-  # output$rxnTbl <- renderGvis({
-  #   data <- cv_reactions_tbl()
-  #   gvisBarChart(data,
-  #                xvar = "PT_NAME_ENG",
-  #                yvar = "count",
-  #                options = list(
-  #                  #vAxes="[{title:'Reactions'}",
-  #                  legend = "{position:'none'}",
-  #                  bars = 'horizontal',
-  #                  axes= "x: {
-  #                                0: { side: 'top', label: 'Number of Reports'}}",
-  #                  bar = list(groupWidth =  '90%'),
-  #                  height=500)
-  #   )})
+  output$top_pt <- renderGvis({
+    data <- cv_reactions_tbl()
+    gvisBarChart(data,
+                 xvar = "PT_NAME_ENG",
+                 yvar = "count",
+                 options = list(
+                   #vAxes="[{title:'Reactions'}",
+                   legend = "{position:'none'}",
+                   bars = 'horizontal',
+                   axes= "x: {
+                                 0: { side: 'top', label: 'Number of Reports'}}",
+                   bar = list(groupWidth =  '90%'),
+                   height=500)
+    )})
+  output$top_hlt <- renderGvis({
+    data <- cv_reactions_hlt_tbl()
+    gvisBarChart(data,
+                 xvar = "HLT_Term",
+                 yvar = "count",
+                 options = list(
+                   #vAxes="[{title:'Reactions'}",
+                   legend = "{position:'none'}",
+                   bars = 'horizontal',
+                   axes= "x: {
+                                 0: { side: 'top', label: 'Number of Reports'}}",
+                   bar = list(groupWidth =  '90%'),
+                   height=500)
+    )})
 }
 
 shinyApp(ui, server)
