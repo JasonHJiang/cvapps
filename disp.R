@@ -300,13 +300,10 @@ server <- function(input, output, session) {
       filter(PRR != "Infinity") %>%
       dplyr::arrange(desc(PRR), desc(LB95_PRR), drug_code, event_effect) %>%
       as.data.frame(stringsAsFactors = FALSE)
-    if (!input$inf_filter_pt) {
+    if (!input$inf_filter_pt) table %<>% bind_rows(table_inf)
     table %<>%
-      bind_rows(table_inf) %>%
       lapply(function(x) {if(is.numeric(x)) round(x,3) else x}) %>%
       as.data.frame()
-    }
-    table
   })
   })
 
@@ -366,13 +363,10 @@ server <- function(input, output, session) {
         filter(PRR != "Infinity") %>%
         dplyr::arrange(desc(PRR), desc(LB95_PRR), drug_code, event_effect) %>%
         as.data.frame(stringsAsFactors = FALSE)
-      if (!input$inf_filter_pt) {
+      if (!input$inf_filter_pt) table %<>% bind_rows(table_inf)
       table %<>%
-        bind_rows(table_inf) %>%
         lapply(function(x) {if(is.numeric(x)) round(x,3) else x}) %>%
         as.data.frame()
-      }
-      table
     })
   })
 
