@@ -196,55 +196,79 @@ ui <- dashboardPage(
     tabItems(
       tabItem(tabName = "reportdata",
               fluidRow(
-                box(htmlOutput("reporterplot"), 
+                box(title = tags$h3("Reporter"),
+                    htmlOutput("reporterplot"), 
                     tags$br(),
                     tags$p("Qualification of the person who filed the report."),
                     tags$p("Unknown is the number of reports without the primarysource.qualification field."),
-                    title = tags$h2("Reporter"), width = 4),
-                box(htmlOutput("seriousplot"), 
+                    width = 4),
+                box(title = tags$h3("Serious reports"),
+                    htmlOutput("seriousplot"), 
                     tags$br(),
                     tags$p("Reports marked as serious."),
-                    title = tags$h2("Serious reports"), width = 4),
-                box(htmlOutput("seriousreasonsplot"), 
+                    width = 4),
+                box(title = tags$h3("Reasons for serious reports"),
+                    htmlOutput("seriousreasonsplot"), 
                     tags$br(),
                     tags$p("Total sums to more than 100% because reports can be marked serious for multiple reasons."),
-                    title = tags$h2("Reasons for serious reports"), width = 4)
+                    width = 4)
               )
       ),
       tabItem(tabName = "patientdata",
               fluidRow(
-                box(htmlOutput("sexplot"),
+                box(title = tags$h3("Gender"),
+                    htmlOutput("sexplot"),
                     tags$br(),
                     tags$p("Unknown includes reports explicitly marked unknown and Not Specified includes reports with no gender information."),
-                    title = tags$h2("Gender"), width = 3),
-                box(htmlOutput("agegroupplot"),
+                    width = 3),
+                box(title = tags$h3("Age Groups"),
+                    htmlOutput("agegroupplot"),
                     tags$br(),
                     tags$p("Unknown includes reports with no age information."), 
-                    title = tags$h2("Age Groups"), width = 3),
-                box(plotlyOutput("agehist"), title = tags$h2("Age Histogram"), width = 6)
+                    width = 3),
+                box(title = tags$h3("Age Histogram"),
+                    plotlyOutput("agehist"),
+                    width = 6)
               )
       ),
       tabItem(tabName = "drugdata",
               fluidRow(
-                box(plotlyOutput("indicationplot"),
+                box(plotlyOutput("indicationptplot"),
                     tags$br(),
-                    tags$p("This plot includes top_10 indications for drugs associated with the matching reports."), width = 6),
+                    tags$p("This plot includes top 10 indications (PT) for drugs associated with the matching reports."),
+                    width = 6),
+                box(plotlyOutput("indicationhltplot"),
+                    tags$br(),
+                    tags$p("This plot includes top 10 indications (HLT) for drugs associated with the matching reports."),
+                    width = 6),
                 box(plotlyOutput("drugplot"),
                     tags$br(),
-                    tags$p("This plot includes top_10 most-reported drugs with most-reported indication assocaiated with the seached drug."), width = 6)
+                    tags$p("This plot includes top 10 most-reported drugs with most-reported indication assocaiated with the seached drug."),
+                    width = 6)
               )
       ),
       tabItem(tabName = "rxndata",
               fluidRow(
-                box(htmlOutput("outcomeplot"), title = tags$h2("Outcomes (all reactions)")),
-                box(htmlOutput("rxnTbl"), title = tags$h2("Top10 Reactions Associated with Searched Drug"))
+                box(title = tags$h3("Outcomes (all reactions)"),
+                    htmlOutput("outcomeplot"),
+                    width = 4),
+                box(title = tags$h3("Top 10 Reactions (Preferred Terms) Associated with Searched Drug"),
+                    htmlOutput("top_pt"),
+                    tags$br(),
+                    tags$p("For more rigorous analysis, use disproportionality statistics."),
+                    width = 4),
+                box(title = tags$h3("Top 10 Reactions (High-Level Terms) Associated with Searched Drug"),
+                    htmlOutput("top_hlt"),
+                    tags$br(),
+                    tags$p("For more rigorous analysis, use disproportionality statistics."),
+                    width = 4)
               )
       ),
       
       tabItem(tabName = "downloaddata",
               fluidRow(
                 box(
-                  title = tags$h2("Download Dataset for Disproportionality Analysis"),
+                  title = tags$h3("Download Dataset for Disproportionality Analysis"),
                   dateRangeInput("searchDateRange_DISP",
                                  "Date Range",
                                  start = "2015-01-01",
@@ -257,8 +281,8 @@ ui <- dashboardPage(
                   downloadButton('downloadData_DISP', 'Download')
                 ),
                 box(
-                  tags$h2("Download Data Used for Current Searched Combination"),
-                  tags$h3("Please select a category: "),
+                  tags$h3("Download Data Used for Current Searched Combination"),
+                  tags$p("Please select a category: "),
                   selectInput("search_dataset_type",
                                  "Information Category",
                                  c("Report Info", "Drug Info", "Reaction Info")),
@@ -786,29 +810,29 @@ server <- function(input, output) {
     ggplotly(p)
   })
   
-  output$indicationplot <- renderPlotly({
-    data <- cv_drug_tab_indc()
-    # replace blank in GENDER_ENG with character "Unknown"
-    data$GENDER_ENG[data$GENDER_ENG == ""] <- "Unknown"
-    
-    
-    indications <-  dplyr::summarise(group_by(data, INDICATION_NAME_ENG),count=n_distinct(REPORT_ID))
-    indications_sorted<- indications %>% dplyr::arrange(desc(count)) %>% top_n(n=10)
-    
-    library(scales)
-    p <- ggplot(indications_sorted, aes(x = INDICATION_NAME_ENG, y = count, fill = INDICATION_NAME_ENG)) + 
-      geom_bar(stat = "identity") + 
-      scale_x_discrete(limits = rev(indications_sorted$INDICATION_NAME_ENG)) + 
-      coord_flip() +
-      ggtitle("Top 10 Indications") +
-      xlab("Indication") + 
-      ylab("Number") +
-      theme_bw() +
-      theme(plot.title = element_text(lineheight=.8, face="bold"), 
-            legend.position = "none") +
-      scale_y_continuous(limits=  c(0, max(indications_sorted$count)))
-    ggplotly(p)
-  })
+  # output$indicationplot <- renderPlotly({
+  #   data <- cv_drug_tab_indc()
+  #   # replace blank in GENDER_ENG with character "Unknown"
+  #   data$GENDER_ENG[data$GENDER_ENG == ""] <- "Unknown"
+  #   
+  #   
+  #   indications <-  dplyr::summarise(group_by(data, INDICATION_NAME_ENG),count=n_distinct(REPORT_ID))
+  #   indications_sorted<- indications %>% dplyr::arrange(desc(count)) %>% top_n(n=10)
+  #   
+  #   library(scales)
+  #   p <- ggplot(indications_sorted, aes(x = INDICATION_NAME_ENG, y = count, fill = INDICATION_NAME_ENG)) + 
+  #     geom_bar(stat = "identity") + 
+  #     scale_x_discrete(limits = rev(indications_sorted$INDICATION_NAME_ENG)) + 
+  #     coord_flip() +
+  #     ggtitle("Top 10 Indications") +
+  #     xlab("Indication") + 
+  #     ylab("Number") +
+  #     theme_bw() +
+  #     theme(plot.title = element_text(lineheight=.8, face="bold"), 
+  #           legend.position = "none") +
+  #     scale_y_continuous(limits=  c(0, max(indications_sorted$count)))
+  #   ggplotly(p)
+  # })
   
   
   ################ Create Outcomes(all reactions) pie chart in Reaction tab ################## 
@@ -824,23 +848,20 @@ server <- function(input, output) {
                  options = list(pieHole = 0.4))
   })
   
-  output$rxnTbl <- renderGvis({
-    data <- cv_reactions_tbl()
-    gvisBarChart(data,
-                 xvar = "PT_NAME_ENG",
-                 yvar = "count",
-                 options = list(
-                   #vAxes="[{title:'Reactions'}",
-                   legend = "{position:'none'}",
-                   bars = 'horizontal',
-                   axes= "x: {
-                                 0: { side: 'top', label: 'Number of Reports'}}",
-                   bar = list(groupWidth =  '90%'),
-                   height=500
-                 )
-    )
-    
-  })
+  # output$rxnTbl <- renderGvis({
+  #   data <- cv_reactions_tbl()
+  #   gvisBarChart(data,
+  #                xvar = "PT_NAME_ENG",
+  #                yvar = "count",
+  #                options = list(
+  #                  #vAxes="[{title:'Reactions'}",
+  #                  legend = "{position:'none'}",
+  #                  bars = 'horizontal',
+  #                  axes= "x: {
+  #                                0: { side: 'top', label: 'Number of Reports'}}",
+  #                  bar = list(groupWidth =  '90%'),
+  #                  height=500)
+  #   )})
 }
 
 shinyApp(ui, server)
