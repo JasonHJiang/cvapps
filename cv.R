@@ -62,24 +62,34 @@ adrplot <- function(adrplot_test, plottitle) {
 
 ##################### Download Function ####################
 download <- function(current_brand,current_rxn,current_gender,current_date_range,current_report_type){
+  # cv_reports_filtered <- cv_reports %>%
+  #   filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
+  # if (current_gender != "All") cv_reports_filtered %<>% filter(GENDER_ENG == current_gender)
+  # cv_report_drug_filtered <- cv_report_drug
+  # if (is.na(current_brand) == FALSE) cv_report_drug_filtered %<>% filter(DRUGNAME == current_brand)
+  # cv_reactions_filtered <- cv_reactions
+  # if (is.na(current_rxn) == FALSE) cv_reactions_filtered %<>% filter(PT_NAME_ENG == current_rxn)
+  # reports_tab_master <-  cv_reports_filtered %>%
+  #   semi_join(cv_report_drug_filtered, by = "REPORT_ID") %>%
+  #   semi_join(cv_reactions_filtered, by = "REPORT_ID")
+  
+  
   # Report info type (only filtered cv_reports included)
   if(current_report_type == "Report Info"){
     cv_reports_sorted_dl <- cv_reports %>%
       filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
     if(current_gender != "All") cv_reports_sorted_dl %<>% filter(GENDER_ENG == current_gender)
-    
+    # cv_reports_filtered %<>% dplyr::select(REPORT_ID)
     cv_report_drug_dl <- cv_report_drug %>% dplyr::select(REPORT_ID, DRUGNAME)
     if(is.na(current_brand) == FALSE) cv_report_drug_dl %<>% filter(DRUGNAME == current_brand)
-    
     cv_reactions_dl <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
     if(is.na(current_rxn) == FALSE) cv_reactions_dl %<>% filter(PT_NAME_ENG == current_rxn)
     
-    reports_tab_master <-  cv_reports_sorted_dl%>%
+    reports_tab_master <-  cv_reports_sorted_dl %>%
       semi_join(cv_report_drug_dl) %>%
-      semi_join(cv_reactions_dl) %>%
-      as.data.frame()
+      semi_join(cv_reactions_dl)
+    
   }
-  
   # Drug Info
   if(current_report_type == "Drug Info"){
     cv_reports_sorted_dl <- cv_reports %>%
@@ -95,10 +105,9 @@ download <- function(current_brand,current_rxn,current_gender,current_date_range
     
     reports_tab_master <-  cv_report_drug_dl%>%
       semi_join(cv_reports_sorted_dl) %>%
-      semi_join(cv_reactions_dl) %>%
-      as.data.frame()
+      semi_join(cv_reactions_dl)
+    
   }
-  
   # Reaction Info
   if(current_report_type == "Reaction Info"){
     cv_reports_sorted_dl <- cv_reports %>%
@@ -114,11 +123,10 @@ download <- function(current_brand,current_rxn,current_gender,current_date_range
     
     reports_tab_master <-  cv_reactions_dl%>%
       semi_join(cv_reports_sorted_dl) %>%
-      semi_join(cv_report_drug_dl) %>%
-      as.data.frame()
+      semi_join(cv_report_drug_dl)
   }
   
-  return(reports_tab_master)
+  return(reports_tab_master %>% as.data.frame())
 }
 
 
@@ -344,9 +352,9 @@ server <- function(input, output) {
       cv_reports_filtered <- cv_reports %>%
         filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
       if (current_gender != "All") cv_reports_filtered %<>% filter(GENDER_ENG == current_gender)
-      cv_report_drug_filtered <- cv_report_drug %>% dplyr::select(REPORT_ID, DRUGNAME)
+      cv_report_drug_filtered <- cv_report_drug
       if (is.na(current_brand) == FALSE) cv_report_drug_filtered %<>% filter(DRUGNAME == current_brand)
-      cv_reactions_filtered <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG, MEDDRA_VERSION)
+      cv_reactions_filtered <- cv_reactions
       if (is.na(current_rxn) == FALSE) cv_reactions_filtered %<>% filter(PT_NAME_ENG == current_rxn)
       
       tab_master <-  cv_reports_filtered %>%
@@ -497,6 +505,7 @@ server <- function(input, output) {
     
     return(list(reports_tab_master = reports_tab_master,
                 download_type = download_type,
+                download_format = input$search_dataset_type,
                 reports_tab_master_size = reports_tab_master_size)) 
   })
   
@@ -507,16 +516,21 @@ server <- function(input, output) {
   output$downloadData_DISP <- downloadHandler(
     filename = 'DISP_input.csv',
     content = function(file) {
-      write.csv(cv_download_DISP()$DISP_final, file, quote=FALSE, row.names=FALSE)
+      write.csv(cv_download_DISP()$DISP_final,
+                file,
+                fileEncoding = "UTF-8",
+                row.names = FALSE)
     }
   )
   output$current_DISP_search <- renderText(cv_download_DISP()$DISP_date_range) 
   output$current_DISP_size <- renderText(cv_download_DISP()$DISP_final_size)
   output$download_reports <- downloadHandler(
-    filename = paste0(input$search_dataset_type, '.csv'),
-    content = function(file) {
-      data <- as.data.frame(cv_download_reports()[1])
-      write.csv(data, file, quote = FALSE)
+    filename = function() {paste0(cv_download_reports()$download_format, '.csv')},
+    content = function(file){
+      write.csv(cv_download_reports()$reports_tab_master,
+                file,
+                fileEncoding = "UTF-8",
+                row.names = FALSE)
     }
   )
   output$download_reports_type <- renderText(cv_download_reports()$download_type)
