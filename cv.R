@@ -30,7 +30,7 @@ cv_drug_product_ingredients <-  tbl(hcopen, "cv_drug_product_ingredients")
 cv_report_drug <- tbl(hcopen, "cv_report_drug")
 cv_reactions <- tbl(hcopen, "cv_reactions")
 cv_report_drug_indication <- tbl(hcopen, "cv_report_drug_indication")
-meddra <- tbl(hcopen, "meddra") %>% filter(MEDDRA_VERSION == "v.19.0", Primary_SOC_flag == "Y") %>% select(PT_Term, HLT_Term)
+meddra <- tbl(hcopen, "meddra") %>% filter(Primary_SOC_flag == "Y") %>% select(PT_Term, HLT_Term, Version = MEDDRA_VERSION)
 
 ############### Create function ###################
 # function to plot adverse reaction plot
@@ -346,7 +346,7 @@ server <- function(input, output) {
       if (current_gender != "All") cv_reports_filtered %<>% filter(GENDER_ENG == current_gender)
       cv_report_drug_filtered <- cv_report_drug %>% dplyr::select(REPORT_ID, DRUGNAME)
       if (is.na(current_brand) == FALSE) cv_report_drug_filtered %<>% filter(DRUGNAME == current_brand)
-      cv_reactions_filtered <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
+      cv_reactions_filtered <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG, MEDDRA_VERSION)
       if (is.na(current_rxn) == FALSE) cv_reactions_filtered %<>% filter(PT_NAME_ENG == current_rxn)
       
       tab_master <-  cv_reports_filtered %>%
@@ -366,9 +366,10 @@ server <- function(input, output) {
       
       # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name 
       #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq) 
+      meddra_filtered <- meddra %>% filter(Version == 'v.18.0')
       drugs_tab_indication <- cv_master_tab_tbl() %>%
         inner_join(cv_report_drug_indication_drg, by = "REPORT_ID") %>%
-        inner_join(meddra, by = c("PT_Term" = "INDICATION_NAME_ENG")) %>%
+        inner_join(meddra_filtered, by = c("INDICATION_NAME_ENG" = "PT_Term")) %>%
         as.data.frame()
     })})
   
@@ -436,8 +437,8 @@ server <- function(input, output) {
     input$searchButton
     isolate({
       drugs_rxn_result <- cv_reactions %>%
-        dplyr::select(REPORT_ID, PT_NAME_ENG)  %>%
-        inner_join(meddra, by = c("PT_Term" = "PT_NAME_ENG"))
+        dplyr::select(REPORT_ID, PT_NAME_ENG, MEDDRA_VERSION) %>%
+        inner_join(meddra, by = c("PT_NAME_ENG" = "PT_Term", "MEDDRA_VERSION" = "Version"))
       if(input$search_brand != "") {
         cv_reports_filtered <- cv_report_drug %>%
           filter(DRUGNAME == input$search_brand)
