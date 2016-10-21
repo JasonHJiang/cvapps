@@ -60,31 +60,6 @@ adrplot <- function(adrplot_test, plottitle) {
     theme(plot.title = element_text(lineheight=.8, face="bold"))
 }
 
-##################### Download Function ####################
-download <- function(current_brand,current_rxn,current_gender,current_date_range,current_report_type, data){
-  selected_ids <- data %>% select(REPORT_ID)
-  
-  # Report info type (only filtered cv_reports included)
-  if(current_report_type == "Report Info"){
-    reports_tab_master <- cv_reports %>%
-      semi_join(selected_ids)
-  }
-  # Drug Info
-  if(current_report_type == "Drug Info"){
-    reports_tab_master <- cv_report_drug %>%
-      semi_join(selected_ids)
-    
-  }
-  # Reaction Info
-  if(current_report_type == "Reaction Info"){
-    reports_tab_master <- cv_reactions %>%
-      semi_join(selected_ids)
-  }
-  
-  return(reports_tab_master %>% as.data.frame())
-}
-
-
 ####################### datasets for menu setup ####################### 
 #Fetch top 1000 most-reported brand/drug names
 topbrands <- cv_report_drug %>%
@@ -288,62 +263,66 @@ server <- function(input, output) {
                                             "Adverse Reaction Term:",
                                             "Gender",
                                             "Date Range:"),
-                                  terms = c(current_brand,current_rxn,current_gender,paste(current_date_range[1]," to ", current_date_range[2])),
+                                  terms = c(current_brand,
+                                            current_rxn,
+                                            current_gender,
+                                            paste0(current_date_range[1], " to ", current_date_range[2])),
                                   stringsAsFactors=FALSE)
       
       search_tab_df$terms[is.na(search_tab_df$terms) == TRUE] <- "Not Specified (All)"
-      return(search_tab_df)
+      return(list(search_tab_df = search_tab_df,
+                  search_brand = current_brand,
+                  search_rxn = current_rxn,
+                  search_gender = current_gender,
+                  searchDateRange = current_date_range))
     })})
   
   cv_master_tab_tbl <- reactive({
-    input$searchButton
-    isolate({
-      #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
-      current_brand <- ifelse(input$search_brand == "", NA, input$search_brand)
-      current_rxn <- ifelse(input$search_rxn == "", NA, input$search_rxn)
-      current_gender <- ifelse(input$search_gender == "", "All", input$search_gender)
-      current_date_range <- input$searchDateRange
-      
-      cv_reports_filtered <- cv_reports %>%
-        filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
-      if (current_gender != "All") cv_reports_filtered %<>% filter(GENDER_ENG == current_gender)
-      cv_report_drug_filtered <- cv_report_drug
-      if (is.na(current_brand) == FALSE) cv_report_drug_filtered %<>% filter(DRUGNAME == current_brand)
-      cv_reactions_filtered <- cv_reactions
-      if (is.na(current_rxn) == FALSE) cv_reactions_filtered %<>% filter(PT_NAME_ENG == current_rxn)
-      
-      tab_master <-  cv_reports_filtered %>%
-        semi_join(cv_report_drug_filtered, by = "REPORT_ID") %>%
-        semi_join(cv_reactions_filtered, by = "REPORT_ID")
-    })})
+    #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
+    current_brand <- cv_search_tab()$search_brand
+    current_rxn <- cv_search_tab()$search_rxn
+    current_gender <- cv_search_tab()$search_gender
+    current_date_range <- cv_search_tab()$searchDateRange
+    
+    cv_reports_filtered <- cv_reports %>%
+      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
+    if (current_gender != "All") cv_reports_filtered %<>% filter(GENDER_ENG == current_gender)
+    cv_report_drug_filtered <- cv_report_drug
+    if (is.na(current_brand) == FALSE) cv_report_drug_filtered %<>% filter(DRUGNAME == current_brand)
+    cv_reactions_filtered <- cv_reactions
+    if (is.na(current_rxn) == FALSE) cv_reactions_filtered %<>% filter(PT_NAME_ENG == current_rxn)
+    
+    tab_master <-  cv_reports_filtered %>%
+      semi_join(cv_report_drug_filtered, by = "REPORT_ID") %>%
+      semi_join(cv_reactions_filtered, by = "REPORT_ID")
+  })
   cv_master_tab <- reactive({cv_master_tab_tbl() %>% as.data.frame()})
+  
   cv_drug_tab_indc <- reactive({
-    cv_master_tab_tbl()
-    isolate({
-      cv_report_drug_indication_drg <- cv_report_drug_indication %>%
-        dplyr::select(REPORT_ID, INDICATION_NAME_ENG)
-      
-      # Data frame used to obtain Top_25_indication bar chart: Indication is only associated with individual drug
-      # When brand name is unspecified, chart shows top 25 indications associated with DRUGNAME="REMICADE" + date_range
-      # When brand name is specified, chart shows top 25 indications associated with specified drug + date_range
-      
-      # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name 
-      #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq) 
-      meddra_filtered <- meddra %>% filter(Version == 'v.18.0')
-      drugs_tab_indication <- cv_master_tab_tbl() %>%
-        inner_join(cv_report_drug_indication_drg, by = "REPORT_ID") %>%
-        inner_join(meddra_filtered, by = c("INDICATION_NAME_ENG" = "PT_Term")) %>%
-        as.data.frame()
-    })})
+    cv_report_drug_indication_drg <- cv_report_drug_indication %>%
+      dplyr::select(REPORT_ID, INDICATION_NAME_ENG)
+    
+    # Data frame used to obtain Top_25_indication bar chart: Indication is only associated with individual drug
+    # When brand name is unspecified, chart shows top 25 indications associated with DRUGNAME="REMICADE" + date_range
+    # When brand name is specified, chart shows top 25 indications associated with specified drug + date_range
+    
+    # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name 
+    #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq) 
+    meddra_filtered <- meddra %>% filter(Version == 'v.18.0')
+    drugs_tab_indication <- cv_master_tab_tbl() %>%
+      inner_join(cv_report_drug_indication_drg, by = "REPORT_ID") %>%
+      inner_join(meddra_filtered, by = c("INDICATION_NAME_ENG" = "PT_Term")) %>%
+      as.data.frame()
+  })
   
   cv_drug_tab_topdrg <- reactive({
     cv_master_tab_tbl()
     isolate({
       #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
-      current_brand <- ifelse(input$search_brand == "", NA, input$search_brand)
-      current_rxn <- ifelse(input$search_rxn == "", NA, input$search_rxn)
-      current_gender <- ifelse(input$search_gender == "", "All", input$search_gender)
-      current_date_range <- input$searchDateRange
+      current_brand <- cv_search_tab()$search_brand
+      current_rxn <- cv_search_tab()$search_rxn
+      current_gender <- cv_search_tab()$search_gender
+      current_date_range <- cv_search_tab()$searchDateRange
       
       cv_report_drug_indication_drg <- cv_report_drug_indication %>%
         dplyr::select(REPORT_ID, INDICATION_NAME_ENG)
@@ -380,40 +359,40 @@ server <- function(input, output) {
         as.data.frame()
     })})
   cv_reactions_tbl <- reactive({
-    input$searchButton
-    isolate({
-      drugs_rxn_result <- cv_reactions %>%
-        dplyr::select(REPORT_ID, PT_NAME_ENG)
-      if(input$search_brand != "") {
-        cv_reports_filtered <- cv_report_drug %>%
-          filter(DRUGNAME == input$search_brand)
-        drugs_rxn_result %<>%
-          semi_join(cv_reports_filtered, by = "REPORT_ID")
-      }
+    current_brand <- cv_search_tab()$search_brand
+    
+    drugs_rxn_result <- cv_reactions %>%
+      dplyr::select(REPORT_ID, PT_NAME_ENG)
+    if (!is.na(current_brand)) {
+      cv_reports_filtered <- cv_report_drug %>%
+        filter(DRUGNAME == current_brand)
       drugs_rxn_result %<>%
-        group_by(PT_NAME_ENG) %>%
-        dplyr::summarise(count = n_distinct(REPORT_ID)) %>%
-        top_n(10, count) %>%
-        as.data.frame()
-    })})
+        semi_join(cv_reports_filtered, by = "REPORT_ID")
+    }
+    drugs_rxn_result %<>%
+      group_by(PT_NAME_ENG) %>%
+      dplyr::summarise(count = n_distinct(REPORT_ID)) %>%
+      top_n(10, count) %>%
+      as.data.frame()
+  })
   cv_reactions_hlt_tbl <- reactive({
-    input$searchButton
-    isolate({
-      drugs_rxn_result <- cv_reactions %>%
-        dplyr::select(REPORT_ID, PT_NAME_ENG, MEDDRA_VERSION) %>%
-        inner_join(meddra, by = c("PT_NAME_ENG" = "PT_Term", "MEDDRA_VERSION" = "Version"))
-      if(input$search_brand != "") {
-        cv_reports_filtered <- cv_report_drug %>%
-          filter(DRUGNAME == input$search_brand)
-        drugs_rxn_result %<>%
-          semi_join(cv_reports_filtered, by = "REPORT_ID")
-      }
+    current_brand <- cv_search_tab()$search_brand
+    
+    drugs_rxn_result <- cv_reactions %>%
+      dplyr::select(REPORT_ID, PT_NAME_ENG, MEDDRA_VERSION) %>%
+      inner_join(meddra, by = c("PT_NAME_ENG" = "PT_Term", "MEDDRA_VERSION" = "Version"))
+    if (!is.na(current_brand)) {
+      cv_reports_filtered <- cv_report_drug %>%
+        filter(DRUGNAME == current_brand)
       drugs_rxn_result %<>%
-        group_by(HLT_Term) %>%
-        dplyr::summarise(count = n_distinct(REPORT_ID)) %>%
-        top_n(10, count) %>%
-        as.data.frame()
-    })})
+        semi_join(cv_reports_filtered, by = "REPORT_ID")
+    }
+    drugs_rxn_result %<>%
+      group_by(HLT_Term) %>%
+      dplyr::summarise(count = n_distinct(REPORT_ID)) %>%
+      top_n(10, count) %>%
+      as.data.frame()
+  })
 
   
   ########## Download searched dataset ##
@@ -444,14 +423,22 @@ server <- function(input, output) {
                 DISP_final_size = DISP_final_size))
   })
   cv_download_reports <- eventReactive(input$search_report_type_dl, {
-    #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
-    current_brand <- ifelse(input$search_brand == "", NA, input$search_brand)
-    current_rxn <- ifelse(input$search_rxn == "", NA, input$search_rxn)
-    current_gender <- ifelse(input$search_gender == "", "All", input$search_gender)
-    current_date_range <- input$searchDateRange
+    selected_ids <- cv_master_tab_tbl() %>% select(REPORT_ID)
     
-    # report type used for downloading dataset
-    reports_tab_master <- download(current_brand,current_rxn,current_gender,current_date_range,input$search_dataset_type,cv_master_tab_tbl())
+    if(input$search_dataset_type == "Report Info"){
+      reports_tab_master <- cv_reports %>%
+        semi_join(selected_ids)
+      
+    } else if(input$search_dataset_type == "Drug Info"){
+      reports_tab_master <- cv_report_drug %>%
+        semi_join(selected_ids)
+      
+    } else if(input$search_dataset_type == "Reaction Info"){
+      reports_tab_master <- cv_reactions %>%
+        semi_join(selected_ids)
+    }
+    reports_tab_master %<>% as.data.frame()
+    
     download_type <- paste("Report Type to be downloaded is", input$search_dataset_type)
     # reports_tab_master_size <- paste("Size of Dataset is",
     #                                  format(object.size(reports_tab_master),
@@ -493,7 +480,7 @@ server <- function(input, output) {
   
   ############## Construct Current_Query_Table for generic name, brand name, adverse reaction term & date range searched ############
   output$current_search <- renderTable({
-     data <- cv_search_tab()
+     data <- cv_search_tab()$search_tab_df
   }, include.rownames = FALSE, include.colnames = FALSE)
   
   ############### Create time plot #####################
@@ -502,7 +489,7 @@ server <- function(input, output) {
     data <- cv_master_tab() %>%
       dplyr::select(REPORT_ID, SERIOUSNESS_ENG, REPORTER_TYPE_ENG, DEATH, DISABILITY, CONGENITAL_ANOMALY,LIFE_THREATENING, HOSP_REQUIRED, 
                     OTHER_MEDICALLY_IMP_COND, DATINTRECEIVED_CLEAN,GENDER_ENG)
-    drug_selected <- cv_search_tab()$terms[1]
+    drug_selected <- cv_search_tab()$search_tab_df$terms[1]
     
     # specify the title of time plot based on reactive choice
     title <- ifelse(drug_selected == "Not Specified (All)", "All Drugs", drug_selected)
@@ -825,7 +812,6 @@ server <- function(input, output) {
   })
   output$indicationhltplot <- renderPlotly({
     data <- cv_drug_tab_indc()
-    # replace blank in GENDER_ENG with character "Unknown"
     data$GENDER_ENG[data$GENDER_ENG == ""] <- "Unknown"
 
 
