@@ -207,19 +207,6 @@ ui <- dashboardPage(
       tabItem(tabName = "downloaddata",
               fluidRow(
                 box(
-                  title = tags$h3("Download Dataset for Disproportionality Analysis"),
-                  dateRangeInput("searchDateRange_DISP",
-                                 "Date Range",
-                                 start = "2015-01-01",
-                                 end = "2015-03-31",
-                                 startview = "year",
-                                 format = "yyyy-mm-dd"),
-                  actionButton("searchDISPButton", "Prepare download"),
-                  textOutput("current_DISP_search"),
-                  textOutput("current_DISP_size"),
-                  downloadButton('downloadData_DISP', 'Download')
-                ),
-                box(
                   tags$h3("Download Data Used for Current Searched Combination"),
                   tags$p("Please select a category: "),
                   selectInput("search_dataset_type",
@@ -394,34 +381,6 @@ server <- function(input, output) {
       as.data.frame()
   })
 
-  
-  ########## Download searched dataset ##
-  cv_download_DISP <- eventReactive(input$searchDISPButton, {
-    current_date_range <- input$searchDateRange_DISP
-    part1 <- cv_drug_product_ingredients %>%
-      dplyr::select(DRUG_PRODUCT_ID,ACTIVE_INGREDIENT_NAME) %>%
-      left_join(cv_report_drug) %>% 
-      dplyr::select(REPORT_ID,ACTIVE_INGREDIENT_NAME) %>% 
-      left_join(cv_reactions) %>%
-      dplyr::select(REPORT_ID,ACTIVE_INGREDIENT_NAME, PT_NAME_ENG)
-    reports_in_date_range <- cv_reports %>% 
-      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2]) %>%
-      dplyr::select(REPORT_ID,DATINTRECEIVED_CLEAN)
-    DISP_final <- semi_join(part1, reports_in_date_range) %>%
-      group_by(ACTIVE_INGREDIENT_NAME, PT_NAME_ENG) %>%
-      dplyr::summarise(count = n_distinct(REPORT_ID)) %>%
-      as.data.frame()
-    DISP_date_range <- paste("Data Range:", current_date_range[1], "to", current_date_range[2])
-    # browser()
-    # temp <- capture.output(write.csv(DISP_final, quote=FALSE, row.names=FALSE)) %>% paste(collapse=" ")
-    # DISP_final_size <- paste("Size of Dataset for Dispropotionality Analysis is",
-    #                          format(object.size(DISP_final),
-    #                                 units = "auto"))
-    DISP_final_size <- ""
-    return(list(DISP_final = DISP_final,
-                DISP_date_range = DISP_date_range,
-                DISP_final_size = DISP_final_size))
-  })
   cv_download_reports <- eventReactive(input$search_report_type_dl, {
     selected_ids <- cv_master_tab_tbl() %>% select(REPORT_ID)
     
@@ -455,17 +414,6 @@ server <- function(input, output) {
 #########################################################################################################################################
   
   ############# Download Tab #################
-  output$downloadData_DISP <- downloadHandler(
-    filename = 'DISP_input.csv',
-    content = function(file) {
-      write.csv(cv_download_DISP()$DISP_final,
-                file,
-                fileEncoding = "UTF-8",
-                row.names = FALSE)
-    }
-  )
-  output$current_DISP_search <- renderText(cv_download_DISP()$DISP_date_range) 
-  output$current_DISP_size <- renderText(cv_download_DISP()$DISP_final_size)
   output$download_reports <- downloadHandler(
     filename = function() {paste0(cv_download_reports()$download_format, '.csv')},
     content = function(file){
