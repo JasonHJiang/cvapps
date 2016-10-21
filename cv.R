@@ -61,69 +61,24 @@ adrplot <- function(adrplot_test, plottitle) {
 }
 
 ##################### Download Function ####################
-download <- function(current_brand,current_rxn,current_gender,current_date_range,current_report_type){
-  # cv_reports_filtered <- cv_reports %>%
-  #   filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
-  # if (current_gender != "All") cv_reports_filtered %<>% filter(GENDER_ENG == current_gender)
-  # cv_report_drug_filtered <- cv_report_drug
-  # if (is.na(current_brand) == FALSE) cv_report_drug_filtered %<>% filter(DRUGNAME == current_brand)
-  # cv_reactions_filtered <- cv_reactions
-  # if (is.na(current_rxn) == FALSE) cv_reactions_filtered %<>% filter(PT_NAME_ENG == current_rxn)
-  # reports_tab_master <-  cv_reports_filtered %>%
-  #   semi_join(cv_report_drug_filtered, by = "REPORT_ID") %>%
-  #   semi_join(cv_reactions_filtered, by = "REPORT_ID")
-  
+download <- function(current_brand,current_rxn,current_gender,current_date_range,current_report_type, data){
+  selected_ids <- data %>% select(REPORT_ID)
   
   # Report info type (only filtered cv_reports included)
   if(current_report_type == "Report Info"){
-    cv_reports_sorted_dl <- cv_reports %>%
-      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
-    if(current_gender != "All") cv_reports_sorted_dl %<>% filter(GENDER_ENG == current_gender)
-    # cv_reports_filtered %<>% dplyr::select(REPORT_ID)
-    cv_report_drug_dl <- cv_report_drug %>% dplyr::select(REPORT_ID, DRUGNAME)
-    if(is.na(current_brand) == FALSE) cv_report_drug_dl %<>% filter(DRUGNAME == current_brand)
-    cv_reactions_dl <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
-    if(is.na(current_rxn) == FALSE) cv_reactions_dl %<>% filter(PT_NAME_ENG == current_rxn)
-    
-    reports_tab_master <-  cv_reports_sorted_dl %>%
-      semi_join(cv_report_drug_dl) %>%
-      semi_join(cv_reactions_dl)
-    
+    reports_tab_master <- cv_reports %>%
+      semi_join(selected_ids)
   }
   # Drug Info
   if(current_report_type == "Drug Info"){
-    cv_reports_sorted_dl <- cv_reports %>%
-      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
-    if(current_gender != "All") cv_reports_sorted_dl %<>% filter(GENDER_ENG == current_gender)
-    cv_reports_sorted_dl %<>% dplyr::select(REPORT_ID)
-    
-    cv_report_drug_dl <- cv_report_drug
-    if(is.na(current_brand) == FALSE) cv_report_drug_dl %<>% filter(DRUGNAME == current_brand)
- 
-    cv_reactions_dl <- cv_reactions %>% dplyr::select(REPORT_ID, PT_NAME_ENG)
-    if(is.na(current_rxn) == FALSE) cv_reactions_dl %<>% filter(PT_NAME_ENG == current_rxn)
-    
-    reports_tab_master <-  cv_report_drug_dl%>%
-      semi_join(cv_reports_sorted_dl) %>%
-      semi_join(cv_reactions_dl)
+    reports_tab_master <- cv_report_drug %>%
+      semi_join(selected_ids)
     
   }
   # Reaction Info
   if(current_report_type == "Reaction Info"){
-    cv_reports_sorted_dl <- cv_reports %>%
-      filter(DATINTRECEIVED_CLEAN >= current_date_range[1], DATINTRECEIVED_CLEAN <= current_date_range[2])
-    if(current_gender != "All") cv_reports_sorted_dl %<>% filter(GENDER_ENG == current_gender)
-    cv_reports_sorted_dl %<>% dplyr::select(REPORT_ID)
-    
-    cv_report_drug_dl <- cv_report_drug %>% dplyr::select(REPORT_ID, DRUGNAME)
-    if(is.na(current_brand) == FALSE) cv_report_drug_dl %<>% filter(DRUGNAME == current_brand)
-    
-    cv_reactions_dl <- cv_reactions
-    if(is.na(current_rxn) == FALSE) cv_reactions_dl %<>% filter(PT_NAME_ENG == current_rxn)
-    
-    reports_tab_master <-  cv_reactions_dl%>%
-      semi_join(cv_reports_sorted_dl) %>%
-      semi_join(cv_report_drug_dl)
+    reports_tab_master <- cv_reactions %>%
+      semi_join(selected_ids)
   }
   
   return(reports_tab_master %>% as.data.frame())
@@ -496,7 +451,7 @@ server <- function(input, output) {
     current_date_range <- input$searchDateRange
     
     # report type used for downloading dataset
-    reports_tab_master <- download(current_brand,current_rxn,current_gender,current_date_range,input$search_dataset_type)
+    reports_tab_master <- download(current_brand,current_rxn,current_gender,current_date_range,input$search_dataset_type,cv_master_tab_tbl())
     download_type <- paste("Report Type to be downloaded is", input$search_dataset_type)
     # reports_tab_master_size <- paste("Size of Dataset is",
     #                                  format(object.size(reports_tab_master),
