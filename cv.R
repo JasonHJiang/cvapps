@@ -751,7 +751,7 @@ server <- function(input, output) {
       geom_bar(stat = "identity") +
       scale_x_discrete(limits = rev(indications_sorted$INDICATION_NAME_ENG)) +
       coord_flip() +
-      ggtitle("Top 10 Indications") +
+      ggtitle("Top 10 Indications (PT)") +
       xlab("Indication") +
       ylab("Number") +
       theme_bw() +
@@ -773,7 +773,7 @@ server <- function(input, output) {
       geom_bar(stat = "identity") +
       scale_x_discrete(limits = rev(indications_sorted$HLT_Term)) +
       coord_flip() +
-      ggtitle("Top 10 Indications") +
+      ggtitle("Top 10 Indications (HLT)") +
       xlab("Indication") +
       ylab("Number") +
       theme_bw() +

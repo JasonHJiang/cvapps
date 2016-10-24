@@ -47,7 +47,9 @@ toprxns <- fda_query("/drug/event.json") %>%
   fda_exec()
 meddra <- tbl(hcopen, "meddra") %>%
   filter(Primary_SOC_flag == "Y") %>%
-  select(PT_Term, HLT_Term, Version = MEDDRA_VERSION)
+  select(PT_Term, HLT_Term, Version = MEDDRA_VERSION) %>%
+  mutate(term = toupper(PT_Term)) %>%
+  as.data.frame()
 
 
 reporter_code <- data.table(term = 1:5,
@@ -187,7 +189,13 @@ ui <- dashboardPage(
       ),
       tabItem(tabName = "drugdata",
               fluidRow(
-                box(plotlyOutput("indicationplot"),
+                box(plotlyOutput("indicationplotpt"),
+                    tags$p("This plot includes all indications for all drugs associated with the matching reports.
+                           The open.fda.gov search API does not allow searching or filtering within drugs.
+                           The search query filters unique reports, which may have one or more drugs associated with them.
+                           It is not currently possible to search for only those indications associated with a specific drug.
+                           "), width = 6),
+                box(plotlyOutput("indicationplothlt"),
                     tags$p("This plot includes all indications for all drugs associated with the matching reports.
                            The open.fda.gov search API does not allow searching or filtering within drugs.
                            The search query filters unique reports, which may have one or more drugs associated with them.
@@ -670,9 +678,7 @@ server <- function(input, output) {
   })
   
   output$outcomeplot <- renderGvis({
-    data <- faers_query()
-    
-    outcome_results <- data$openfda_query %>% 
+    outcome_results <- faers_query()$openfda_query %>% 
       fda_count("patient.reaction.reactionoutcome") %>% 
       fda_exec()
     if(is.null(outcome_results)) outcome_results <- data.table(term = numeric(), count = numeric())
@@ -687,21 +693,88 @@ server <- function(input, output) {
                  options = list(pieHole = 0.4))
   })
   
-  output$indicationplot <- renderPlotly({
+  output$top_pt <- renderGvis({
+    data <- faers_query()$openfda_query %>%
+      fda_count("patient.reaction.reactionmeddrapt.exact") %>%
+      fda_limit(10) %>%
+      fda_exec()
+    gvisBarChart(data,
+                 xvar = "term",
+                 yvar = "count",
+                 options = list(
+                   #vAxes="[{title:'Reactions'}",
+                   legend = "{position:'none'}",
+                   bars = 'horizontal',
+                   axes= "x: {
+                                 0: { side: 'top', label: 'Number of Reports'}}",
+                   bar = list(groupWidth =  '90%'),
+                   height=500)
+    )})
+  output$top_hlt <- renderGvis({
+    data <- faers_query()$openfda_query %>%
+      fda_count("patient.reaction.reactionmeddrapt.exact") %>%
+      fda_limit(1000) %>%
+      fda_exec() %>%
+      inner_join(meddra, by = "term") %>%
+      distinct(term, HLT_Term, count) %>%
+      group_by(HLT_Term) %>%
+      summarise(count = sum(count)) %>%
+      top_n(10, count) %>%
+      arrange(desc(count))
+    gvisBarChart(data,
+                 xvar = "HLT_Term",
+                 yvar = "count",
+                 options = list(
+                   #vAxes="[{title:'Reactions'}",
+                   legend = "{position:'none'}",
+                   bars = 'horizontal',
+                   axes= "x: {
+                   0: { side: 'top', label: 'Number of Reports'}}",
+                   bar = list(groupWidth =  '90%'),
+                   height=500)
+    )})
+  output$indicationplotpt <- renderPlotly({
     data <- faers_query()
     
     indications <- data$openfda_query %>%
       fda_count("patient.drug.drugindication.exact") %>%
-      fda_limit(1000) %>%
+      fda_limit(25) %>%
       fda_exec()
     
     if(is.null(indications)) indications <- data.table(term = character(), count = numeric())
     
-    p <- ggplot(indications[1:25,], aes(x = term, y = count, fill = term)) + 
+    p <- ggplot(indications, aes(x = term, y = count, fill = term)) + 
       geom_bar(stat = "identity") + 
-      scale_x_discrete(limits = rev(indications$term[1:25])) + 
+      scale_x_discrete(limits = rev(indications$term)) + 
       coord_flip() +
-      ggtitle("Top 25 Indications (All Drugs)") +
+      ggtitle("Top 25 Indications (PT)") +
+      xlab("Indication") + 
+      ylab("Number (thousands)") +
+      theme_bw() +
+      theme(plot.title = element_text(lineheight=.8, face="bold"), 
+            legend.position = "none") +
+      scale_y_continuous(labels = format1K)
+    ggplotly(p)
+  })
+  output$indicationplothlt <- renderPlotly({
+    indications <- faers_query()$openfda_query %>%
+      fda_count("patient.drug.drugindication.exact") %>%
+      fda_limit(1000) %>%
+      fda_exec() %>%
+      inner_join(meddra, by = "term") %>%
+      distinct(term, HLT_Term, count) %>%
+      group_by(HLT_Term) %>%
+      summarise(count = sum(count)) %>%
+      top_n(25, count) %>%
+      arrange(desc(count))
+    
+    if(is.null(indications)) indications <- data.table(HLT_Term = character(), count = numeric())
+    
+    p <- ggplot(indications, aes(x = HLT_Term, y = count, fill = HLT_Term)) + 
+      geom_bar(stat = "identity") + 
+      scale_x_discrete(limits = rev(indications$HLT_Term)) + 
+      coord_flip() +
+      ggtitle("Top 25 Indications (HLT)") +
       xlab("Indication") + 
       ylab("Number (thousands)") +
       theme_bw() +
