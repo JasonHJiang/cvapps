@@ -42,9 +42,12 @@ topbrands <- fda_query("/drug/event.json") %>%
   fda_limit(1000) %>% 
   fda_exec()
 toprxns <- fda_query("/drug/event.json") %>%
-  fda_count("patient.reaction.reactionmeddrapt.exact") %>% 
-  fda_limit(1000) %>% 
+  fda_count("patient.reaction.reactionmeddrapt.exact") %>%
+  fda_limit(1000) %>%
   fda_exec()
+meddra <- tbl(hcopen, "meddra") %>%
+  filter(Primary_SOC_flag == "Y") %>%
+  select(PT_Term, HLT_Term, Version = MEDDRA_VERSION)
 
 
 reporter_code <- data.table(term = 1:5,
@@ -139,10 +142,10 @@ ui <- dashboardPage(
     fluidRow(
       box(plotlyOutput(outputId = "timeplot"),
           tags$br(),
-          tags$p("Reports by month from US FDA FAERS (open.fda.gov). 
+          "Reports by month from US FDA FAERS (open.fda.gov). 
                  Trendline is a local non-parametric regression calculated with the LOESS model. 
-                 The shaded area is an approximation of the 95% confidence interval of the regression."),
-          tags$p("Search URL:"),
+                 The shaded area is an approximation of the 95% confidence interval of the regression.", br(),
+          "Search URL: ",
           uiOutput(outputId = "search_url"),
           width = 12
           )
@@ -206,7 +209,19 @@ ui <- dashboardPage(
       ),
       tabItem(tabName = "rxndata",
               fluidRow(
-                box(htmlOutput("outcomeplot"), title = tags$h2("Outcomes (all reactions)"))
+                box(title = tags$h3("Outcomes (all reactions)"),
+                    htmlOutput("outcomeplot"),
+                    width = 4),
+                box(title = tags$h3("Top 10 Reactions (Preferred Terms) Associated with Searched Drug"),
+                    htmlOutput("top_pt"),
+                    tags$br(),
+                    tags$p("For more rigorous analysis, use disproportionality statistics."),
+                    width = 4),
+                box(title = tags$h3("Top 10 Reactions (High-Level Terms) Associated with Searched Drug"),
+                    htmlOutput("top_hlt"),
+                    tags$br(),
+                    tags$p("For more rigorous analysis, use disproportionality statistics."),
+                    width = 4)
               )
       ),
       tabItem(tabName = "aboutinfo",
@@ -349,7 +364,7 @@ server <- function(input, output) {
         dplyr::count(month, wt = count)
     }
     
-    title <- ifelse(!is.na(data$current_search[[1]]), data$current_search[[1]], data$current_search[[2]])
+    title <- ifelse(!is.na(data$current_search[[1]]), data$current_search[[1]], "All Drugs")
     plottitle <- paste("Drug Adverse Event Reports for", title)
     p <- adrplot(time_results, plottitle)
     ggplotly(p)
@@ -659,7 +674,7 @@ server <- function(input, output) {
     
     outcome_results <- data$openfda_query %>% 
       fda_count("patient.reaction.reactionoutcome") %>% 
-      fda_exec() 
+      fda_exec()
     if(is.null(outcome_results)) outcome_results <- data.table(term = numeric(), count = numeric())
     
     outcome_results <- outcome_results %>%  

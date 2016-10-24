@@ -30,7 +30,9 @@ cv_drug_product_ingredients <-  tbl(hcopen, "cv_drug_product_ingredients")
 cv_report_drug <- tbl(hcopen, "cv_report_drug")
 cv_reactions <- tbl(hcopen, "cv_reactions")
 cv_report_drug_indication <- tbl(hcopen, "cv_report_drug_indication")
-meddra <- tbl(hcopen, "meddra") %>% filter(Primary_SOC_flag == "Y") %>% select(PT_Term, HLT_Term, Version = MEDDRA_VERSION)
+meddra <- tbl(hcopen, "meddra") %>%
+  filter(Primary_SOC_flag == "Y") %>%
+  select(PT_Term, HLT_Term, Version = MEDDRA_VERSION)
 
 ############### Create function ###################
 # function to plot adverse reaction plot
