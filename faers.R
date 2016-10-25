@@ -234,10 +234,14 @@ ui <- dashboardPage(
               HTML(paste0(
                 "<p>",
                 "Data provided by the U.S. Food and Drug Administration (FDA), retrieved through the openFDA API (",
-                "<a href = \"https://open.fda.gov\">https://open.fda.gov</a>",
+                "<a href = \"https://open.fda.gov\">",
+                "https://open.fda.gov",
+                "</a>",
                 "). The recency of the data is therefore dependent on when the API data source is updated, ",
                 "and Health Canada claims no responsibility for out-of-date information. For more information, please refer to ",
-                "<a href = \"https://open.fda.gov/drug/event/reference/\">https://open.fda.gov/drug/event/reference/</a>.",
+                "<a href = \"https://open.fda.gov/drug/event/reference/\">",
+                "https://open.fda.gov/drug/event/reference/",
+                "</a>.",
                 "</p>")),
               aboutAuthors()
       )

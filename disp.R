@@ -148,16 +148,22 @@ ui <- dashboardPage(
       ),
       
       tabItem(tabName = "aboutinfo",
-              tags$h2("About the Shiny App"),
-              tags$p("This is a prototyping platform to utilize open data sources (e.g. Canada Vigilance Adverse Reaction Online Database) 
-          to conduct disproportionality analysis for safety signal detection.
-          It provides visualizations in an interactive format to demonstrate the results of multiple disproportionality analysis.
-          This version was last updated in September of 2016.
-          Data provided by the Canada Vigilance Adverse Reaction Online Database: "),
-              tags$a(href="http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/index-eng.php", "Click here!"),
+              h2("About the Shiny App"),
+              HTML(paste0(
+                "<p>",
+                "This is a prototyping platform to utilize open data sources (e.g. Canada Vigilance Adverse Reaction Online Database) ",
+                "to conduct disproportionality analysis for safety signal detection. It provides visualizations in an interactive ",
+                "format to demonstrate the results of multiple disproportionality analysis. This version was last updated in September of 2016.",
+                "</p>",
+                "<p>",
+                "Data provided by the Canada Vigilance Adverse Reaction Online Database. The recency of the data is therefore ",
+                "dependent on when the data source is updated, and is the responsibility of the Canada Vigilance Program. ",
+                "For more information, please refer to ",
+                "<a href = \"http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/index-eng.php\">",
+                "http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/index-eng.php",
+                "</a>.",
+                "</p>")),
               tags$p("Detailed documentation on all disproportionality analyses can be found in Documentation tab."),
-              #tags$a(href = "https://rstudio.hres.ca/?view=rmarkdown", "Documentation of Analysis"),
-              tags$br(),
               aboutAuthors()
       )
       )

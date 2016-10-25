@@ -222,12 +222,22 @@ ui <- dashboardPage(
               )
       ),
       tabItem(tabName = "aboutinfo",
-              tags$h2("About the Shiny App"),
-              tags$p("This is a prototyping platform to utilize open data sources (e.g. Canada Vigilance Adverse Reaction Online Database) 
-                      and provide visualizations in an interactive format. Further analysis can be conducted and added onto this platform to make 
-                      better use of the data. Data provided by the Canada Vigilance Adverse Reaction Online Database: "),
-              tags$a(href="http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/index-eng.php", "Click here!"),
-              br(),
+              h2("About the Shiny App"),
+              # using tags$p() and tags$a() inserts spaces between text and hyperlink...thanks R
+              HTML(paste0(
+                "<p>",
+                "This is a prototyping platform to utilize open data sources (e.g. Canada Vigilance Adverse Reaction Online Database) ", 
+                "and provide visualizations in an interactive format. Further analysis can be conducted and added onto this platform ",
+                "to make better use of the data.",
+                "</p>",
+                "<p>",
+                "Data provided by the Canada Vigilance Adverse Reaction Online Database. The recency of the data is therefore ",
+                "dependent on when the data source is updated, and is the responsibility of the Canada Vigilance Program. ",
+                "For more information, please refer to ",
+                "<a href = \"http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/index-eng.php\">",
+                "http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/index-eng.php",
+                "</a>.",
+                "</p>")),
               aboutAuthors()
       )
     )
