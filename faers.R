@@ -45,6 +45,7 @@ toprxns <- fda_query("/drug/event.json") %>%
   fda_count("patient.reaction.reactionmeddrapt.exact") %>%
   fda_limit(1000) %>%
   fda_exec()
+hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
 meddra <- tbl(hcopen, "meddra") %>%
   filter(Primary_SOC_flag == "Y") %>%
   select(PT_Term, HLT_Term, Version = MEDDRA_VERSION) %>%
@@ -143,12 +144,10 @@ ui <- dashboardPage(
     customCSS(),
     fluidRow(
       box(plotlyOutput(outputId = "timeplot"),
-          tags$br(),
           "Reports by month from US FDA FAERS (open.fda.gov). 
                  Trendline is a local non-parametric regression calculated with the LOESS model. 
                  The shaded area is an approximation of the 95% confidence interval of the regression.", br(),
-          "Search URL: ",
-          uiOutput(outputId = "search_url"),
+          htmlOutput(outputId = "search_url"),
           width = 12
           )
       ),
@@ -196,23 +195,23 @@ ui <- dashboardPage(
                            It is not currently possible to search for only those indications associated with a specific drug.
                            "), width = 6),
                 box(plotlyOutput("indicationplothlt"),
-                    tags$p("This plot includes all indications for all drugs associated with the matching reports.
-                           The open.fda.gov search API does not allow searching or filtering within drugs.
-                           The search query filters unique reports, which may have one or more drugs associated with them.
-                           It is not currently possible to search for only those indications associated with a specific drug.
-                           "), width = 6),
+                    p("This plot includes all indications for all drugs associated with the matching reports.
+                       The open.fda.gov search API does not allow searching or filtering within drugs.
+                       The search query filters unique reports, which may have one or more drugs associated with them.
+                       It is not currently possible to search for only those indications associated with a specific drug.
+                       "), width = 6),
                 box(plotlyOutput("drugplot"),
-                    tags$p("This plot includes all drugs associated with the matching reports, except the search term.
-                           The open.fda.gov search API does not allow searching or filtering within drugs.
-                           The search query filters unique reports, which may have one or more drugs associated with them.
-                           It is not currently possible to retrieve correlations between drugs."), width = 6),
+                    p("This plot includes all drugs associated with the matching reports, except the search term.
+                       The open.fda.gov search API does not allow searching or filtering within drugs.
+                       The search query filters unique reports, which may have one or more drugs associated with them.
+                       It is not currently possible to retrieve correlations between drugs."), width = 6),
                 box(plotlyOutput("drugclassplot"),
-                    tags$p("This plot includes all drug classes associated with the matching reports, including the search term.
-                           The total number of instances for each class will be geater 
-                           than the number of reports when reports include more than one drug of the same class.
-                           The open.fda.gov search API does not allow searching or filtering within drugs.
-                           The search query filters unique reports, which may have one or more drugs associated with them.
-                           It is not currently possible to retrieve correlations between drugs."), width = 6)
+                    p("This plot includes all drug classes associated with the matching reports, including the search term.
+                       The total number of instances for each class will be geater 
+                       than the number of reports when reports include more than one drug of the same class.
+                       The open.fda.gov search API does not allow searching or filtering within drugs.
+                       The search query filters unique reports, which may have one or more drugs associated with them.
+                       It is not currently possible to retrieve correlations between drugs."), width = 6)
               )
       ),
       tabItem(tabName = "rxndata",
@@ -222,18 +221,24 @@ ui <- dashboardPage(
                     width = 4),
                 box(title = tags$h3("Top 10 Reactions (Preferred Terms) Associated with Searched Drug"),
                     htmlOutput("top_pt"),
-                    tags$br(),
-                    tags$p("For more rigorous analysis, use disproportionality statistics."),
+                    p("For more rigorous analysis, use disproportionality statistics."),
                     width = 4),
                 box(title = tags$h3("Top 10 Reactions (High-Level Terms) Associated with Searched Drug"),
                     htmlOutput("top_hlt"),
-                    tags$br(),
-                    tags$p("For more rigorous analysis, use disproportionality statistics."),
+                    p("For more rigorous analysis, use disproportionality statistics."),
                     width = 4)
               )
       ),
       tabItem(tabName = "aboutinfo",
-              tags$p("Data provided by the U.S. Food and Drug Administration (https://open.fda.gov)"),
+              # using tags$p() and tags$a() inserts spaces between text and hyperlink...thanks R
+              HTML(paste0(
+                "<p>",
+                "Data provided by the U.S. Food and Drug Administration (FDA), retrieved through the openFDA API (",
+                "<a href = \"https://open.fda.gov\">https://open.fda.gov</a>",
+                "). The recency of the data is therefore dependent on when the API data source is updated, ",
+                "and Health Canada claims no responsibility for out-of-date information. For more information, please refer to ",
+                "<a href = \"https://open.fda.gov/drug/event/reference/\">https://open.fda.gov/drug/event/reference/</a>.",
+                "</p>")),
               aboutAuthors()
       )
     )
@@ -336,7 +341,7 @@ server <- function(input, output) {
   
   output$search_url <- renderUI({
     url <- faers_query()$query_url 
-    tags$a(url, href=url)
+    HTML(paste0("Search URL: <a href = ", url, ">", url, "</a>"))
   })
   
   output$current_search <- renderTable({
