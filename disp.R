@@ -30,12 +30,12 @@ hcopen_pool <- dbPool(drv = "PostgreSQL",
 hcopen <- src_pool(hcopen_pool)
 
 cv_prr <- hcopen %>% tbl("PT_PRR_160927")
-cv_bcpnn <- hcopen %>% tbl("IC_160829") %>%
-  dplyr::select(drug_code = `drug code`, event_effect = `event effect`, IC,
-                LB95_IC = `Q_0.025(log(IC))`, UB95_IC = `Q_0.975(log(IC))`)
+# cv_bcpnn <- hcopen %>% tbl("IC_160829") %>%
+#   dplyr::select(drug_code = `drug code`, event_effect = `event effect`, IC,
+#                 LB95_IC = `Q_0.025(log(IC))`, UB95_IC = `Q_0.975(log(IC))`)
 cv_ror <- hcopen %>% tbl("PT_ROR_160927")
 master_table_pt <- cv_prr %>%
-  left_join(cv_bcpnn, by = c("drug_code", "event_effect")) %>%
+  # left_join(cv_bcpnn, by = c("drug_code", "event_effect")) %>%
   left_join(cv_ror, by = c("drug_code", "event_effect"))
 
 hlt_prr <- hcopen %>% tbl("HLT_PRR_160927")
@@ -65,7 +65,7 @@ drug_choices <- sort(drug_choices$ing)
 
 ################################## UI component ####
 ui <- dashboardPage(
-  dashboardHeader(title = titleWarning("Shiny DISP (v0.03)"),
+  dashboardHeader(title = titleWarning("Shiny DISP (v0.10)"),
                   titleWidth = 700),
   
   dashboardSidebar(
@@ -296,7 +296,6 @@ server <- function(input, output, session) {
       dplyr::select(drug_code, event_effect,
                     count = count.x, expected_count = expected_count.x,
                     PRR, LB95_PRR, UB95_PRR,
-                    IC,  LB95_IC,  UB95_IC,
                     ROR, LB95_ROR, UB95_ROR) %>%
       filter(count >= input$min_count)
     if(input$search_drug != "") table %<>% filter(drug_code == input$search_drug)

@@ -81,7 +81,7 @@ toprxns <- cv_reactions %>%
 
 ########################################################## UI for REPORT Tab shiny ############################################################## 
 ui <- dashboardPage(
-  dashboardHeader(title = titleWarning("CV Shiny (v0.05)"),
+  dashboardHeader(title = titleWarning("CV Shiny (v0.10)"),
                   titleWidth = 700),
   dashboardSidebar(
     sidebarMenu(

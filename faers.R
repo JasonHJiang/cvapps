@@ -100,7 +100,7 @@ format1K <- function(x){
 
 #### UI ####
 ui <- dashboardPage(
-  dashboardHeader(title = titleWarning("Shiny FAERS (v0.05)"),
+  dashboardHeader(title = titleWarning("Shiny FAERS (v0.10)"),
                   titleWidth = 700),
   dashboardSidebar(
     sidebarMenu(
