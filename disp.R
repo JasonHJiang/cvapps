@@ -29,19 +29,21 @@ hcopen_pool <- dbPool(drv = "PostgreSQL",
                  password = "canada1")
 hcopen <- src_pool(hcopen_pool)
 
+cv_bcpnn <- hcopen %>% tbl("PT_IC_161027") %>%
+  select(drug_code, event_effect, median_IC, LB95_IC, UB95_IC)
 cv_prr <- hcopen %>% tbl("PT_PRR_160927")
-# cv_bcpnn <- hcopen %>% tbl("IC_160829") %>%
-#   dplyr::select(drug_code = `drug code`, event_effect = `event effect`, IC,
-#                 LB95_IC = `Q_0.025(log(IC))`, UB95_IC = `Q_0.975(log(IC))`)
 cv_ror <- hcopen %>% tbl("PT_ROR_160927")
-master_table_pt <- cv_prr %>%
-  # left_join(cv_bcpnn, by = c("drug_code", "event_effect")) %>%
-  left_join(cv_ror, by = c("drug_code", "event_effect"))
+master_table_pt <- cv_bcpnn %>%
+  inner_join(cv_prr, by = c("drug_code", "event_effect")) %>%
+  inner_join(cv_ror, by = c("drug_code", "event_effect"))
 
+hlt_bcpnn <- hcopen %>% tbl("HLT_IC_161027") %>%
+  select(drug_code, event_effect, median_IC, LB95_IC, UB95_IC)
 hlt_prr <- hcopen %>% tbl("HLT_PRR_160927")
 hlt_ror <- hcopen %>% tbl("HLT_ROR_160927")
-master_table_hlt <- hlt_prr %>%
-  left_join(hlt_ror, by = c("drug_code", "event_effect"))
+master_table_hlt <- hlt_bcpnn %>%
+  inner_join(hlt_prr, by = c("drug_code", "event_effect")) %>%
+  inner_join(hlt_ror, by = c("drug_code", "event_effect"))
 
 cv_drug_rxn_meddra <- hcopen %>% tbl("cv_drug_rxn_meddra")
 cv_drug_rxn_2006 <- cv_drug_rxn_meddra %>% filter(quarter >= 2006.1)
@@ -295,6 +297,7 @@ server <- function(input, output, session) {
     table <- master_table_pt %>%
       dplyr::select(drug_code, event_effect,
                     count = count.x, expected_count = expected_count.x,
+                    median_IC, LB95_IC, UB95_IC,
                     PRR, LB95_PRR, UB95_PRR,
                     ROR, LB95_ROR, UB95_ROR) %>%
       filter(count >= input$min_count)
@@ -309,7 +312,7 @@ server <- function(input, output, session) {
       as.data.frame(stringsAsFactors = FALSE)
     table %<>%
       filter(PRR != "Infinity") %>%
-      dplyr::arrange(desc(PRR), desc(LB95_PRR), drug_code, event_effect) %>%
+      dplyr::arrange(desc(median_IC), desc(LB95_IC), drug_code, event_effect) %>%
       as.data.frame(stringsAsFactors = FALSE)
     if (!input$inf_filter_pt) table %<>% bind_rows(table_inf)
     table %<>%
@@ -358,6 +361,7 @@ server <- function(input, output, session) {
       table <- master_table_hlt %>%
         dplyr::select(drug_code, event_effect,
                       count = count.x, expected_count = expected_count.x,
+                      median_IC, LB95_IC, UB95_IC,
                       PRR, LB95_PRR, UB95_PRR,
                       ROR, LB95_ROR, UB95_ROR) %>%
         filter(count >= input$min_count)
@@ -372,7 +376,7 @@ server <- function(input, output, session) {
         as.data.frame(stringsAsFactors = FALSE)
       table %<>%
         filter(PRR != "Infinity") %>%
-        dplyr::arrange(desc(PRR), desc(LB95_PRR), drug_code, event_effect) %>%
+        dplyr::arrange(desc(median_IC), desc(LB95_IC), drug_code, event_effect) %>%
         as.data.frame(stringsAsFactors = FALSE)
       if (!input$inf_filter_pt) table %<>% bind_rows(table_inf)
       table %<>%
@@ -418,7 +422,7 @@ server <- function(input, output, session) {
     input$search_button # hacky way to get eventReactive but also initial load
     isolate({
     current_drug <- ifelse(input$search_drug == "","All Drugs",input$search_drug)
-    current_rxn <- ifelse(input$search_pt == "","Top 10 Reactions with Highest PRR Values",input$search_pt)
+    current_rxn <- ifelse(input$search_pt == "","Top 10 Reactions with Highest IC Estimates",input$search_pt)
     })
     plottitle <- paste("Non-Cumulative Report Count Time Plot for:", current_drug, "&", current_rxn)
 
@@ -452,7 +456,7 @@ server <- function(input, output, session) {
     input$search_button # hacky way to get eventReactive but also initial load
     isolate({
       current_drug <- ifelse(input$search_drug == "","All Drugs",input$search_drug)
-      current_rxn <- ifelse(input$search_hlt == "","Top 10 Reactions with Highest PRR Values",input$search_hlt)
+      current_rxn <- ifelse(input$search_hlt == "","Top 10 Reactions with Highest IC Estimates",input$search_hlt)
     })
     plottitle <- paste("Non-Cumulative Report Count Time Plot for:", current_drug, "&", current_rxn)
 
