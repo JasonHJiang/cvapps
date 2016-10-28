@@ -83,13 +83,15 @@ toprxns <- cv_reactions %>%
 ui <- dashboardPage(
   dashboardHeader(title = titleWarning("CV Shiny (v0.10)"),
                   titleWidth = 700),
+  
   dashboardSidebar(
+    width = 280,
     sidebarMenu(
       menuItem("Reports", tabName = "reportdata", icon = icon("hospital-o")),
-      menuItem("Drugs", tabName = "drugdata", icon = icon("flask")),
       menuItem("Patients", tabName = "patientdata", icon = icon("user-md")),
+      menuItem("Drugs", tabName = "drugdata", icon = icon("flask")),
       menuItem("Reactions", tabName = "rxndata", icon = icon("heart-o")),
-      menuItem("Download", tabName = "downloaddata", icon = icon("fa fa-download")),
+      menuItem("Download", tabName = "downloaddata", icon = icon("download")),
       menuItem("About", tabName = "aboutinfo", icon = icon("info"))
     ),
     selectizeInput("search_brand", 
@@ -128,27 +130,27 @@ ui <- dashboardPage(
     fluidRow(
       box(plotlyOutput(outputId = "timeplot"),
           tags$br(),
-          tags$p("Reports by month from Canada Vigilance Adverse Reaction Online Database. 
-                 Trendline is a local non-parametric regression calculated with the LOESS model. 
-                 The shaded area is an approximation of the 95% confidence interval of the regression."),
+          tags$p("Trendline is a local non-parametric regression calculated with the LOESS model. 
+                 The shaded area is an approximation of the 95% confidence interval of the regression.", br(),
+                 "Reports by month from Canada Vigilance Adverse Reaction Online Database."),
           width = 12
           )
       ),
     tabItems(
       tabItem(tabName = "reportdata",
               fluidRow(
-                box(title = tags$h3("Reporter"),
+                box(title = h3("Reporter"),
                     htmlOutput("reporterplot"), 
                     tags$br(),
                     tags$p("Qualification of the person who filed the report."),
                     tags$p("Unknown is the number of reports without the primarysource.qualification field."),
                     width = 4),
-                box(title = tags$h3("Serious reports"),
+                box(title = h3("Serious reports"),
                     htmlOutput("seriousplot"), 
                     tags$br(),
                     tags$p("Reports marked as serious."),
                     width = 4),
-                box(title = tags$h3("Reasons for serious reports"),
+                box(title = h3("Reasons for serious reports"),
                     htmlOutput("seriousreasonsplot"), 
                     tags$br(),
                     tags$p("Total sums to more than 100% because reports can be marked serious for multiple reasons."),
@@ -157,17 +159,17 @@ ui <- dashboardPage(
       ),
       tabItem(tabName = "patientdata",
               fluidRow(
-                box(title = tags$h3("Gender"),
+                box(title = h3("Gender"),
                     htmlOutput("sexplot"),
                     tags$br(),
                     tags$p("Unknown includes reports explicitly marked unknown and Not Specified includes reports with no gender information."),
                     width = 3),
-                box(title = tags$h3("Age Groups"),
+                box(title = h3("Age Groups"),
                     htmlOutput("agegroupplot"),
                     tags$br(),
                     tags$p("Unknown includes reports with no age information."), 
                     width = 3),
-                box(title = tags$h3("Age Histogram"),
+                box(title = h3("Age Histogram"),
                     plotlyOutput("agehist"),
                     width = 6)
               )
@@ -190,18 +192,16 @@ ui <- dashboardPage(
       ),
       tabItem(tabName = "rxndata",
               fluidRow(
-                box(title = tags$h3("Outcomes (all reactions)"),
+                box(title = h3("Outcomes (all reactions)"),
                     htmlOutput("outcomeplot"),
                     width = 4),
-                box(title = tags$h3("Top 10 Reactions (Preferred Terms) Associated with Searched Drug"),
+                box(title = h3("Top 10 Reactions (Preferred Terms) Associated with Searched Drug"),
                     htmlOutput("top_pt"),
-                    tags$br(),
-                    tags$p("For more rigorous analysis, use disproportionality statistics."),
+                    p("For more rigorous analysis, use disproportionality statistics."),
                     width = 4),
-                box(title = tags$h3("Top 10 Reactions (High-Level Terms) Associated with Searched Drug"),
+                box(title = h3("Top 10 Reactions (High-Level Terms) Associated with Searched Drug"),
                     htmlOutput("top_hlt"),
-                    tags$br(),
-                    tags$p("For more rigorous analysis, use disproportionality statistics."),
+                    p("For more rigorous analysis, use disproportionality statistics."),
                     width = 4)
               )
       ),
@@ -222,7 +222,9 @@ ui <- dashboardPage(
               )
       ),
       tabItem(tabName = "aboutinfo",
-              h2("About the Shiny App"),
+              box(
+              width = 12,
+              h2("About"),
               # using tags$p() and tags$a() inserts spaces between text and hyperlink...thanks R
               HTML(paste0(
                 "<p>",
@@ -247,6 +249,7 @@ ui <- dashboardPage(
                 "</a>.",
                 "</p>")),
               aboutAuthors()
+              )
       )
     )
   ),

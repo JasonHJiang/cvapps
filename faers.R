@@ -102,7 +102,9 @@ format1K <- function(x){
 ui <- dashboardPage(
   dashboardHeader(title = titleWarning("Shiny FAERS (v0.10)"),
                   titleWidth = 700),
+  
   dashboardSidebar(
+    width = 280,
     sidebarMenu(
       menuItem("Reports", tabName = "reportdata", icon = icon("hospital-o")),
       menuItem("Patients", tabName = "patientdata", icon = icon("user-md")),
@@ -144,9 +146,8 @@ ui <- dashboardPage(
     customCSS(),
     fluidRow(
       box(plotlyOutput(outputId = "timeplot"),
-          "Reports by month from US FDA FAERS (open.fda.gov). 
-                 Trendline is a local non-parametric regression calculated with the LOESS model. 
-                 The shaded area is an approximation of the 95% confidence interval of the regression.", br(),
+          "Trendline is a local non-parametric regression calculated with the LOESS model. ",
+          "The shaded area is an approximation of the 95% confidence interval of the regression.",
           htmlOutput(outputId = "search_url"),
           width = 12
           )
@@ -154,36 +155,44 @@ ui <- dashboardPage(
     tabItems(
       tabItem(tabName = "reportdata",
               fluidRow(
-                box(htmlOutput("reporterplot"), 
+                box(title = h3("Reporter"),
+                    htmlOutput("reporterplot"), 
                     tags$br(),
                     tags$p("Qualification of the person who filed the report."),
                     tags$p("Unknown is the number of reports without the primarysource.qualification field."),
-                    title = tags$h2("Reporter"), width = 3),
-                box(htmlOutput("seriousplot"), 
+                    width = 3),
+                box(title = h3("Serious reports"),
+                    htmlOutput("seriousplot"), 
                     tags$br(),
                     tags$p("Reports marked as serious."),
-                    title = tags$h2("Serious reports"), width = 3),
-                box(htmlOutput("seriousreasonsplot"), 
+                    width = 3),
+                box(title = h3("Reasons for serious reports"),
+                    htmlOutput("seriousreasonsplot"), 
                     tags$br(),
                     tags$p("Total sums to more than 100% because reports can be marked serious for multiple reasons."),
-                    title = tags$h2("Reasons for serious reports"), width = 3),
-                box(htmlOutput("countryplot"), 
+                    width = 3),
+                box(title = h3("Country"),
+                    htmlOutput("countryplot"), 
                     tags$br(),
                     tags$p("Country the reaction(s) occurred in. This is not necessarily the same country the report was received from."),
-                    title = tags$h2("Country"), width = 3)
+                    width = 3)
               )
       ),
       tabItem(tabName = "patientdata",
               fluidRow(
-                box(htmlOutput("sexplot"),
+                box(title = h3("Gender"),
+                    htmlOutput("sexplot"),
                     tags$br(),
                     tags$p("Unknown includes both reports explicitly marked unknown and reports with no gender information."),
-                    title = tags$h2("Gender"), width = 3),
-                box(htmlOutput("agegroupplot"),
+                    width = 3),
+                box(title = h3("Age Groups"),
+                    htmlOutput("agegroupplot"),
                     tags$br(),
                     tags$p("Unknown includes reports with no age information."), 
-                    title = tags$h2("Age Groups"), width = 3),
-                box(plotlyOutput("agehist"), title = tags$h2("Age Histogram"), width = 6)
+                    width = 3),
+                box(title = h3("Age Histogram"),
+                    plotlyOutput("agehist"),
+                    width = 6)
               )
       ),
       tabItem(tabName = "drugdata",
@@ -216,20 +225,24 @@ ui <- dashboardPage(
       ),
       tabItem(tabName = "rxndata",
               fluidRow(
-                box(title = tags$h3("Outcomes (all reactions)"),
+                box(title = h3("Outcomes (all reactions)"),
                     htmlOutput("outcomeplot"),
                     width = 4),
-                box(title = tags$h3("Top 10 Reactions (Preferred Terms) Associated with Searched Drug"),
+                box(title = h3("Top 10 Reactions (Preferred Terms) Associated with Searched Drug"),
                     htmlOutput("top_pt"),
                     p("For more rigorous analysis, use disproportionality statistics."),
                     width = 4),
-                box(title = tags$h3("Top 10 Reactions (High-Level Terms) Associated with Searched Drug"),
+                box(title = h3("Top 10 Reactions (High-Level Terms) Associated with Searched Drug"),
                     htmlOutput("top_hlt"),
-                    p("For more rigorous analysis, use disproportionality statistics."),
+                    p("Based on the counts for the top 1000 adverse reaction preferred terms. ",
+                      "For more rigorous analysis, use disproportionality statistics."),
                     width = 4)
               )
       ),
       tabItem(tabName = "aboutinfo",
+              box(
+              width = 12,
+              h2("About"),
               # using tags$p() and tags$a() inserts spaces between text and hyperlink...thanks R
               HTML(paste0(
                 "<p>",
@@ -257,6 +270,7 @@ ui <- dashboardPage(
                 "</a>.",
                 "</p>")),
               aboutAuthors()
+              )
       )
     )
   ), 
@@ -282,7 +296,10 @@ server <- function(input, output) {
     if(!is.na(current_brand)) openfda_query %<>% fda_filter("patient.drug.openfda.brand_name.exact", paste0('"', current_brand, '"'))
     if(!is.na(current_rxn)) openfda_query %<>% fda_filter("patient.reaction.reactionmeddrapt.exact", paste0('"', current_rxn, '"'))
     
-    query_url <- openfda_query %>% fda_search() %>% fda_url()
+    query_url <- openfda_query %>%
+      fda_search() %>%
+      fda_limit(100) %>%
+      fda_url()
     
     total_reports <- query_url %>%
       fda_fetch() %>%
@@ -358,7 +375,7 @@ server <- function(input, output) {
   
   output$search_url <- renderUI({
     url <- faers_query()$query_url 
-    HTML(paste0("Search URL: <a href = ", url, ">", url, "</a>"))
+    HTML(paste0("Reports by month from US FDA FAERS (open.fda.gov). Search URL: <a href = ", url, ">", url, "</a>"))
   })
   
   output$current_search <- renderTable({
