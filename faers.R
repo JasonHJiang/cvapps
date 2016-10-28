@@ -155,23 +155,23 @@ ui <- dashboardPage(
     tabItems(
       tabItem(tabName = "reportdata",
               fluidRow(
-                box(title = h3("Reporter"),
+                box(h3("Reporter"),
                     htmlOutput("reporterplot"), 
                     tags$br(),
                     tags$p("Qualification of the person who filed the report."),
                     tags$p("Unknown is the number of reports without the primarysource.qualification field."),
                     width = 3),
-                box(title = h3("Serious reports"),
+                box(h3("Serious reports"),
                     htmlOutput("seriousplot"), 
                     tags$br(),
                     tags$p("Reports marked as serious."),
                     width = 3),
-                box(title = h3("Reasons for serious reports"),
+                box(h3("Reasons for serious reports"),
                     htmlOutput("seriousreasonsplot"), 
                     tags$br(),
                     tags$p("Total sums to more than 100% because reports can be marked serious for multiple reasons."),
                     width = 3),
-                box(title = h3("Country"),
+                box(h3("Country"),
                     htmlOutput("countryplot"), 
                     tags$br(),
                     tags$p("Country the reaction(s) occurred in. This is not necessarily the same country the report was received from."),
@@ -180,41 +180,45 @@ ui <- dashboardPage(
       ),
       tabItem(tabName = "patientdata",
               fluidRow(
-                box(title = h3("Gender"),
+                box(h3("Gender"),
                     htmlOutput("sexplot"),
                     tags$br(),
                     tags$p("Unknown includes both reports explicitly marked unknown and reports with no gender information."),
                     width = 3),
-                box(title = h3("Age Groups"),
+                box(h3("Age Groups"),
                     htmlOutput("agegroupplot"),
                     tags$br(),
                     tags$p("Unknown includes reports with no age information."), 
                     width = 3),
-                box(title = h3("Age Histogram"),
+                box(h3("Age Histogram"),
                     plotlyOutput("agehist"),
                     width = 6)
               )
       ),
       tabItem(tabName = "drugdata",
               fluidRow(
-                box(plotlyOutput("indicationplotpt"),
+                box(h3("Most Frequent Indications (Preferred Terms)"),
+                    htmlOutput("indicationplotpt"),
                     tags$p("This plot includes all indications for all drugs associated with the matching reports.
                            The open.fda.gov search API does not allow searching or filtering within drugs.
                            The search query filters unique reports, which may have one or more drugs associated with them.
                            It is not currently possible to search for only those indications associated with a specific drug.
                            "), width = 6),
-                box(plotlyOutput("indicationplothlt"),
+                box(h3("Most Frequent Indications (High-Level Terms)"),
+                    htmlOutput("indicationplothlt"),
                     p("This plot includes all indications for all drugs associated with the matching reports.
                        The open.fda.gov search API does not allow searching or filtering within drugs.
                        The search query filters unique reports, which may have one or more drugs associated with them.
                        It is not currently possible to search for only those indications associated with a specific drug.
                        "), width = 6),
-                box(plotlyOutput("drugplot"),
-                    p("This plot includes all drugs associated with the matching reports, except the search term.
+                box(h3("Most Frequent Concomitant Drugs (Generic Name)"),
+                    htmlOutput("drugplot"),
+                    p("This plot includes all drugs associated with the matching reports.
                        The open.fda.gov search API does not allow searching or filtering within drugs.
                        The search query filters unique reports, which may have one or more drugs associated with them.
                        It is not currently possible to retrieve correlations between drugs."), width = 6),
-                box(plotlyOutput("drugclassplot"),
+                box(h3("Most Frequent Established Pharmaceutical Classes"),
+                    htmlOutput("drugclassplot"),
                     p("This plot includes all drug classes associated with the matching reports, including the search term.
                        The total number of instances for each class will be geater 
                        than the number of reports when reports include more than one drug of the same class.
@@ -225,18 +229,18 @@ ui <- dashboardPage(
       ),
       tabItem(tabName = "rxndata",
               fluidRow(
-                box(title = h3("Outcomes (all reactions)"),
-                    htmlOutput("outcomeplot"),
-                    width = 4),
-                box(title = h3("Top 10 Reactions (Preferred Terms) Associated with Searched Drug"),
+                box(h3("Most Frequent Adverse Events (Preferred Terms)"),
                     htmlOutput("top_pt"),
                     p("For more rigorous analysis, use disproportionality statistics."),
-                    width = 4),
-                box(title = h3("Top 10 Reactions (High-Level Terms) Associated with Searched Drug"),
+                    width = 6),
+                box(h3("Most Frequent Adverse Events (High-Level Terms)"),
                     htmlOutput("top_hlt"),
-                    p("Based on the counts for the top 1000 adverse reaction preferred terms. ",
+                    p("Based on the counts for the top 1000 adverse event preferred terms. ",
                       "For more rigorous analysis, use disproportionality statistics."),
-                    width = 4)
+                    width = 6),
+                box(h3("Outcomes of Adverse Events"),
+                    htmlOutput("outcomeplot"),
+                    width = 3)
               )
       ),
       tabItem(tabName = "aboutinfo",
@@ -667,53 +671,30 @@ server <- function(input, output) {
     
   })
   
-  output$drugplot <- renderPlotly({
+  output$drugplot <- renderGvis({
     data <- faers_query()
     
     drugs <- data$openfda_query %>%
       fda_count("patient.drug.openfda.generic_name.exact") %>%
-      fda_limit(1000) %>%
+      fda_limit(26) %>%
       fda_exec()
     
     if(is.null(drugs)) drugs <- data.table(term = character(), count = numeric())
     if(!is.na(data$current_search[[1]])) drugs <- filter(drugs, !term == data$current_search[[1]])
-    
-    p <- ggplot(drugs[1:25,], aes(x = term, y = count, fill = term)) + 
-      geom_bar(stat = "identity") + 
-      scale_x_discrete(limits = rev(drugs$term[1:25])) + 
-      coord_flip() +
-      ggtitle("Top 25 Drugs (in addition to search term)") +
-      xlab("Drug (generic name)") + 
-      ylab("Number of Reports (thousands)") +
-      theme_bw() +
-      theme(plot.title = element_text(lineheight=.8, face="bold"), 
-            legend.position = "none") +
-      scale_y_continuous(labels = format1K)
-    ggplotly(p)
+    drugs <- drugs[1:25,]
+    gvisBarChart_HCSC(drugs, "term", "count", "['#ff9900']")
   })
   
-  output$drugclassplot <- renderPlotly({
+  output$drugclassplot <- renderGvis({
     data <- faers_query()
     
     drugclass <- data$openfda_query %>%
       fda_count("patient.drug.openfda.pharm_class_epc.exact") %>%
-      fda_limit(1000) %>%
+      fda_limit(25) %>%
       fda_exec()
     
     if(is.null(drugclass)) drugclass <- data.table(term = character(), count = numeric())
-    
-    p <- ggplot(drugclass[1:25,], aes(x = term, y = count, fill = term)) + 
-      geom_bar(stat = "identity") + 
-      scale_x_discrete(limits = rev(drugclass$term[1:25])) + 
-      coord_flip() +
-      ggtitle("Top 25 Drug Classes \n(including search term)") +
-      xlab("Established Pharmaceutical Class") + 
-      ylab("Number of Instances (thousands)") +
-      theme_bw() +
-      theme(plot.title = element_text(lineheight=.8, face="bold"), 
-            legend.position = "none") +
-      scale_y_continuous(labels = format1K)
-    ggplotly(p)
+    gvisBarChart_HCSC(drugclass, "term", "count", "['#109618']")
   })
   
   output$outcomeplot <- renderGvis({
@@ -735,20 +716,10 @@ server <- function(input, output) {
   output$top_pt <- renderGvis({
     data <- faers_query()$openfda_query %>%
       fda_count("patient.reaction.reactionmeddrapt.exact") %>%
-      fda_limit(10) %>%
+      fda_limit(25) %>%
       fda_exec()
-    gvisBarChart(data,
-                 xvar = "term",
-                 yvar = "count",
-                 options = list(
-                   #vAxes="[{title:'Reactions'}",
-                   legend = "{position:'none'}",
-                   bars = 'horizontal',
-                   axes= "x: {
-                                 0: { side: 'top', label: 'Number of Reports'}}",
-                   bar = list(groupWidth =  '90%'),
-                   height=500)
-    )})
+    gvisBarChart_HCSC(data, "term", "count", "['#3366cc']")
+    })
   output$top_hlt <- renderGvis({
     data <- faers_query()$openfda_query %>%
       fda_count("patient.reaction.reactionmeddrapt.exact") %>%
@@ -758,21 +729,12 @@ server <- function(input, output) {
       distinct(term, HLT_Term, count) %>%
       group_by(HLT_Term) %>%
       summarise(count = sum(count)) %>%
-      top_n(10, count) %>%
+      top_n(25, count) %>%
       arrange(desc(count))
-    gvisBarChart(data,
-                 xvar = "HLT_Term",
-                 yvar = "count",
-                 options = list(
-                   #vAxes="[{title:'Reactions'}",
-                   legend = "{position:'none'}",
-                   bars = 'horizontal',
-                   axes= "x: {
-                   0: { side: 'top', label: 'Number of Reports'}}",
-                   bar = list(groupWidth =  '90%'),
-                   height=500)
-    )})
-  output$indicationplotpt <- renderPlotly({
+    gvisBarChart_HCSC(data, "HLT_Term", "count", "['#dc3912']")
+    })
+  
+  output$indicationplotpt <- renderGvis({
     data <- faers_query()
     
     indications <- data$openfda_query %>%
@@ -781,21 +743,9 @@ server <- function(input, output) {
       fda_exec()
     
     if(is.null(indications)) indications <- data.table(term = character(), count = numeric())
-    
-    p <- ggplot(indications, aes(x = term, y = count, fill = term)) + 
-      geom_bar(stat = "identity") + 
-      scale_x_discrete(limits = rev(indications$term)) + 
-      coord_flip() +
-      ggtitle("Top 25 Indications (PT)") +
-      xlab("Indication") + 
-      ylab("Number (thousands)") +
-      theme_bw() +
-      theme(plot.title = element_text(lineheight=.8, face="bold"), 
-            legend.position = "none") +
-      scale_y_continuous(labels = format1K)
-    ggplotly(p)
+    gvisBarChart_HCSC(indications, "term", "count", "['#3366cc']")
   })
-  output$indicationplothlt <- renderPlotly({
+  output$indicationplothlt <- renderGvis({
     indications <- faers_query()$openfda_query %>%
       fda_count("patient.drug.drugindication.exact") %>%
       fda_limit(1000) %>%
@@ -808,19 +758,7 @@ server <- function(input, output) {
       arrange(desc(count))
     
     if(is.null(indications)) indications <- data.table(HLT_Term = character(), count = numeric())
-    
-    p <- ggplot(indications, aes(x = HLT_Term, y = count, fill = HLT_Term)) + 
-      geom_bar(stat = "identity") + 
-      scale_x_discrete(limits = rev(indications$HLT_Term)) + 
-      coord_flip() +
-      ggtitle("Top 25 Indications (HLT)") +
-      xlab("Indication") + 
-      ylab("Number (thousands)") +
-      theme_bw() +
-      theme(plot.title = element_text(lineheight=.8, face="bold"), 
-            legend.position = "none") +
-      scale_y_continuous(labels = format1K)
-    ggplotly(p)
+    gvisBarChart_HCSC(indications, "HLT_Term", "count", "['#dc3912']")
   })
   
   }

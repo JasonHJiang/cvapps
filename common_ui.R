@@ -1,3 +1,21 @@
+library(googleVis)
+# default styles for easier plotting
+gvisBarChart_HCSC <- function(data, xvar, yvar, colors = "['#3366cc']") {
+  gvisBarChart(data = data,
+               xvar = xvar,
+               yvar = yvar,
+               options = list(
+                 legend = "{position: 'none'}",
+                 hAxis = "{title: 'Number of Reports'}",
+                 colors = colors,
+                 height = 600,
+                 chartArea = "{top: 20, height: '90%', left: 250, width: '60%'}",
+                 bar = "{groupWidth: '80%'}"
+               )
+  )
+}
+
+
 titleWarning <- function(title) {
   list(title, span(
   "WARNING: This is a beta product. DO NOT use", br(),
@@ -12,6 +30,10 @@ customCSS <- function() {
   vertical-align: middle;
   font-size: smaller;
   padding-left: inherit;
+}
+
+h2, h3 {
+  text-align: center;
 }
 
 /*
