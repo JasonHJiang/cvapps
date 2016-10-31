@@ -204,7 +204,9 @@ ui <- dashboardPage(
                        The open.fda.gov search API does not allow searching or filtering within drugs.
                        The search query filters unique reports, which may have one or more drugs associated with them.
                        It is not currently possible to search for only those indications associated with a specific drug.
-                       "), width = 6),
+                       "), width = 6)
+              ),
+              fluidRow(
                 box(h3("Most Frequent Concomitant Drugs (Generic Name)"),
                     htmlOutput("drugplot"),
                     p("This plot includes all drugs associated with the matching reports.
@@ -231,7 +233,9 @@ ui <- dashboardPage(
                     htmlOutput("top_hlt"),
                     p("Based on the counts for the top 1000 adverse event preferred terms. ",
                       "For more rigorous analysis, use disproportionality statistics."),
-                    width = 6),
+                    width = 6)
+              ),
+              fluidRow(
                 box(h3("Outcomes of Adverse Events"),
                     htmlOutput("outcomeplot"),
                     width = 4)

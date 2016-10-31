@@ -178,7 +178,9 @@ ui <- dashboardPage(
                 box(h3("Most Frequent Indications (High-Level Terms)"),
                     htmlOutput("indicationhltplot"),
                     p("This plot includes top 10 indications (HLT) for drugs associated with the matching reports."),
-                    width = 6),
+                    width = 6)
+              ),
+              fluidRow(
                 box(h3("Top 10 Drugs(brand name) (in addition to search term)"),
                     htmlOutput("drugplot"),
                     p("This plot includes top 10 most-reported drugs with most-reported indication associated with the searched drug."),
@@ -194,7 +196,9 @@ ui <- dashboardPage(
                 box(h3("Most Frequent Adverse Events (High-Level Terms)"),
                     htmlOutput("top_hlt"),
                     p("For more rigorous analysis, use disproportionality statistics."),
-                    width = 6),
+                    width = 6)
+              ),
+              fluidRow(
                 box(h3("Outcomes of Adverse Events"),
                     htmlOutput("outcomeplot"),
                     width = 4)
@@ -363,41 +367,6 @@ server <- function(input, output) {
         dplyr::select(REPORT_ID, DRUGNAME, GENDER_ENG) %>%
         as.data.frame()
     })})
-  cv_reactions_tbl <- reactive({
-    current_brand <- cv_search_tab()$search_brand
-    
-    drugs_rxn_result <- cv_reactions %>%
-      dplyr::select(REPORT_ID, PT_NAME_ENG)
-    if (!is.na(current_brand)) {
-      cv_reports_filtered <- cv_report_drug %>%
-        filter(DRUGNAME == current_brand)
-      drugs_rxn_result %<>%
-        semi_join(cv_reports_filtered, by = "REPORT_ID")
-    }
-    drugs_rxn_result %<>%
-      group_by(PT_NAME_ENG) %>%
-      dplyr::summarise(count = n_distinct(REPORT_ID)) %>%
-      top_n(25, count) %>%
-      as.data.frame()
-  })
-  cv_reactions_hlt_tbl <- reactive({
-    current_brand <- cv_search_tab()$search_brand
-    
-    drugs_rxn_result <- cv_reactions %>%
-      dplyr::select(REPORT_ID, PT_NAME_ENG, MEDDRA_VERSION) %>%
-      inner_join(meddra, by = c("PT_NAME_ENG" = "PT_Term", "MEDDRA_VERSION" = "Version"))
-    if (!is.na(current_brand)) {
-      cv_reports_filtered <- cv_report_drug %>%
-        filter(DRUGNAME == current_brand)
-      drugs_rxn_result %<>%
-        semi_join(cv_reports_filtered, by = "REPORT_ID")
-    }
-    drugs_rxn_result %<>%
-      group_by(HLT_Term) %>%
-      dplyr::summarise(count = n_distinct(REPORT_ID)) %>%
-      top_n(25, count) %>%
-      as.data.frame()
-  })
 
   cv_download_reports <- eventReactive(input$search_report_type_dl, {
     selected_ids <- cv_master_tab_tbl() %>% select(REPORT_ID)
@@ -757,11 +726,38 @@ server <- function(input, output) {
   
   ################ Create Outcomes(all reactions) pie chart in Reaction tab ################## 
   output$top_pt <- renderGvis({
-    data <- cv_reactions_tbl()
+    current_brand <- cv_search_tab()$search_brand
+    data <- cv_reactions %>%
+      dplyr::select(REPORT_ID, PT_NAME_ENG)
+    if (!is.na(current_brand)) {
+      cv_reports_filtered <- cv_report_drug %>%
+        filter(DRUGNAME == current_brand)
+      data %<>%
+        semi_join(cv_reports_filtered, by = "REPORT_ID")
+    }
+    data %<>%
+      group_by(PT_NAME_ENG) %>%
+      dplyr::summarise(count = n_distinct(REPORT_ID)) %>%
+      top_n(25, count) %>%
+      as.data.frame()
     gvisBarChart_HCSC(data, "PT_NAME_ENG", "count", google_colors[1])
   })
   output$top_hlt <- renderGvis({
-    data <- cv_reactions_hlt_tbl()
+    current_brand <- cv_search_tab()$search_brand
+    data <- cv_reactions %>%
+      dplyr::select(REPORT_ID, PT_NAME_ENG, MEDDRA_VERSION) %>%
+      inner_join(meddra, by = c("PT_NAME_ENG" = "PT_Term", "MEDDRA_VERSION" = "Version"))
+    if (!is.na(current_brand)) {
+      cv_reports_filtered <- cv_report_drug %>%
+        filter(DRUGNAME == current_brand)
+      data %<>%
+        semi_join(cv_reports_filtered, by = "REPORT_ID")
+    }
+    data %<>%
+      group_by(HLT_Term) %>%
+      dplyr::summarise(count = n_distinct(REPORT_ID)) %>%
+      top_n(25, count) %>%
+      as.data.frame()
     gvisBarChart_HCSC(data, "HLT_Term", "count", google_colors[2])
   })
   output$outcomeplot <- renderGvis({
