@@ -156,25 +156,21 @@ ui <- dashboardPage(
       tabItem(tabName = "reportdata",
               fluidRow(
                 box(h3("Reporter"),
-                    htmlOutput("reporterplot"), 
-                    tags$br(),
-                    tags$p("Qualification of the person who filed the report."),
-                    tags$p("Unknown is the number of reports without the primarysource.qualification field."),
+                    htmlOutput("reporterplot"),
+                    p("Qualification of the person who filed the report."),
+                    p("Unknown is the number of reports without the primarysource.qualification field."),
                     width = 3),
                 box(h3("Serious reports"),
-                    htmlOutput("seriousplot"), 
-                    tags$br(),
-                    tags$p("Reports marked as serious."),
+                    htmlOutput("seriousplot"),
+                    p("Reports marked as serious."),
                     width = 3),
                 box(h3("Reasons for serious reports"),
-                    htmlOutput("seriousreasonsplot"), 
-                    tags$br(),
-                    tags$p("Total sums to more than 100% because reports can be marked serious for multiple reasons."),
+                    htmlOutput("seriousreasonsplot"),
+                    p("Total sums to more than 100% because reports can be marked serious for multiple reasons."),
                     width = 3),
                 box(h3("Country"),
-                    htmlOutput("countryplot"), 
-                    tags$br(),
-                    tags$p("Country the reaction(s) occurred in. This is not necessarily the same country the report was received from."),
+                    htmlOutput("countryplot"),
+                    p("Country the reaction(s) occurred in. This is not necessarily the same country the report was received from."),
                     width = 3)
               )
       ),
@@ -182,13 +178,11 @@ ui <- dashboardPage(
               fluidRow(
                 box(h3("Gender"),
                     htmlOutput("sexplot"),
-                    tags$br(),
-                    tags$p("Unknown includes both reports explicitly marked unknown and reports with no gender information."),
+                    p("Unknown includes both reports explicitly marked unknown and reports with no gender information."),
                     width = 3),
                 box(h3("Age Groups"),
                     htmlOutput("agegroupplot"),
-                    tags$br(),
-                    tags$p("Unknown includes reports with no age information."), 
+                    p("Unknown includes reports with no age information."), 
                     width = 3),
                 box(h3("Age Histogram"),
                     plotlyOutput("agehist"),
@@ -199,7 +193,7 @@ ui <- dashboardPage(
               fluidRow(
                 box(h3("Most Frequent Indications (Preferred Terms)"),
                     htmlOutput("indicationplotpt"),
-                    tags$p("This plot includes all indications for all drugs associated with the matching reports.
+                    p("This plot includes all indications for all drugs associated with the matching reports.
                            The open.fda.gov search API does not allow searching or filtering within drugs.
                            The search query filters unique reports, which may have one or more drugs associated with them.
                            It is not currently possible to search for only those indications associated with a specific drug.
@@ -240,7 +234,7 @@ ui <- dashboardPage(
                     width = 6),
                 box(h3("Outcomes of Adverse Events"),
                     htmlOutput("outcomeplot"),
-                    width = 3)
+                    width = 4)
               )
       ),
       tabItem(tabName = "aboutinfo",
@@ -682,7 +676,7 @@ server <- function(input, output) {
     if(is.null(drugs)) drugs <- data.table(term = character(), count = numeric())
     if(!is.na(data$current_search[[1]])) drugs <- filter(drugs, !term == data$current_search[[1]])
     drugs <- drugs[1:25,]
-    gvisBarChart_HCSC(drugs, "term", "count", "['#ff9900']")
+    gvisBarChart_HCSC(drugs, "term", "count", google_colors[3])
   })
   
   output$drugclassplot <- renderGvis({
@@ -694,7 +688,7 @@ server <- function(input, output) {
       fda_exec()
     
     if(is.null(drugclass)) drugclass <- data.table(term = character(), count = numeric())
-    gvisBarChart_HCSC(drugclass, "term", "count", "['#109618']")
+    gvisBarChart_HCSC(drugclass, "term", "count", google_colors[4])
   })
   
   output$outcomeplot <- renderGvis({
@@ -718,7 +712,7 @@ server <- function(input, output) {
       fda_count("patient.reaction.reactionmeddrapt.exact") %>%
       fda_limit(25) %>%
       fda_exec()
-    gvisBarChart_HCSC(data, "term", "count", "['#3366cc']")
+    gvisBarChart_HCSC(data, "term", "count", google_colors[1])
     })
   output$top_hlt <- renderGvis({
     data <- faers_query()$openfda_query %>%
@@ -731,7 +725,7 @@ server <- function(input, output) {
       summarise(count = sum(count)) %>%
       top_n(25, count) %>%
       arrange(desc(count))
-    gvisBarChart_HCSC(data, "HLT_Term", "count", "['#dc3912']")
+    gvisBarChart_HCSC(data, "HLT_Term", "count", google_colors[2])
     })
   
   output$indicationplotpt <- renderGvis({
@@ -743,7 +737,7 @@ server <- function(input, output) {
       fda_exec()
     
     if(is.null(indications)) indications <- data.table(term = character(), count = numeric())
-    gvisBarChart_HCSC(indications, "term", "count", "['#3366cc']")
+    gvisBarChart_HCSC(indications, "term", "count", google_colors[1])
   })
   output$indicationplothlt <- renderGvis({
     indications <- faers_query()$openfda_query %>%
@@ -758,7 +752,7 @@ server <- function(input, output) {
       arrange(desc(count))
     
     if(is.null(indications)) indications <- data.table(HLT_Term = character(), count = numeric())
-    gvisBarChart_HCSC(indications, "HLT_Term", "count", "['#dc3912']")
+    gvisBarChart_HCSC(indications, "HLT_Term", "count", google_colors[2])
   })
   
   }

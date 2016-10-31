@@ -1,13 +1,41 @@
 library(googleVis)
+# list of default google chart colours for plotting, http://there4.io/2012/05/02/google-chart-color-list/
+google_colors = c(
+  "#3366CC",
+  "#DC3912",
+  "#FF9900",
+  "#109618",
+  "#990099",
+  "#3B3EAC",
+  "#0099C6",
+  "#DD4477",
+  "#66AA00",
+  "#B82E2E",
+  "#316395",
+  "#994499",
+  "#22AA99",
+  "#AAAA11",
+  "#6633CC",
+  "#E67300",
+  "#8B0707",
+  "#329262",
+  "#5574A6",
+  "#3B3EAC"
+)
 # default styles for easier plotting
-gvisBarChart_HCSC <- function(data, xvar, yvar, colors = "['#3366cc']") {
+gvisBarChart_HCSC <- function(data, xvar, yvar, colors = google_colors) {
+  "['#3366cc']"
+  colors_string <- colors %>%
+    sapply(function(x) paste0("'", x, "'")) %>%
+    paste(collapse = ", ") %>%
+    {paste0("[", ., "]")}
   gvisBarChart(data = data,
                xvar = xvar,
                yvar = yvar,
                options = list(
                  legend = "{position: 'none'}",
                  hAxis = "{title: 'Number of Reports'}",
-                 colors = colors,
+                 colors = colors_string,
                  height = 600,
                  chartArea = "{top: 20, height: '90%', left: 250, width: '60%'}",
                  bar = "{groupWidth: '80%'}"
