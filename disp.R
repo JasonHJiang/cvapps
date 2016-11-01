@@ -31,17 +31,23 @@ hcopen <- src_pool(hcopen_pool)
 
 cv_bcpnn <- hcopen %>% tbl("PT_IC_161027") %>%
   select(drug_code, event_effect, median_IC, LB95_IC, UB95_IC)
+cv_rfet <- hcopen %>% tbl("PT_RFET_161101")
 cv_prr <- hcopen %>% tbl("PT_PRR_160927")
 cv_ror <- hcopen %>% tbl("PT_ROR_160927")
+cv_rrr <- hcopen %>% tbl("PT_RRR_160927")
 master_table_pt <- cv_bcpnn %>%
+  inner_join(cv_rfet, by = c("drug_code", "event_effect")) %>%
   inner_join(cv_prr, by = c("drug_code", "event_effect")) %>%
   inner_join(cv_ror, by = c("drug_code", "event_effect"))
 
 hlt_bcpnn <- hcopen %>% tbl("HLT_IC_161027") %>%
   select(drug_code, event_effect, median_IC, LB95_IC, UB95_IC)
+hlt_rfet <- hcopen %>% tbl("HLT_RFET_161101")
 hlt_prr <- hcopen %>% tbl("HLT_PRR_160927")
 hlt_ror <- hcopen %>% tbl("HLT_ROR_160927")
+hlt_rrr <- hcopen %>% tbl("HLT_RRR_160927")
 master_table_hlt <- hlt_bcpnn %>%
+  inner_join(hlt_rfet, by = c("drug_code", "event_effect")) %>%
   inner_join(hlt_prr, by = c("drug_code", "event_effect")) %>%
   inner_join(hlt_ror, by = c("drug_code", "event_effect"))
 
@@ -71,6 +77,7 @@ ui <- dashboardPage(
                   titleWidth = 700),
   
   dashboardSidebar(
+    width = 280,
     sidebarMenu(
       id = "sidebarmenu",
       menuItem("Disproportionality Analysis", tabName = "data", icon = icon("database")),
@@ -243,9 +250,9 @@ server <- function(input, output, session) {
     input$search_button
     isolate({
       #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
-      current_drug <- ifelse(input$search_drug == "", "Not Specified (All)", input$search_drug)
-      current_hlt <- ifelse(input$search_hlt == "", "Not Specified (All)", input$search_hlt)
-      current_pt <- ifelse(input$search_pt == "", "Not Specified (All)", input$search_pt)
+      current_drug <- ifelse(input$search_drug == "", "Not Specified", input$search_drug)
+      current_hlt <- ifelse(input$search_hlt == "", "Not Specified", input$search_hlt)
+      current_pt <- ifelse(input$search_pt == "", "Not Specified", input$search_pt)
       
       search_tab_df <- data.frame(names = c("Generic Name:",
                                             "High-Level Term:",
@@ -266,7 +273,7 @@ server <- function(input, output, session) {
   output$pt_data_dl <- downloadHandler(
     filename = function() {
       current_drug <- search_tab()$terms[1]
-      if (current_drug == "Not Specified (All)") current_drug <- "all"
+      if (current_drug == "Not Specified") current_drug <- "all"
       current_drug <- gsub(" ", "_", current_drug)
       current_drug <- gsub("\\|", "-", current_drug)
       paste0('pt_data_', current_drug, '.csv')
@@ -278,7 +285,7 @@ server <- function(input, output, session) {
   output$hlt_data_dl <- downloadHandler(
     filename = function() {
       current_drug <- search_tab()$terms[1]
-      if (current_drug == "Not Specified (All)") current_drug <- "all"
+      if (current_drug == "Not Specified") current_drug <- "all"
       current_drug <- gsub(" ", "_", current_drug)
       current_drug <- gsub("\\|", "-", current_drug)
       paste0('hlt_data_', current_drug, '.csv')
@@ -298,6 +305,7 @@ server <- function(input, output, session) {
       dplyr::select(drug_code, event_effect,
                     count = count.x, expected_count = expected_count.x,
                     median_IC, LB95_IC, UB95_IC,
+                    midRFET, RFET,
                     PRR, LB95_PRR, UB95_PRR,
                     ROR, LB95_ROR, UB95_ROR) %>%
       filter(count >= input$min_count)
@@ -362,6 +370,7 @@ server <- function(input, output, session) {
         dplyr::select(drug_code, event_effect,
                       count = count.x, expected_count = expected_count.x,
                       median_IC, LB95_IC, UB95_IC,
+                      midRFET, RFET,
                       PRR, LB95_PRR, UB95_PRR,
                       ROR, LB95_ROR, UB95_ROR) %>%
         filter(count >= input$min_count)
@@ -448,7 +457,11 @@ server <- function(input, output, session) {
     options = list(
       scrollX = TRUE,
       dom = 'Bfrtip',
-      buttons = I('colvis')
+      buttons = list(list(extend = 'colvis',
+                          text = 'Columns to display',
+                          columns = 5:15)),
+      columnDefs = list(list(visible = FALSE,
+                             targets = c(7, 11, 12, 14, 15)))
     )))
 
   # PRR Time Plot
@@ -482,7 +495,11 @@ server <- function(input, output, session) {
     options = list(
       scrollX = TRUE,
       dom = 'Bfrtip',
-      buttons = I('colvis')
+      buttons = list(list(extend = 'colvis',
+                          text = 'Columns to display',
+                          columns = 5:15)),
+      columnDefs = list(list(visible = FALSE,
+                             targets = c(7, 11, 12, 14, 15)))
     )))
 }
 
