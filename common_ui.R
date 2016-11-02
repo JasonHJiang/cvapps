@@ -71,6 +71,11 @@ http://stackoverflow.com/questions/36314780/shinydashboard-grayed-out-downloadbu
 .skin-blue .sidebar .btn {
   color: #444;
 }
+
+/* minor thing to get results table to fill sidebar fully */
+.table {
+  width: 100% !important;
+}
 ')))
 }
 

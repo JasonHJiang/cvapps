@@ -79,7 +79,6 @@ ui <- dashboardPage(
   dashboardSidebar(
     width = 280,
     sidebarMenu(
-      id = "sidebarmenu",
       menuItem("Disproportionality Analysis", tabName = "data", icon = icon("database")),
       selectizeInput(inputId ="search_drug",
                      label = "Generic Name/Ingredient",
@@ -101,21 +100,19 @@ ui <- dashboardPage(
                     value = TRUE),
       # hacky way to get borders correct
       tags$div(class="form-group shiny-input-container",
-      actionButton(inputId = "search_button",
-                   label = "Search",
-                   width = '100%'),
+               actionButton(inputId = "search_button",
+                            label = "Search",
+                            width = '100%')
+      ),
       tags$h3(strong("Current Query:")),
       tableOutput("current_search"),
       downloadButton(outputId = "pt_data_dl",
                      label = "Export PT data"),
       downloadButton(outputId = "hlt_data_dl",
-                     label = "Export HLT data")
-      ),
-      
+                     label = "Export HLT data"),
       menuItem("Documentation", tabName = "Documentation", icon = icon("flag")),
-      menuItem("About", tabName = "aboutinfo", icon = icon("info"))
+    menuItem("About", tabName = "aboutinfo", icon = icon("info"))
     )
-    
   ), 
   
   dashboardBody(
@@ -266,8 +263,7 @@ server <- function(input, output, session) {
   # Display what query was searched
   output$current_search <- renderTable(
     search_tab(),
-    rownames = FALSE,
-    colnames = FALSE
+    include.colnames = FALSE
   )
   
   output$pt_data_dl <- downloadHandler(
