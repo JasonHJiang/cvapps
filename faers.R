@@ -284,26 +284,32 @@ ui <- dashboardPage(
 server <- function(input, output) {
   ########## Reactive data processing
   # Data structure to store current query info
-  faers_query <- reactive({
+  current_search <- reactive({
     input$searchButton
     isolate({
-    current_generic <- input$search_generic
-    current_brand <- input$search_brand
-    current_rxn <- input$search_rxn
-    current_date_range <- input$searchDateRange
+      list(
+        generic    = input$search_generic,
+        brand      = input$search_brand,
+        rxn        = input$search_rxn,
+        date_range = input$searchDateRange
+      )
+    })})
+  faers_query <- reactive({
+    data <- current_search()
     
-    query_str <- paste0("[", current_date_range[1], "+TO+", current_date_range[2], "]")
-    openfda_query <- fda_query("/drug/event.json") %>% fda_filter("receivedate", query_str)
-    if("" != current_generic) {
-      query_str <- paste0('"', gsub(" ", "+", current_generic), '"')
+    openfda_query <- fda_query("/drug/event.json")
+    query_str <- paste0("[", data$date_range[1], "+TO+", data$date_range[2], "]")
+    openfda_query %<>% fda_filter("receivedate", query_str)
+    if("" != data$generic) {
+      query_str <- paste0('"', gsub(" ", "+", data$generic), '"')
       openfda_query %<>% fda_filter("patient.drug.openfda.generic_name.exact", query_str)
     }
-    if("" != current_brand) {
-      current_brand <- paste0('"', gsub(" ", "+", current_generic), '"')
+    if("" != data$brand) {
+      current_brand <- paste0('"', gsub(" ", "+", data$brand), '"')
       openfda_query %<>% fda_filter("patient.drug.openfda.brand_name.exact", query_str)
     }
-    if("" != current_rxn) {
-      current_brand <- paste0('"', gsub(" ", "+", current_rxn), '"')
+    if("" != data$rxn) {
+      current_brand <- paste0('"', gsub(" ", "+", data$rxn), '"')
       openfda_query %<>% fda_filter("patient.reaction.reactionmeddrapt.exact", query_str)
     }
     
@@ -320,16 +326,12 @@ server <- function(input, output) {
       .$results %>%
       .$total
     
-    return(list(
-      current_search = list(
-        generic = current_generic,
-        brand = current_brand,
-        rxn = current_rxn,
-        date_range = current_date_range),
+    list(
+      query_url = query_url,
       total_reports = total_reports,
-      openfda_query = openfda_query,
-      query_url = query_url))
-  })})
+      openfda_query = openfda_query
+    )
+  })
   ages <- reactive({
     data <- faers_query()
     
@@ -393,15 +395,15 @@ server <- function(input, output) {
     HTML(paste0("Reports by month from US FDA FAERS (open.fda.gov). Search URL: <a href = ", url, ">", url, "</a>"))
   })
   output$current_search <- renderTable({
-    data <- faers_query()
+    data <- current_search()
     result <- data.table(names = c("Generic Name:", 
                                    "Brand Name:", 
                                    "Adverse Reaction Term:",
                                    "Date Range:"),
-                         values = c(data$current_search$generic,
-                                    data$current_search$brand,
-                                    data$current_search$rxn,
-                                    paste(data$current_search$date_range, collapse = " to ")))
+                         values = c(data$generic,
+                                    data$brand,
+                                    data$rxn,
+                                    paste(data$date_range, collapse = " to ")))
     result$values["" == result$values] <- "Not Specified"
     result
   },
@@ -411,6 +413,7 @@ server <- function(input, output) {
   output$timeplot <- renderPlotly({
     
     data <- faers_query()
+    data2 <- current_search()
     
     time_results <- data$openfda_query %>%
       fda_count("receivedate") %>%
@@ -423,7 +426,7 @@ server <- function(input, output) {
         dplyr::count(month, wt = count)
     }
     
-    title <- data$current_search$generic
+    title <- data2$generic
     if ("" == title) title <- "All Drugs"
     plottitle <- paste("Drug Adverse Event Reports for", title)
     p <- adrplot(time_results, plottitle)
@@ -713,7 +716,7 @@ server <- function(input, output) {
       fda_exec()
     
     if (is.null(drugs)) drugs <- data.table(term = character(), count = numeric())
-    if ("" != data$current_search$generic) drugs <- filter(drugs, !term == data$current_search$generic)
+    if ("" != current_search()$generic) drugs <- filter(drugs, !term == current_search()$generic)
     drugs <- drugs[1:25,]
     gvisBarChart_HCSC(drugs, "term", "count", google_colors[3])
   })
