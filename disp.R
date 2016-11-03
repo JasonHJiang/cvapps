@@ -34,22 +34,26 @@ cv_bcpnn <- hcopen %>% tbl("PT_IC_161027") %>%
 cv_rfet <- hcopen %>% tbl("PT_RFET_161101")
 cv_prr <- hcopen %>% tbl("PT_PRR_160927")
 cv_ror <- hcopen %>% tbl("PT_ROR_160927")
-cv_rrr <- hcopen %>% tbl("PT_RRR_160927")
+# cv_rrr <- hcopen %>% tbl("PT_RRR_160927")
+cv_counts <- hcopen %>% tbl("PT_counts_161103")
 master_table_pt <- cv_bcpnn %>%
   inner_join(cv_rfet, by = c("drug_code", "event_effect")) %>%
   inner_join(cv_prr, by = c("drug_code", "event_effect")) %>%
-  inner_join(cv_ror, by = c("drug_code", "event_effect"))
+  inner_join(cv_ror, by = c("drug_code", "event_effect")) %>%
+  inner_join(cv_counts, by = c("drug_code", "event_effect", "count"))
 
 hlt_bcpnn <- hcopen %>% tbl("HLT_IC_161027") %>%
   select(drug_code, event_effect, median_IC, LB95_IC, UB95_IC)
 hlt_rfet <- hcopen %>% tbl("HLT_RFET_161101")
 hlt_prr <- hcopen %>% tbl("HLT_PRR_160927")
 hlt_ror <- hcopen %>% tbl("HLT_ROR_160927")
-hlt_rrr <- hcopen %>% tbl("HLT_RRR_160927")
+# hlt_rrr <- hcopen %>% tbl("HLT_RRR_160927")
+hlt_counts <- hcopen %>% tbl("HLT_counts_161103")
 master_table_hlt <- hlt_bcpnn %>%
   inner_join(hlt_rfet, by = c("drug_code", "event_effect")) %>%
   inner_join(hlt_prr, by = c("drug_code", "event_effect")) %>%
-  inner_join(hlt_ror, by = c("drug_code", "event_effect"))
+  inner_join(hlt_ror, by = c("drug_code", "event_effect")) %>%
+  inner_join(hlt_counts, by = c("drug_code", "event_effect", "count"))
 
 cv_drug_rxn_meddra <- hcopen %>% tbl("cv_drug_rxn_meddra")
 cv_drug_rxn_2006 <- cv_drug_rxn_meddra %>% filter(quarter >= 2006.1)
@@ -300,6 +304,7 @@ server <- function(input, output, session) {
     table <- master_table_pt %>%
       dplyr::select(drug_code, event_effect,
                     count = count.x, expected_count = expected_count.x,
+                    drug_margin, event_margin,
                     median_IC, LB95_IC, UB95_IC,
                     midRFET, RFET,
                     PRR, LB95_PRR, UB95_PRR,
@@ -365,6 +370,7 @@ server <- function(input, output, session) {
       table <- master_table_hlt %>%
         dplyr::select(drug_code, event_effect,
                       count = count.x, expected_count = expected_count.x,
+                      drug_margin, event_margin,
                       median_IC, LB95_IC, UB95_IC,
                       midRFET, RFET,
                       PRR, LB95_PRR, UB95_PRR,
@@ -457,7 +463,7 @@ server <- function(input, output, session) {
                           text = 'Columns to display',
                           columns = 5:15)),
       columnDefs = list(list(visible = FALSE,
-                             targets = c(7, 11, 12, 14, 15)))
+                             targets = c(5, 6, 9, 13, 14, 16, 17)))
     )))
 
   # PRR Time Plot
@@ -495,7 +501,7 @@ server <- function(input, output, session) {
                           text = 'Columns to display',
                           columns = 5:15)),
       columnDefs = list(list(visible = FALSE,
-                             targets = c(7, 11, 12, 14, 15)))
+                             targets = c(5, 6, 9, 13, 14, 16, 17)))
     )))
 }
 
