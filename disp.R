@@ -28,32 +28,44 @@ hcopen_pool <- dbPool(drv = "PostgreSQL",
                  user = "hcreader",
                  password = "canada1")
 hcopen <- src_pool(hcopen_pool)
+gc()
 
+# removing these columns first results in a faster join
 cv_bcpnn <- hcopen %>% tbl("PT_IC_161027") %>%
-  select(drug_code, event_effect, median_IC, LB95_IC, UB95_IC)
-cv_rfet <- hcopen %>% tbl("PT_RFET_161101")
-cv_prr <- hcopen %>% tbl("PT_PRR_160927")
-cv_ror <- hcopen %>% tbl("PT_ROR_160927")
+  select(drug_code, event_effect, count, expected_count, median_IC, LB95_IC, UB95_IC)
+cv_rfet <- hcopen %>% tbl("PT_RFET_161101") %>%
+  select(drug_code, event_effect, midRFET, RFET)
+cv_prr <- hcopen %>% tbl("PT_PRR_160927") %>%
+  select(drug_code, event_effect, PRR, LB95_PRR, UB95_PRR)
+cv_ror <- hcopen %>% tbl("PT_ROR_160927") %>%
+  select(drug_code, event_effect, ROR, LB95_ROR, UB95_ROR)
 # cv_rrr <- hcopen %>% tbl("PT_RRR_160927")
-cv_counts <- hcopen %>% tbl("PT_counts_161103")
+cv_counts <- hcopen %>% tbl("PT_counts_161103") %>%
+  select(drug_code, event_effect, drug_margin, event_margin)
 master_table_pt <- cv_bcpnn %>%
   inner_join(cv_rfet, by = c("drug_code", "event_effect")) %>%
   inner_join(cv_prr, by = c("drug_code", "event_effect")) %>%
   inner_join(cv_ror, by = c("drug_code", "event_effect")) %>%
-  inner_join(cv_counts, by = c("drug_code", "event_effect", "count"))
+  inner_join(cv_counts, by = c("drug_code", "event_effect")) %>%
+  select(1:4, 16:17, 5:15)
 
 hlt_bcpnn <- hcopen %>% tbl("HLT_IC_161027") %>%
-  select(drug_code, event_effect, median_IC, LB95_IC, UB95_IC)
-hlt_rfet <- hcopen %>% tbl("HLT_RFET_161101")
-hlt_prr <- hcopen %>% tbl("HLT_PRR_160927")
-hlt_ror <- hcopen %>% tbl("HLT_ROR_160927")
+  select(drug_code, event_effect, count, expected_count, median_IC, LB95_IC, UB95_IC)
+hlt_rfet <- hcopen %>% tbl("HLT_RFET_161101") %>%
+  select(drug_code, event_effect, midRFET, RFET)
+hlt_prr <- hcopen %>% tbl("HLT_PRR_160927") %>%
+  select(drug_code, event_effect, PRR, LB95_PRR, UB95_PRR)
+hlt_ror <- hcopen %>% tbl("HLT_ROR_160927") %>%
+  select(drug_code, event_effect, ROR, LB95_ROR, UB95_ROR)
 # hlt_rrr <- hcopen %>% tbl("HLT_RRR_160927")
-hlt_counts <- hcopen %>% tbl("HLT_counts_161103")
+hlt_counts <- hcopen %>% tbl("HLT_counts_161103") %>%
+  select(drug_code, event_effect, drug_margin, event_margin)
 master_table_hlt <- hlt_bcpnn %>%
   inner_join(hlt_rfet, by = c("drug_code", "event_effect")) %>%
   inner_join(hlt_prr, by = c("drug_code", "event_effect")) %>%
   inner_join(hlt_ror, by = c("drug_code", "event_effect")) %>%
-  inner_join(hlt_counts, by = c("drug_code", "event_effect", "count"))
+  inner_join(hlt_counts, by = c("drug_code", "event_effect")) %>%
+  select(1:4, 16:17, 5:15)
 
 cv_drug_rxn_meddra <- hcopen %>% tbl("cv_drug_rxn_meddra")
 cv_drug_rxn_2006 <- cv_drug_rxn_meddra %>% filter(quarter >= 2006.1)
@@ -101,7 +113,7 @@ ui <- dashboardPage(
                   min=1, max=20, value=1),
       checkboxInput(inputId = "inf_filter_pt",
                     label = "Exclude Inf PRR from table",
-                    value = TRUE),
+                    value = FALSE),
       # hacky way to get borders correct
       tags$div(class="form-group shiny-input-container",
                actionButton(inputId = "search_button",
@@ -301,48 +313,22 @@ server <- function(input, output, session) {
     isolate({
     # PRR and ROR values of Inf means there are no other drugs associated with that specific adverse reaction, so denomimator is zero!
     # prr_tab_df is simply the table displayed at the bottom
-    table <- master_table_pt %>%
-      dplyr::select(drug_code, event_effect,
-                    count = count.x, expected_count = expected_count.x,
-                    drug_margin, event_margin,
-                    median_IC, LB95_IC, UB95_IC,
-                    midRFET, RFET,
-                    PRR, LB95_PRR, UB95_PRR,
-                    ROR, LB95_ROR, UB95_ROR) %>%
-      filter(count >= input$min_count)
-    if(input$search_drug != "") table %<>% filter(drug_code == input$search_drug)
-    if(input$search_pt != "") table %<>% filter(event_effect == input$search_pt)
-
-    # rank master table by PRR & suppress Inf to the end
-    # ***** == "Infinity" is a way that currently works to filter equal to infinity in SQL with dplyr, might change
-    table_inf <- table %>%
-      filter(PRR == "Infinity") %>%
-      dplyr::arrange(drug_code, event_effect) %>%
-      as.data.frame(stringsAsFactors = FALSE)
-    table %<>%
-      filter(PRR != "Infinity") %>%
-      dplyr::arrange(desc(median_IC), desc(LB95_IC), drug_code, event_effect) %>%
-      as.data.frame(stringsAsFactors = FALSE)
-    if (!input$inf_filter_pt) table %<>% bind_rows(table_inf)
-    table %<>%
-      lapply(function(x) {if(is.numeric(x)) round(x,3) else x}) %>%
+    table <- master_table_pt
+    if (input$search_drug != "") table %<>% filter(drug_code == input$search_drug)
+    if (input$search_pt != "") table %<>% filter(event_effect == input$search_pt)
+    if (input$inf_filter_pt) table %<>% filter(PRR != Inf)
+    table %<>% filter(count >= input$min_count) %>%
+      arrange(desc(median_IC), desc(LB95_IC), drug_code, event_effect) %>%
+      as.data.frame() %>%
+      lapply(function(x) {if (is.numeric(x)) round(x,3) else x}) %>%
       as.data.frame()
   })
   })
 
   # time-series data
   time_data_pt <- reactive({
-    table_pt_data() # always update when this table changes, since order of execution isn't guaranteed
-    isolate({
-    top_pairs <- table_pt_data() %>%
-      filter(PRR != Inf) %>%   # this comparison is done in R, not SQL, so Inf rather than "Infinity"
-      dplyr::select(drug_code, event_effect) %>%
-      head(10)
-    if (0 == nrow(top_pairs)) {
-      top_pairs <- table_pt_data() %>%
-        dplyr::select(drug_code, event_effect) %>%
-        head(10)
-    }
+    top_pairs <- table_pt_data() %>% dplyr::select(drug_code, event_effect) %>%
+      mutate(drug_code = as.character(drug_code), event_effect = as.character(event_effect)) %>% head(10)
     if (1 == nrow(top_pairs)) {
       # the SQL IN comparison complains if there's only one value to match to (when we specify both drug and rxn)
       timeplot_df <- count_quarter_pt %>% filter(ing == top_pairs$drug_code,
@@ -351,14 +337,10 @@ server <- function(input, output, session) {
       timeplot_df <- count_quarter_pt %>% filter(ing %in% top_pairs$drug_code,
                                                  PT_NAME_ENG %in% top_pairs$event_effect) %>% as.data.frame()
     }
-
-    report_quarters <- count_quarter_pt %>% select(quarter) %>% distinct() %>% as.data.frame()
-    pairs_df <- top_pairs %>% rename(ing = drug_code, PT_NAME_ENG = event_effect) %>% data.frame(count = 0, stringsAsFactors = FALSE)
-    quarters_df <- data.frame(quarter = report_quarters, count = 0)
-    filled_time_df <- full_join(pairs_df, quarters_df) %>% bind_rows(timeplot_df)
+    quarters_df <- count_quarter_pt %>% select(quarter) %>% distinct() %>% as.data.frame() %>% cbind(count = 0)
+    pairs_df <- top_pairs %>% rename(ing = drug_code, PT_NAME_ENG = event_effect) %>% cbind(count = 0)
+    filled_time_df <- full_join(pairs_df, quarters_df, by = "count") %>% bind_rows(timeplot_df)
     filled_time_df %<>% group_by(ing, PT_NAME_ENG, quarter) %>% summarise(count = sum(count))
-    filled_time_df
-  })
   })
 
 
@@ -367,68 +349,39 @@ server <- function(input, output, session) {
     isolate({
       # PRR and ROR values of Inf means there are no other drugs associated with that specific adverse reaction, so denomimator is zero!
       # prr_tab_df is simply the table displayed at the bottom
-      table <- master_table_hlt %>%
-        dplyr::select(drug_code, event_effect,
-                      count = count.x, expected_count = expected_count.x,
-                      drug_margin, event_margin,
-                      median_IC, LB95_IC, UB95_IC,
-                      midRFET, RFET,
-                      PRR, LB95_PRR, UB95_PRR,
-                      ROR, LB95_ROR, UB95_ROR) %>%
-        filter(count >= input$min_count)
-      if(input$search_drug != "") table %<>% filter(drug_code == input$search_drug)
-      if(input$search_hlt != "") table %<>% filter(event_effect == input$search_hlt)
-
-      # rank master table by PRR & suppress Inf to the end
-      # ***** == "Infinity" is a way that currently works to filter equal to infinity in SQL with dplyr, might change
-      table_inf <- table %>%
-        filter(PRR == "Infinity") %>%
-        dplyr::arrange(drug_code, event_effect) %>%
-        as.data.frame(stringsAsFactors = FALSE)
-      table %<>%
-        filter(PRR != "Infinity") %>%
-        dplyr::arrange(desc(median_IC), desc(LB95_IC), drug_code, event_effect) %>%
-        as.data.frame(stringsAsFactors = FALSE)
-      if (!input$inf_filter_pt) table %<>% bind_rows(table_inf)
-      table %<>%
-        lapply(function(x) {if(is.numeric(x)) round(x,3) else x}) %>%
+      table <- master_table_hlt
+      if (input$search_drug != "") table %<>% filter(drug_code == input$search_drug)
+      if (input$search_hlt != "") table %<>% filter(event_effect == input$search_hlt)
+      if (input$inf_filter_pt) table %<>% filter(PRR != Inf)
+      table %<>% filter(count >= input$min_count) %>%
+        arrange(desc(median_IC), desc(LB95_IC), drug_code, event_effect) %>%
+        as.data.frame() %>%
+        lapply(function(x) {if (is.numeric(x)) round(x,3) else x}) %>%
         as.data.frame()
     })
   })
 
   # time-series data
   time_data_hlt <- reactive({
-    table_hlt_data() # always update when this table changes, since order of execution isn't guaranteed
-    isolate({
-      top_pairs <- table_hlt_data() %>%
-        filter(PRR != Inf) %>%   # this comparison is done in R, not SQL, so Inf rather than "Infinity"
-        dplyr::select(drug_code, event_effect) %>%
-        head(10)
-      if (0 == nrow(top_pairs)) {
-        top_pairs <- table_pt_data() %>%
-          dplyr::select(drug_code, event_effect) %>%
-          head(10)
-      }
-      if (1 == nrow(top_pairs)) {
-        # the SQL IN comparison complains if there's only one value to match to (when we specify both drug and rxn)
-        timeplot_df <- count_quarter_hlt %>% filter(ing == top_pairs$drug_code,
-                                                    HLT_NAME_ENG == top_pairs$event_effect) %>% as.data.frame()
-      } else {
-        timeplot_df <- count_quarter_hlt %>% filter(ing %in% top_pairs$drug_code,
-                                                    HLT_NAME_ENG %in% top_pairs$event_effect) %>% as.data.frame()
-      }
-      report_quarters <- count_quarter_hlt %>% select(quarter) %>% distinct() %>% as.data.frame()
-      pairs_df <- top_pairs %>% rename(ing = drug_code, HLT_NAME_ENG = event_effect) %>% data.frame(count = 0, stringsAsFactors = FALSE)
-      quarters_df <- data.frame(quarter = report_quarters, count = 0)
-      filled_time_df <- full_join(pairs_df, quarters_df) %>% bind_rows(timeplot_df)
-      filled_time_df %<>% group_by(ing, HLT_NAME_ENG, quarter) %>% summarise(count = sum(count))
-      filled_time_df
-    })
+    top_pairs <- table_hlt_data() %>% dplyr::select(drug_code, event_effect) %>%
+      mutate(drug_code = as.character(drug_code), event_effect = as.character(event_effect)) %>% head(10)
+    if (1 == nrow(top_pairs)) {
+      # the SQL IN comparison complains if there's only one value to match to (when we specify both drug and rxn)
+      timeplot_df <- count_quarter_hlt %>% filter(ing == top_pairs$drug_code,
+                                                  HLT_NAME_ENG == top_pairs$event_effect) %>% as.data.frame()
+    } else {
+      timeplot_df <- count_quarter_hlt %>% filter(ing %in% top_pairs$drug_code,
+                                                  HLT_NAME_ENG %in% top_pairs$event_effect) %>% as.data.frame()
+    }
+    quarters_df <- count_quarter_hlt %>% select(quarter) %>% distinct() %>% as.data.frame() %>% cbind(count = 0)
+    pairs_df <- top_pairs %>% rename(ing = drug_code, HLT_NAME_ENG = event_effect) %>% cbind(count = 0)
+    filled_time_df <- full_join(pairs_df, quarters_df, by = "count") %>% bind_rows(timeplot_df)
+    filled_time_df %<>% group_by(ing, HLT_NAME_ENG, quarter) %>% summarise(count = sum(count))
   })
   
 
 
-  # PRR Time Plot
+  # Time Plot
   output$timeplot_pt <- renderPlot({
     input$search_button # hacky way to get eventReactive but also initial load
     isolate({
@@ -461,12 +414,12 @@ server <- function(input, output, session) {
       dom = 'Bfrtip',
       buttons = list(list(extend = 'colvis',
                           text = 'Columns to display',
-                          columns = 5:15)),
+                          columns = 5:17)),
       columnDefs = list(list(visible = FALSE,
                              targets = c(5, 6, 9, 13, 14, 16, 17)))
     )))
 
-  # PRR Time Plot
+  # Time Plot
   output$timeplot_hlt <- renderPlot({
     input$search_button # hacky way to get eventReactive but also initial load
     isolate({
@@ -499,7 +452,7 @@ server <- function(input, output, session) {
       dom = 'Bfrtip',
       buttons = list(list(extend = 'colvis',
                           text = 'Columns to display',
-                          columns = 5:15)),
+                          columns = 5:17)),
       columnDefs = list(list(visible = FALSE,
                              targets = c(5, 6, 9, 13, 14, 16, 17)))
     )))
