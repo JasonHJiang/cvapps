@@ -96,7 +96,7 @@ adrplot <- function(monthlyadrdata, plottitle){
 
 
 ui <- dashboardPage(
-  dashboardHeader(title = titleWarning("Shiny FAERS (v0.10)"),
+  dashboardHeader(title = titleWarning("Shiny FAERS (v0.11)"),
                   titleWidth = 700),
   
   dashboardSidebar(

@@ -86,7 +86,7 @@ toprxns <- cv_reactions %>%
 
 
 ui <- dashboardPage(
-  dashboardHeader(title = titleWarning("CV Shiny (v0.10)"),
+  dashboardHeader(title = titleWarning("CV Shiny (v0.11)"),
                   titleWidth = 700),
   
   dashboardSidebar(
