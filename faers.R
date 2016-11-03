@@ -192,28 +192,21 @@ ui <- dashboardPage(
       ),
       tabItem(tabName = "drugdata",
               fluidRow(
-                box(h3("Most Frequent Indications (Preferred Terms)"),
-                    htmlOutput("indicationplotpt"),
+                box(h3("Most Frequent Indications"),
+                    htmlOutput("indication_plot"),
                     p("This plot includes all indications for all drugs associated with the matching reports.
                            The open.fda.gov search API does not allow searching or filtering within drugs.
                            The search query filters unique reports, which may have one or more drugs associated with them.
                            It is not currently possible to search for only those indications associated with a specific drug.
                            "), width = 6),
-                box(h3("Most Frequent Indications (High-Level Terms)"),
-                    htmlOutput("indicationplothlt"),
-                    p("This plot includes all indications for all drugs associated with the matching reports.
+                  box(h3("Most Frequently Occurring Drugs (Generic Name)"),
+                      htmlOutput("drug_plot"),
+                      p("This plot includes all drugs associated with the matching reports.
                        The open.fda.gov search API does not allow searching or filtering within drugs.
                        The search query filters unique reports, which may have one or more drugs associated with them.
-                       It is not currently possible to search for only those indications associated with a specific drug.
-                       "), width = 6)
+                       It is not currently possible to retrieve correlations between drugs."), width = 6)
               ),
               fluidRow(
-                box(h3("Most Frequent Concomitant Drugs (Generic Name)"),
-                    htmlOutput("drugplot"),
-                    p("This plot includes all drugs associated with the matching reports.
-                       The open.fda.gov search API does not allow searching or filtering within drugs.
-                       The search query filters unique reports, which may have one or more drugs associated with them.
-                       It is not currently possible to retrieve correlations between drugs."), width = 6),
                 box(h3("Most Frequent Established Pharmaceutical Classes"),
                     htmlOutput("drugclassplot"),
                     p("This plot includes all drug classes associated with the matching reports, including the search term.
@@ -333,15 +326,15 @@ server <- function(input, output) {
     )
   })
   ages <- reactive({
-    data <- faers_query()
+    query <- faers_query()$openfda_query
     
-    age_years <- data$openfda_query %>% 
+    age_years <- query %>% 
       fda_filter("patient.patientonsetageunit", "801") %>%
       fda_count("patient.patientonsetage") %>%
       fda_exec()  
     if(is.null(age_years)) age_years <- data.table(term = numeric(), count = numeric())
     
-    age_decades <- data$openfda_query %>% 
+    age_decades <- query %>% 
       fda_filter("patient.patientonsetageunit", "800") %>%
       fda_count("patient.patientonsetage") %>%
       fda_exec()  
@@ -350,7 +343,7 @@ server <- function(input, output) {
     age_decades <- age_decades %>%
       mutate(term = term*10)
     
-    age_months <- data$openfda_query %>% 
+    age_months <- query %>% 
       fda_filter("patient.patientonsetageunit", "802") %>%
       fda_count("patient.patientonsetage") %>%
       fda_exec() 
@@ -358,7 +351,7 @@ server <- function(input, output) {
     age_months <- age_months %>% 
       mutate(term = term/12)
     
-    age_weeks <- data$openfda_query %>% 
+    age_weeks <- query %>% 
       fda_filter("patient.patientonsetageunit", "803") %>%
       fda_count("patient.patientonsetage") %>%
       fda_exec() 
@@ -366,14 +359,14 @@ server <- function(input, output) {
     age_weeks <- age_weeks %>% 
       mutate(term = term/52)
     
-    age_days <- data$openfda_query %>% 
+    age_days <- query %>% 
       fda_filter("patient.patientonsetageunit", "804") %>%
       fda_count("patient.patientonsetage") %>%
       fda_exec() 
     if(is.null(age_days)) age_days <- data.table(term = numeric(), count = numeric())
     age_days <- age_days %>%  mutate(term = term/365)
     
-    age_hours <- data$openfda_query %>% 
+    age_hours <- query %>% 
       fda_filter("patient.patientonsetageunit", "805") %>%
       fda_count("patient.patientonsetage") %>%
       fda_exec() 
@@ -412,10 +405,10 @@ server <- function(input, output) {
   ### Create time plot
   output$timeplot <- renderPlotly({
     
-    data <- faers_query()
+    query <- faers_query()$openfda_query
     data2 <- current_search()
     
-    time_results <- data$openfda_query %>%
+    time_results <- query %>%
       fda_count("receivedate") %>%
       fda_exec() 
     if(is.null(time_results)){
@@ -681,10 +674,10 @@ server <- function(input, output) {
   })
   
   ### Data about Drugs
-  output$indicationplotpt <- renderGvis({
-    data <- faers_query()
+  output$indication_plot <- renderGvis({
+    query <- faers_query()$openfda_query
     
-    indications <- data$openfda_query %>%
+    indications <- query %>%
       fda_count("patient.drug.drugindication.exact") %>%
       fda_limit(25) %>%
       fda_exec()
@@ -692,49 +685,33 @@ server <- function(input, output) {
     if(is.null(indications)) indications <- data.table(term = character(), count = numeric())
     gvisBarChart_HCSC(indications, "term", "count", google_colors[1])
   })
-  output$indicationplothlt <- renderGvis({
-    indications <- faers_query()$openfda_query %>%
-      fda_count("patient.drug.drugindication.exact") %>%
-      fda_limit(1000) %>%
-      fda_exec() %>%
-      inner_join(meddra, by = "term") %>%
-      distinct(term, HLT_Term, count) %>%
-      group_by(HLT_Term) %>%
-      summarise(count = sum(count)) %>%
-      top_n(25, count) %>%
-      arrange(desc(count))
+  output$drug_plot <- renderGvis({
+    query <- faers_query()$openfda_query
     
-    if(is.null(indications)) indications <- data.table(HLT_Term = character(), count = numeric())
-    gvisBarChart_HCSC(indications, "HLT_Term", "count", google_colors[2])
-  })
-  output$drugplot <- renderGvis({
-    data <- faers_query()
-    
-    drugs <- data$openfda_query %>%
+    drugs <- query %>%
       fda_count("patient.drug.openfda.generic_name.exact") %>%
-      fda_limit(26) %>%
+      fda_limit(25) %>%
       fda_exec()
     
     if (is.null(drugs)) drugs <- data.table(term = character(), count = numeric())
-    if ("" != current_search()$generic) drugs <- filter(drugs, !term == current_search()$generic)
-    drugs <- drugs[1:25,]
-    gvisBarChart_HCSC(drugs, "term", "count", google_colors[3])
+    gvisBarChart_HCSC(drugs, "term", "count", google_colors[2])
   })
   output$drugclassplot <- renderGvis({
-    data <- faers_query()
+    query <- faers_query()$openfda_query
     
-    drugclass <- data$openfda_query %>%
+    drugclass <- query %>%
       fda_count("patient.drug.openfda.pharm_class_epc.exact") %>%
       fda_limit(25) %>%
       fda_exec()
     
     if(is.null(drugclass)) drugclass <- data.table(term = character(), count = numeric())
-    gvisBarChart_HCSC(drugclass, "term", "count", google_colors[4])
+    gvisBarChart_HCSC(drugclass, "term", "count", google_colors[3])
   })
   
   ### Data about Reactions
   output$top_pt <- renderGvis({
-    data <- faers_query()$openfda_query %>%
+    query <- faers_query()$openfda_query
+    data <- query %>%
       fda_count("patient.reaction.reactionmeddrapt.exact") %>%
       fda_limit(25) %>%
       fda_exec()
