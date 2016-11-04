@@ -330,58 +330,55 @@ server <- function(input, output) {
   ages <- reactive({
     query <- faers_query()$openfda_query
     
-    age_years <- query %>% 
-      fda_filter("patient.patientonsetageunit", "801") %>%
-      fda_count("patient.patientonsetage") %>%
-      fda_exec()  
-    if(is.null(age_years)) age_years <- data.table(term = numeric(), count = numeric())
-    
     age_decades <- query %>% 
       fda_filter("patient.patientonsetageunit", "800") %>%
       fda_count("patient.patientonsetage") %>%
-      fda_exec()  
-    
+      fda_exec()
     if(is.null(age_decades)) age_decades <- data.table(term = numeric(), count = numeric())
-    age_decades <- age_decades %>%
-      mutate(term = term*10)
+    age_decades %<>% mutate(term = term*10)
+    
+    age_years <- query %>% 
+      fda_filter("patient.patientonsetageunit", "801") %>%
+      fda_count("patient.patientonsetage") %>%
+      fda_exec()
+    if(is.null(age_years)) age_years <- data.table(term = numeric(), count = numeric())
     
     age_months <- query %>% 
       fda_filter("patient.patientonsetageunit", "802") %>%
       fda_count("patient.patientonsetage") %>%
-      fda_exec() 
+      fda_exec()
     if(is.null(age_months)) age_months <- data.table(term = numeric(), count = numeric())
-    age_months <- age_months %>% 
-      mutate(term = term/12)
+    age_months %<>% mutate(term = term/12)
     
     age_weeks <- query %>% 
       fda_filter("patient.patientonsetageunit", "803") %>%
       fda_count("patient.patientonsetage") %>%
-      fda_exec() 
+      fda_exec()
     if(is.null(age_weeks)) age_weeks <- data.table(term = numeric(), count = numeric())
-    age_weeks <- age_weeks %>% 
-      mutate(term = term/52)
+    age_weeks %<>% mutate(term = term/52)
     
     age_days <- query %>% 
       fda_filter("patient.patientonsetageunit", "804") %>%
       fda_count("patient.patientonsetage") %>%
-      fda_exec() 
+      fda_exec()
     if(is.null(age_days)) age_days <- data.table(term = numeric(), count = numeric())
-    age_days <- age_days %>%  mutate(term = term/365)
+    age_days %<>% mutate(term = term/365)
     
     age_hours <- query %>% 
       fda_filter("patient.patientonsetageunit", "805") %>%
       fda_count("patient.patientonsetage") %>%
-      fda_exec() 
+      fda_exec()
     if(is.null(age_hours)) age_hours <- data.table(term = numeric(), count = numeric())
-    age_hours <- age_hours %>%  mutate(term = term/(365*24))
+    age_hours %<>% mutate(term = term/(365*24))
     
-    ages <- bind_rows(age_years, 
-                      age_decades,
+    ages <- bind_rows(age_decades,
+                      age_years,
                       age_months,
                       age_weeks,
                       age_days,
                       age_hours) %>%
-      count(term, wt = count)
+      group_by(term) %>%
+      summarise(n = sum(count))
   })
   
   ########## Output
@@ -645,7 +642,8 @@ server <- function(input, output) {
     gvisPieChart(age_groups, 
                  labelvar = "age_group",
                  numvar = "n", 
-                 options = list(pieHole = 0.4))
+                 options = list(pieHole = 0.4,
+                                sliceVisibilityThreshold = 0.001))
   })
   output$agehist <- renderPlotly({
     ages <- ages()

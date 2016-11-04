@@ -317,6 +317,55 @@ server <- function(input, output) {
                 download_format = input$search_dataset_type,
                 reports_tab_master_size = reports_tab_master_size)) 
   })
+  ages <- reactive({
+    data <- cv_master_tab() %>%
+      dplyr::select(REPORT_ID, AGE_UNIT_ENG, AGE_Y) %>%
+      filter(AGE_UNIT_ENG != "", !is.na(AGE_Y))
+    
+    # Age groups frequency table
+    age_decade <- data %>% 
+      filter(AGE_UNIT_ENG == "Decade") %>%
+      mutate(AGE_Y = AGE_Y * 10)
+    age_years <- data %>% 
+      filter(AGE_UNIT_ENG == "Years")
+    age_months <- data %>% 
+      filter(AGE_UNIT_ENG == "Months") %>%
+      mutate(AGE_Y = AGE_Y / 12)
+    age_weeks <- data %>% 
+      filter(AGE_UNIT_ENG == "Weeks") %>%
+      mutate(AGE_Y = AGE_Y / 52)
+    age_days <- data %>% 
+      filter(AGE_UNIT_ENG == "Days") %>%
+      mutate(AGE_Y = AGE_Y / 365)
+    age_hours <- data %>% 
+      filter(AGE_UNIT_ENG == "Hours") %>%
+      mutate(AGE_Y = AGE_Y / (365*24))
+    age_minutes <- data %>% 
+      filter(AGE_UNIT_ENG == "Minutes") %>%
+      mutate(AGE_Y = AGE_Y / (365*24*60))
+    unknown <- cv_master_tab() %>%
+      dplyr::select(REPORT_ID, AGE_UNIT_ENG, AGE_Y) %>%
+      filter(AGE_UNIT_ENG == "" | is.na(AGE_Y)) %>%
+      mutate(AGE_Y = NA)
+    ages <- bind_rows(age_decade,
+                      age_years,
+                      age_months,
+                      age_weeks,
+                      age_days,
+                      age_hours,
+                      age_minutes,
+                      unknown) %>%
+      group_by(AGE_Y) %>%
+      summarise(count = n()) %>%
+      mutate(age_group = NA,
+             age_group = ifelse(AGE_Y <= 25/365, "Neonate", age_group),
+             age_group = ifelse(AGE_Y > 25/365 & AGE_Y < 1, "Infant", age_group),
+             age_group = ifelse(AGE_Y >= 1 & AGE_Y < 13, "Child", age_group),
+             age_group = ifelse(AGE_Y >= 13 & AGE_Y < 18, "Adolescent", age_group),
+             age_group = ifelse(AGE_Y >= 18 & AGE_Y <= 65, "Adult", age_group),
+             age_group = ifelse(AGE_Y > 65, "Elderly", age_group),
+             age_group = ifelse(is.na(AGE_Y), "Unknown", age_group))
+  })
   
   
   ##### Output ####
@@ -574,44 +623,55 @@ server <- function(input, output) {
                  options = list(pieHole = 0.4, pieSliceText="percentage", fontSize=12))
   })
   output$agegroupplot <- renderGvis({
-    data <- cv_master_tab() %>%
-      dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG, AGE_Y, AGE_GROUP_CLEAN)
-    patients_tab_output <- dplyr::summarise(group_by(data,AGE_GROUP_CLEAN),count=n_distinct(REPORT_ID))
-    # 
-    # if(gender_selected == "All"){
-    #   patients_tab_output <- dplyr::summarise(group_by(data,AGE_GROUP_CLEAN),count=n_distinct(REPORT_ID))
-    # } else {
-    #   #patients_tab_df1 <- filter(data,GENDER_ENG == current_gender)
-    #   patients_tab_output <- filter(data,GENDER_ENG == current_gender) %>% dplyr::summarise(group_by(AGE_GROUP_CLEAN),count=n_distinct(REPORT_ID))
-    # }
+    # patients_tab_output <- cv_master_tab() %>%
+    #   dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG, AGE_Y, AGE_GROUP_CLEAN) %>%
+    #   group_by(AGE_GROUP_CLEAN) %>%
+    #   dplyr::summarise(count=n_distinct(REPORT_ID))
+
+    age_groups <- ages() %>%
+      group_by(age_group) %>%
+      summarise(count = sum(count))
     
-    gvisPieChart(patients_tab_output, 
-                 labelvar = "AGE_GROUP_CLEAN",
+    gvisPieChart(age_groups, 
+                 labelvar = "age_group",
                  numvar = "count", 
-                 options = list(pieHole = 0.4, pieSliceText='percentage', fontSize=12) )
+                 options = list(height = 300,
+                                pieHole = 0.3,
+                                fontSize = 12,
+                                sliceVisibilityThreshold = 0.0001)
+                 )
   })
   output$agehist <- renderPlotly({
-    data <- cv_master_tab() %>%
-      dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG, AGE_Y, AGE_GROUP_CLEAN)
+    # plottitle <- paste0("Histogram of Patient Ages")
+    # if(unknown > 0) plottitle <- paste0(plottitle, "<br>(", unknown, "Reports with Unknown Age Group Excluded)")
+    # age_groups_hist <- data %>% filter(AGE_GROUP_CLEAN != "Unknown") #exclude the unknown
+    # hist <- ggplot(age_groups_hist, aes(x = AGE_Y, fill=AGE_GROUP_CLEAN)) +
+    #   geom_histogram()+
+    #   ggtitle(plottitle) + 
+    #   xlab("Age at onset (years)") + 
+    #   ylab("Number of Reports") +
+    #   theme_bw() +
+    #   theme(plot.title = element_text(lineheight=.8, size = rel(0.85),face="bold")) + 
+    #   theme(axis.title.x = element_text(size = rel(0.8)))+
+    #   scale_x_continuous(limits=c(0,130))
+    # ggplotly(hist)
     
-    # Age groups frequency table
-    age_groups <- dplyr::summarise(group_by(data, AGE_GROUP_CLEAN),count=n_distinct(REPORT_ID))
-    unknown <- age_groups$count[age_groups$AGE_GROUP_CLEAN == "Unknown"]
+    age_groups <- ages() %>% filter(age_group != "Unknown") %>% filter(AGE_Y <= 130)
+    unknown <- ages() %>%
+      filter(age_group == "Unknown" | AGE_Y > 130)
+    unknown_count <- sum(unknown$count)
     
     plottitle <- paste0("Histogram of Patient Ages")
-    if(unknown > 0) plottitle <- paste0(plottitle, "<br>(", unknown, "Reports with Unknown Age Group Excluded)")
+    if(unknown_count > 0) plottitle <- paste0(plottitle, "<br>(", unknown_count, " reports with unknown age or age > 130 excluded)")
     
-    age_groups_hist <- data %>% filter(AGE_GROUP_CLEAN != "Unknown") #exclude the unknown
-    
-    hist <- ggplot(age_groups_hist, aes(x = AGE_Y, fill=AGE_GROUP_CLEAN)) +
-      geom_histogram()+
+    hist <- ggplot(age_groups, aes(x = AGE_Y, weight = count, fill = age_group)) +
+      geom_histogram() +
       ggtitle(plottitle) + 
       xlab("Age at onset (years)") + 
       ylab("Number of Reports") +
       theme_bw() +
-      theme(plot.title = element_text(lineheight=.8, size = rel(0.85),face="bold")) + 
-      theme(axis.title.x = element_text(size = rel(0.8)))+
-      scale_x_continuous(limits=c(0,130))
+      theme(plot.title = element_text(lineheight=.8, size = rel(0.85),face="bold"))
+    
     ggplotly(hist)
     
   })
