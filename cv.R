@@ -180,12 +180,12 @@ ui <- dashboardPage(
               fluidRow(
                 box(h3("Most Frequent Indications"),
                     htmlOutput("indication_plot"),
-                    p("This plot includes all indications for all drugs associated with the matching reports.
+                    p("This plot includes all indications for all drugs present in the matching reports.
                        The search query filters unique reports, which may have one or more drugs associated with them."),
                     width = 6),
                 box(h3("Most Frequently Occurring Drugs (Brand Name)"),
                     htmlOutput("drug_plot"),
-                    p("This plot includes all drugs associated with the matching reports.
+                    p("This plot includes all drugs present in the matching reports.
                        The search query filters unique reports, which may have one or more drugs associated with them."),
                     width = 6)
               )
@@ -625,9 +625,9 @@ server <- function(input, output) {
     indications_sorted <- cv_master_tab_tbl() %>%
       inner_join(cv_report_drug_indication, by = "REPORT_ID") %>%
       group_by(INDICATION_NAME_ENG) %>%
-      dplyr::summarise(count = n_distinct(REPORT_ID)) %>%
-      dplyr::arrange(desc(count)) %>%
-      top_n(n=25) %>%
+      summarise(count = n_distinct(REPORT_ID)) %>%
+      # arrange(desc(count)) %>%
+      top_n(n = 25, count) %>%
       as.data.frame() 
     
     # NOTE ABOUT INDICATIONS STRUCTURE:
@@ -639,38 +639,18 @@ server <- function(input, output) {
     gvisBarChart_HCSC(indications_sorted, "INDICATION_NAME_ENG", "count", google_colors[1])
   })
   output$drug_plot <- renderGvis({
-    data <- current_search()
-    
     # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name 
     #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq) 
-    top_indications <- cv_master_tab_tbl() %>%
-      inner_join(cv_report_drug_indication, by = "REPORT_ID") %>%
-      group_by(INDICATION_NAME_ENG) %>%
-      dplyr::summarise(count = n_distinct(REPORT_ID)) %>%
-      top_n(1, count) %>%
+    data <- cv_master_tab_tbl() %>% 
+      inner_join(cv_report_drug, by = "REPORT_ID") %>%
+      select(REPORT_ID, DRUGNAME) %>%
+      group_by(DRUGNAME) %>%
+      summarise(count = n_distinct(REPORT_ID)) %>%
+      # arrange(desc(count)) %>%
+      top_n(n = 25, count) %>%
       as.data.frame()
-    top_indications_final <- top_indications$INDICATION_NAME_ENG
-    
-    # indication import
-    cv_report_drug_indication_drg <- cv_report_drug_indication %>%
-      filter(INDICATION_NAME_ENG == top_indications_final) %>%
-      dplyr::select(REPORT_ID, INDICATION_NAME_ENG, DRUGNAME)
-    
-    cv_reports_filtered <- cv_reports %>%
-      filter(DATINTRECEIVED_CLEAN >= data$date_range[1], DATINTRECEIVED_CLEAN <= data$date_range[2])
-    if (data$gender != "All") cv_reports_filtered %<>% filter(GENDER_ENG == data$gender)
-    cv_report_drug_drg <- cv_report_drug %>% dplyr::select(REPORT_ID, DRUGNAME)
-    if("" != data$brand) cv_report_drug_drg %<>% filter(DRUGNAME != data$brand)
-    
-    data <- cv_reports_filtered %>% 
-      inner_join(cv_report_drug_drg)%>%
-      semi_join(cv_report_drug_indication_drg) %>%
-      dplyr::select(REPORT_ID, DRUGNAME, GENDER_ENG) %>%
-      as.data.frame()
-    drugs <-  dplyr::summarise(group_by(data, DRUGNAME),count=n_distinct(REPORT_ID))
-    drugs_sorted<- drugs %>% dplyr::arrange(desc(count)) %>% top_n(n=25) 
     # the top drugs reported here might be influenced by such drug is originally most reported among all reports
-    gvisBarChart_HCSC(drugs_sorted, "DRUGNAME", "count", google_colors[2])
+    gvisBarChart_HCSC(data, "DRUGNAME", "count", google_colors[2])
   })
   
   #### Data about Reactions
