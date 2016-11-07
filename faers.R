@@ -24,6 +24,7 @@ source("common_ui.R")
 
 ####### for an overview of this code, try clicking the arrow at the side of the editor
 #< so you understand what are all the high-level functions and outputs in the server fxn
+# https://github.com/FDA/openfda/issues/29
 
 #### Preamble ####
 dbuijs_api_key <- "QPV3z0OxVhzLfp5EGZTLT6QZGcTRrtXpYebmAs4n"
@@ -39,14 +40,14 @@ topdrugs <- fda_query("/drug/event.json") %>%
   fda_count("patient.drug.openfda.generic_name.exact") %>% 
   fda_limit(1000) %>% 
   fda_exec()
+# first two results are 0XYGEN and 3% DICLOFENAC SPRAY -> the 3% causes to glitches, 0xygen is bad typo
+# https://github.com/FDA/openfda/issues/29
+topdrugs <- c("Start typing to search..." = "", topdrugs$term %>% sort() %>% tail(-2))
 topbrands <- fda_query("/drug/event.json") %>%
   fda_count("patient.drug.openfda.brand_name.exact") %>% 
   fda_limit(1000) %>% 
   fda_exec()
-toprxns <- fda_query("/drug/event.json") %>%
-  fda_count("patient.reaction.reactionmeddrapt.exact") %>%
-  fda_limit(1000) %>%
-  fda_exec()
+topbrands <- c("Start typing to search..." = "", topbrands$term %>% sort())
 hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
 meddra <- tbl(hcopen, "meddra") %>%
   filter(Primary_SOC_flag == "Y") %>%
@@ -94,24 +95,22 @@ ui <- dashboardPage(
       menuItem("Reactions", tabName = "rxndata", icon = icon("heart-o")),
       menuItem("About", tabName = "aboutinfo", icon = icon("info"))
     ),
-    selectizeInput("search_generic", 
-                   "Generic Name (Active Ingredient)", 
-                   topdrugs$term,
-                   options = list(create = TRUE,
-                                  placeholder = 'Please select an option below',
-                                  onInitialize = I('function() { this.setValue(""); }'))),
-    selectizeInput("search_brand", 
-                   "Brand Name (US Trade Name)",
-                   topbrands$term,
-                   options = list(create = TRUE,
-                                  placeholder = 'Please select an option below',
-                                  onInitialize = I('function() { this.setValue(""); }'))),
+    conditionalPanel(
+      condition = "input.name_type == 'generic'",
+      selectizeInput("search_generic", 
+                     "Generic Name", 
+                     topdrugs)),
+    conditionalPanel(
+      condition = "input.name_type == 'brand'",
+      selectizeInput("search_brand", 
+                     "Brand Name (US Trade Name)",
+                     topbrands)),
+    radioButtons("name_type", "Drug name type:",
+                 c("Generic" = "generic",
+                   "Brand Name" = "brand")),
     selectizeInput("search_rxn", 
                    "Adverse Event Term",
-                   toprxns$term,
-                   options = list(create = TRUE,
-                                  placeholder = 'Please select an option below',
-                                  onInitialize = I('function() { this.setValue(""); }'))),
+                   c("Loading..." = "")),
     dateRangeInput("searchDateRange", 
                    "Date Range", 
                    start = "2000-01-01", 
@@ -262,15 +261,65 @@ ui <- dashboardPage(
 )
 
 
-server <- function(input, output) {
+server <- function(input, output, session) {
+  # Relabel PT dropdown menu based on selected name
+  observe({
+    input$search_generic
+    input$search_brand
+    input$name_type
+    isolate({
+      pt_selected <- input$search_rxn
+      
+      if ((input$name_type == "generic" & input$search_generic == "") |
+          (input$name_type == "brand" & input$search_brand == "")) {
+        pt_choices <- fda_query("/drug/event.json") %>%
+          fda_count("patient.reaction.reactionmeddrapt.exact") %>%
+          fda_limit(1000) %>%
+          fda_exec()
+        pt_choices <- pt_choices$term
+      }
+      
+      if (input$name_type == "generic" & input$search_generic != "") {
+        query_str <- paste0('"', gsub(" ", "+", input$search_generic), '"')
+        pt_choices <- fda_query("/drug/event.json") %>%
+          fda_filter("patient.drug.openfda.generic_name.exact", query_str) %>%
+          fda_count("patient.reaction.reactionmeddrapt.exact") %>%
+          fda_limit(1000) %>%
+          fda_exec()
+        pt_choices <- pt_choices$term
+      } else if (input$name_type == "brand" & input$search_brand != "") {
+        query_str <- paste0('"', gsub(" ", "+", input$search_brand), '"')
+        pt_choices <- fda_query("/drug/event.json") %>%
+          fda_filter("patient.drug.openfda.brand_name.exact", query_str) %>%
+          fda_count("patient.reaction.reactionmeddrapt.exact") %>%
+          fda_limit(1000) %>%
+          fda_exec()
+        pt_choices <- pt_choices$term
+      } 
+      
+      if (! pt_selected %in% pt_choices) pt_selected = ""
+      updateSelectizeInput(session, "search_rxn",
+                           choices = c("Start typing to search..." = "", pt_choices %>% sort()),
+                           selected = pt_selected)
+    })
+  })
+  
+  
+  
   ########## Reactive data processing
   # Data structure to store current query info
   current_search <- reactive({
     input$searchButton
     isolate({
+      if (input$name_type == "generic") {
+        name <- input$search_generic
+      } else {
+        name <- input$search_brand
+      }
+      
       list(
-        generic    = input$search_generic,
-        brand      = input$search_brand,
+        name_type  = input$name_type,
+        name       = name,
         rxn        = input$search_rxn,
         date_range = input$searchDateRange
       )
@@ -281,13 +330,13 @@ server <- function(input, output) {
     openfda_query <- fda_query("/drug/event.json")
     query_str <- paste0("[", data$date_range[1], "+TO+", data$date_range[2], "]")
     openfda_query %<>% fda_filter("receivedate", query_str)
-    if("" != data$generic) {
-      query_str <- paste0('"', gsub(" ", "+", data$generic), '"')
-      openfda_query %<>% fda_filter("patient.drug.openfda.generic_name.exact", query_str)
-    }
-    if("" != data$brand) {
-      query_str <- paste0('"', gsub(" ", "+", data$brand), '"')
-      openfda_query %<>% fda_filter("patient.drug.openfda.brand_name.exact", query_str)
+    if("" != data$name) {
+      query_str <- paste0('"', gsub(" ", "+", data$name), '"')
+      if (data$name_type == "generic") {
+        openfda_query %<>% fda_filter("patient.drug.openfda.generic_name.exact", query_str)
+      } else {
+        openfda_query %<>% fda_filter("patient.drug.openfda.brand_name.exact", query_str)
+      }
     }
     if("" != data$rxn) {
       query_str <- paste0('"', gsub(" ", "+", data$rxn), '"')
@@ -399,12 +448,12 @@ server <- function(input, output) {
   })
   output$current_search <- renderTable({
     data <- current_search()
-    result <- data.table(names = c("Generic Name:", 
-                                   "Brand Name:", 
+    result <- data.table(names = c("Name type:", 
+                                   "Name:", 
                                    "Adverse Reaction Term:",
                                    "Date Range:"),
-                         values = c(data$generic,
-                                    data$brand,
+                         values = c(data$name_type,
+                                    data$name,
                                     data$rxn,
                                     paste(data$date_range, collapse = " to ")))
     result$values["" == result$values] <- "Not Specified"
@@ -416,7 +465,7 @@ server <- function(input, output) {
   output$timeplot <- renderPlotly({
     
     query <- faers_query()$openfda_query
-    drug_name <- current_search()$generic
+    drug_name <- current_search()$name
     
     time_results <- query %>%
       fda_count("receivedate") %>%

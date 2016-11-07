@@ -42,20 +42,10 @@ meddra <- tbl(hcopen, "meddra") %>%
 ####################### datasets for menu setup ####################### 
 #Fetch top 1000 most-reported brand/drug names
 topbrands <- cv_report_drug %>%
-  group_by(DRUGNAME) %>%
-  dplyr::summarize(count = n_distinct(REPORT_ID)) %>%
-  top_n(100, count) %>%
-  dplyr::select(DRUGNAME) %>%
-  as.data.frame()
-
-#Fetch top 1000 most-reported reaction names
-toprxns <- cv_reactions %>%
-  group_by(PT_NAME_ENG) %>%
-  dplyr::summarize(count = n_distinct(REPORT_ID)) %>%
-  top_n(100, count) %>%
-  dplyr::select(PT_NAME_ENG) %>%
-  as.data.frame()
-
+  distinct(DRUGNAME) %>%
+  as.data.frame() %>%
+  `[[`(1) %>%
+  sort()
 
 ui <- dashboardPage(
   dashboardHeader(title = titleWarning("CV Shiny (v0.11)"),
@@ -72,25 +62,17 @@ ui <- dashboardPage(
       menuItem("About", tabName = "aboutinfo", icon = icon("info"))
     ),
     selectizeInput("search_brand", 
-                "Brand Name (US Trade Name)",
-                c("Please select an option below" = "", topbrands$DRUGNAME)),
+                "Brand Name",
+                c("Start typing to search..." = "", topbrands)),
     selectizeInput("search_rxn", 
                    "Adverse Event Term",
-                   toprxns$PT_NAME_ENG,
-                   options = list(create = TRUE,
-                                  placeholder = 'Please select an option below',
-                                  onInitialize = I('function() { this.setValue(""); }'))),
+                   c("Loading..." = "")),
     dateRangeInput("searchDateRange",
                    "Date Range",
                    start = "1965-01-01",
                    end = Sys.Date(),
                    startview = "year",
                    format = "yyyy-mm-dd"),
-    selectizeInput("search_gender",
-                   "Gender",
-                   choices = c("All", "Male", "Female"),  #"Not specified", "Unknown"
-                   options = list(create = TRUE,
-                                  placeholder = 'Please select an option below')),
     # hacky way to get borders correct
     tags$div(class="form-group shiny-input-container",
     actionButton("searchButton",
@@ -232,7 +214,29 @@ ui <- dashboardPage(
 
 
 ############### Server Functions ###################
-server <- function(input, output) {
+server <- function(input, output, session) {
+  # Relabel PT dropdown menu based on selected name
+  observe({
+    input$search_brand
+    isolate({
+      pt_selected <- input$search_rxn
+      pt_choices <- cv_reactions
+      if ("" != input$search_brand) {
+        related_reports <- cv_report_drug %>% filter(DRUGNAME == input$search_brand)
+        pt_choices %<>% semi_join(related_reports, by = "REPORT_ID")
+      }
+      pt_choices %<>%
+        distinct(PT_NAME_ENG) %>%
+        as.data.frame() %>%
+        `[[`(1) %>%
+        sort()
+      if (! pt_selected %in% pt_choices) pt_selected = ""
+      updateSelectizeInput(session, "search_rxn",
+                           choices = c("Start typing to search..." = "", pt_choices))
+    })
+  })
+  
+  
   ##### Reactive data processing 
   # Data structure to store current query info
   current_search <- reactive({
@@ -241,7 +245,6 @@ server <- function(input, output) {
       list(
         brand      = input$search_brand,
         rxn        = input$search_rxn,
-        gender     = input$search_gender,
         date_range = input$searchDateRange
       )
     })})
@@ -250,7 +253,6 @@ server <- function(input, output) {
     
     cv_reports_filtered <- cv_reports %>%
       filter(DATINTRECEIVED_CLEAN >= data$date_range[1], DATINTRECEIVED_CLEAN <= data$date_range[2])
-    if (data$gender != "All") cv_reports_filtered %<>% filter(GENDER_ENG == data$gender)
     cv_report_drug_filtered <- cv_report_drug
     if ("" != data$brand) cv_report_drug_filtered %<>% filter(DRUGNAME == data$brand)
     cv_reactions_filtered <- cv_reactions
@@ -359,11 +361,9 @@ server <- function(input, output) {
     data <- current_search()
     result <- data.table(names = c("Brand Name:", 
                                    "Adverse Reaction Term:",
-                                   "Gender",
                                    "Date Range:"),
                          values = c(data$brand,
                                     data$rxn,
-                                    data$gender,
                                     paste(data$date_range, collapse = " to ")))
     result$values["" == result$values] <- "Not Specified"
     result
