@@ -333,6 +333,7 @@ server <- function(input, output) {
     age_decades <- query %>% 
       fda_filter("patient.patientonsetageunit", "800") %>%
       fda_count("patient.patientonsetage") %>%
+      fda_limit(1000) %>%
       fda_exec()
     if(is.null(age_decades)) age_decades <- data.table(term = numeric(), count = numeric())
     age_decades %<>% mutate(term = term*10)
@@ -340,12 +341,14 @@ server <- function(input, output) {
     age_years <- query %>% 
       fda_filter("patient.patientonsetageunit", "801") %>%
       fda_count("patient.patientonsetage") %>%
+      fda_limit(1000) %>%
       fda_exec()
     if(is.null(age_years)) age_years <- data.table(term = numeric(), count = numeric())
     
     age_months <- query %>% 
       fda_filter("patient.patientonsetageunit", "802") %>%
       fda_count("patient.patientonsetage") %>%
+      fda_limit(1000) %>%
       fda_exec()
     if(is.null(age_months)) age_months <- data.table(term = numeric(), count = numeric())
     age_months %<>% mutate(term = term/12)
@@ -353,6 +356,7 @@ server <- function(input, output) {
     age_weeks <- query %>% 
       fda_filter("patient.patientonsetageunit", "803") %>%
       fda_count("patient.patientonsetage") %>%
+      fda_limit(1000) %>%
       fda_exec()
     if(is.null(age_weeks)) age_weeks <- data.table(term = numeric(), count = numeric())
     age_weeks %<>% mutate(term = term/52)
@@ -360,6 +364,7 @@ server <- function(input, output) {
     age_days <- query %>% 
       fda_filter("patient.patientonsetageunit", "804") %>%
       fda_count("patient.patientonsetage") %>%
+      fda_limit(1000) %>%
       fda_exec()
     if(is.null(age_days)) age_days <- data.table(term = numeric(), count = numeric())
     age_days %<>% mutate(term = term/365)
@@ -367,18 +372,38 @@ server <- function(input, output) {
     age_hours <- query %>% 
       fda_filter("patient.patientonsetageunit", "805") %>%
       fda_count("patient.patientonsetage") %>%
+      fda_limit(1000) %>%
       fda_exec()
+    
     if(is.null(age_hours)) age_hours <- data.table(term = numeric(), count = numeric())
     age_hours %<>% mutate(term = term/(365*24))
+    
+    unknown <- query %>%
+      fda_filter("_missing_", "patient.patientonsetage") %>%
+      fda_url() %>%
+      fda_fetch() %>%
+      .$meta %>%
+      .$results %>%
+      .$total
+    age_unknown <- data.frame(term = NA, count = unknown)
     
     ages <- bind_rows(age_decades,
                       age_years,
                       age_months,
                       age_weeks,
                       age_days,
-                      age_hours) %>%
+                      age_hours,
+                      age_unknown) %>%
       group_by(term) %>%
-      summarise(n = sum(count))
+      summarise(count = sum(count)) %>%
+      mutate(age_group = NA,
+             age_group = ifelse(term <= 25/365, "Neonate", age_group),
+             age_group = ifelse(term > 25/365 & term < 1, "Infant", age_group),
+             age_group = ifelse(term >= 1 & term < 13, "Child", age_group),
+             age_group = ifelse(term >= 13 & term < 18, "Adolescent", age_group),
+             age_group = ifelse(term >= 18 & term <= 65, "Adult", age_group),
+             age_group = ifelse(term > 65, "Elderly", age_group),
+             age_group = ifelse(is.na(term), "Unknown", age_group))
   })
   
   ########## Output
@@ -611,66 +636,33 @@ server <- function(input, output) {
                  options = list(pieHole = 0.4))
   })
   output$agegroupplot <- renderGvis({
-    ages <- ages()
-    
-    data <- faers_query()
-    
-    age_groups <- mutate(ages,
-                         age_group = NA,
-                         age_group = ifelse(term <= 28/365, "Neonate", age_group),
-                         age_group = ifelse(term <= 2 & term > 28/365, "Infant", age_group),
-                         age_group = ifelse(term > 2 & term < 12, "Child", age_group),
-                         age_group = ifelse(term >= 12 & term < 18, "Adolescent", age_group),
-                         age_group = ifelse(term >= 18 & term < 65, "Adult", age_group),
-                         age_group = ifelse(term >= 65, "Elderly", age_group),
-                         age_group = ifelse(term >= 130, "Unknown", age_group)) %>%
-      dplyr::count(age_group, wt = n, sort = TRUE) %>%
-      rename(n = nn)
-    
-    unknown <- data$openfda_query %>%
-      fda_filter("_missing_", "patient.patientonsetage") %>%
-      fda_url() %>%
-      fda_fetch() %>%
-      .$meta %>%
-      .$results %>%
-      .$total
-    
-    if(!is.null(unknown)){ age_groups <- rbind(age_groups, c("Unknown", unknown)) %>%
-      mutate(n = as.numeric(n))
-    }
+    age_groups <- ages() %>%
+      group_by(age_group) %>%
+      summarise(count = sum(count))
     
     gvisPieChart(age_groups, 
                  labelvar = "age_group",
-                 numvar = "n", 
+                 numvar = "count", 
                  options = list(pieHole = 0.4,
                                 sliceVisibilityThreshold = 0.001))
   })
   output$agehist <- renderPlotly({
-    ages <- ages()
+    age_groups <- ages() %>% filter(age_group != "Unknown", term <= 130)
+    unknown <- ages() %>% filter(age_group != "Unknown", term > 130)
+    unknown_count <- sum(unknown$count)
     
-    age_groups <- mutate(ages,
-                         age_group = NA,
-                         age_group = ifelse(term <= 28/365, "Neonate", age_group),
-                         age_group = ifelse(term <= 2 & term > 28/365, "Infant", age_group),
-                         age_group = ifelse(term > 2 & term < 12, "Child", age_group),
-                         age_group = ifelse(term >= 12 & term < 18, "Adolescent", age_group),
-                         age_group = ifelse(term >= 18 & term < 65, "Adult", age_group),
-                         age_group = ifelse(term >= 65, "Elderly", age_group)) %T>%
-                         {unknown <<- filter(., term >= 130) %>% nrow()} %>%
-      filter(term < 130)
     plottitle <- paste0("Histogram of Patient Ages")
-    if(unknown > 0) plottitle <- paste0(plottitle, "<br>(", unknown, " ages greater than 130 excluded)")
+    if(unknown_count > 0) plottitle <- paste0(plottitle, "<br>(", unknown_count, " reports with age greater than 130 excluded)")
     
-    hist <- ggplot(age_groups, aes(x = term, weight = n, fill = age_group)) +
+    hist <- ggplot(age_groups, aes(x = term, weight = count, fill = age_group)) +
       geom_histogram() +
       ggtitle(plottitle) + 
       xlab("Age at onset (years)") + 
       ylab("Number of Reports") +
       theme_bw() +
-      theme(plot.title = element_text(lineheight=.8, face="bold"))
-    
+      theme(plot.title = element_text(lineheight=.8, face="bold")) +
+      scale_x_continuous(limits = c(0, 120))
     ggplotly(hist)
-    
   })
   
   ### Data about Drugs

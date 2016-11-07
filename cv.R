@@ -343,7 +343,7 @@ server <- function(input, output) {
     age_minutes <- data %>% 
       filter(AGE_UNIT_ENG == "Minutes") %>%
       mutate(AGE_Y = AGE_Y / (365*24*60))
-    unknown <- cv_master_tab() %>%
+    age_unknown <- cv_master_tab() %>%
       dplyr::select(REPORT_ID, AGE_UNIT_ENG, AGE_Y) %>%
       filter(AGE_UNIT_ENG == "" | is.na(AGE_Y)) %>%
       mutate(AGE_Y = NA)
@@ -354,7 +354,7 @@ server <- function(input, output) {
                       age_days,
                       age_hours,
                       age_minutes,
-                      unknown) %>%
+                      age_unknown) %>%
       group_by(AGE_Y) %>%
       summarise(count = n()) %>%
       mutate(age_group = NA,
@@ -623,11 +623,6 @@ server <- function(input, output) {
                  options = list(pieHole = 0.4, pieSliceText="percentage", fontSize=12))
   })
   output$agegroupplot <- renderGvis({
-    # patients_tab_output <- cv_master_tab() %>%
-    #   dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG, AGE_Y, AGE_GROUP_CLEAN) %>%
-    #   group_by(AGE_GROUP_CLEAN) %>%
-    #   dplyr::summarise(count=n_distinct(REPORT_ID))
-
     age_groups <- ages() %>%
       group_by(age_group) %>%
       summarise(count = sum(count))
@@ -642,27 +637,12 @@ server <- function(input, output) {
                  )
   })
   output$agehist <- renderPlotly({
-    # plottitle <- paste0("Histogram of Patient Ages")
-    # if(unknown > 0) plottitle <- paste0(plottitle, "<br>(", unknown, "Reports with Unknown Age Group Excluded)")
-    # age_groups_hist <- data %>% filter(AGE_GROUP_CLEAN != "Unknown") #exclude the unknown
-    # hist <- ggplot(age_groups_hist, aes(x = AGE_Y, fill=AGE_GROUP_CLEAN)) +
-    #   geom_histogram()+
-    #   ggtitle(plottitle) + 
-    #   xlab("Age at onset (years)") + 
-    #   ylab("Number of Reports") +
-    #   theme_bw() +
-    #   theme(plot.title = element_text(lineheight=.8, size = rel(0.85),face="bold")) + 
-    #   theme(axis.title.x = element_text(size = rel(0.8)))+
-    #   scale_x_continuous(limits=c(0,130))
-    # ggplotly(hist)
-    
-    age_groups <- ages() %>% filter(age_group != "Unknown") %>% filter(AGE_Y <= 130)
-    unknown <- ages() %>%
-      filter(age_group == "Unknown" | AGE_Y > 130)
+    age_groups <- ages() %>% filter(age_group != "Unknown", AGE_Y <= 130)
+    unknown <- ages() %>% filter(age_group != "Unknown", AGE_Y > 130)
     unknown_count <- sum(unknown$count)
     
     plottitle <- paste0("Histogram of Patient Ages")
-    if(unknown_count > 0) plottitle <- paste0(plottitle, "<br>(", unknown_count, " reports with unknown age or age > 130 excluded)")
+    if(unknown_count > 0) plottitle <- paste0(plottitle, "<br>(", unknown_count, " reports with age greater than 130 excluded)")
     
     hist <- ggplot(age_groups, aes(x = AGE_Y, weight = count, fill = age_group)) +
       geom_histogram() +
@@ -670,10 +650,10 @@ server <- function(input, output) {
       xlab("Age at onset (years)") + 
       ylab("Number of Reports") +
       theme_bw() +
-      theme(plot.title = element_text(lineheight=.8, size = rel(0.85),face="bold"))
-    
+      theme(plot.title = element_text(lineheight=.8, size = rel(0.85),face="bold")) +
+      scale_x_continuous(limits = c(0, 120))
+    #   theme(axis.title.x = element_text(size = rel(0.8)))
     ggplotly(hist)
-    
   })
   
   #### Data about Drugs
