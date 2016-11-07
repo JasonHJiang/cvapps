@@ -80,20 +80,6 @@ age_code <- data.table(term = 800:805,
                                  "Day",
                                  "Hour"))
 
-adrplot <- function(monthlyadrdata, plottitle){
-  nreports <- sum(monthlyadrdata$n)
-  plottitle <- paste0(str_replace_all(plottitle, "\\+", " "), " (", nreports, " reports)")
-  plot <- monthlyadrdata %>%
-    ggplot(aes(x = month, y = n)) +
-    geom_line(stat = "identity", size = 0.1) +
-    stat_smooth(method = "loess", size = 0.1) +
-    ggtitle(plottitle) + 
-    xlab("Month") + 
-    ylab("Number of Reports") +
-    theme_bw() +
-    theme(plot.title = element_text(lineheight=.8, face="bold"))
-}
-
 
 ui <- dashboardPage(
   dashboardHeader(title = titleWarning("Shiny FAERS (v0.11)"),
@@ -300,11 +286,11 @@ server <- function(input, output) {
       openfda_query %<>% fda_filter("patient.drug.openfda.generic_name.exact", query_str)
     }
     if("" != data$brand) {
-      current_brand <- paste0('"', gsub(" ", "+", data$brand), '"')
+      query_str <- paste0('"', gsub(" ", "+", data$brand), '"')
       openfda_query %<>% fda_filter("patient.drug.openfda.brand_name.exact", query_str)
     }
     if("" != data$rxn) {
-      current_brand <- paste0('"', gsub(" ", "+", data$rxn), '"')
+      query_str <- paste0('"', gsub(" ", "+", data$rxn), '"')
       openfda_query %<>% fda_filter("patient.reaction.reactionmeddrapt.exact", query_str)
     }
     
@@ -430,10 +416,11 @@ server <- function(input, output) {
   output$timeplot <- renderPlotly({
     
     query <- faers_query()$openfda_query
-    data2 <- current_search()
+    drug_name <- current_search()$generic
     
     time_results <- query %>%
       fda_count("receivedate") %>%
+      fda_limit(1000) %>%
       fda_exec() 
     if(is.null(time_results)){
       time_results <- data.table(month = numeric(), count = numeric())
@@ -443,11 +430,21 @@ server <- function(input, output) {
         dplyr::count(month, wt = count)
     }
     
-    title <- data2$generic
+    
+    title <- drug_name
     if ("" == title) title <- "All Drugs"
-    plottitle <- paste("Drug Adverse Event Reports for", title)
-    p <- adrplot(time_results, plottitle)
-    ggplotly(p)
+    nreports <- sum(time_results$n)
+    plottitle <- paste0("Drug Adverse Event Reports for ", title, " (", nreports, " reports)")
+    plot <- time_results %>%
+      ggplot(aes(x = month, y = n)) +
+      geom_line(stat = "identity", size = 0.1) +
+      stat_smooth(method = "loess", size = 0.1) +
+      ggtitle(plottitle) + 
+      xlab("Month") + 
+      ylab("Number of Reports") +
+      theme_bw() +
+      theme(plot.title = element_text(lineheight=.8, face="bold"))
+    ggplotly(plot)
   })
   
   ### Data about Reports

@@ -39,34 +39,6 @@ meddra <- tbl(hcopen, "meddra") %>%
   filter(Primary_SOC_flag == "Y") %>%
   select(PT_Term, HLT_Term, Version = MEDDRA_VERSION)
 
-############### Create function ###################
-# function to plot adverse reaction plot
-# adrplot_test <- reports_tab(current_generic="ampicillin",current_brand="PENBRITIN",current_rxn="Urticaria",date_ini=ymd("19650101"),date_end=ymd("20151231"))
-#adrplot_df <- reports_tab(current_generic="ampicillin",current_brand="PENBRITIN",current_rxn="Urticaria",date_ini=ymd("19650101"),date_end=ymd("20151231"))
-
-adrplot <- function(adrplot_test, plottitle) {
-  adrplot_test <- adrplot_test %>% 
-    dplyr::select(REPORT_ID,DATINTRECEIVED_CLEAN) %>%
-    mutate(plot_date = floor_date(ymd(adrplot_test$DATINTRECEIVED_CLEAN), "month")) %>%
-    dplyr::select(REPORT_ID,plot_date)
-  
-  nreports <- dplyr::summarise(group_by(adrplot_test,plot_date),count=n_distinct(REPORT_ID))
-  total_reports <- sum(nreports$count)
-  
-  plottitle1 <- paste0(plottitle, " (", total_reports, " reports)") 
-  
-  
-  plot <- nreports %>%
-    ggplot(aes(x = plot_date, y = count)) +
-    geom_line(stat = "identity", size = 0.1) +
-    stat_smooth(method = "loess", size = 0.1) +
-    ggtitle(plottitle1) + 
-    xlab("Month") + 
-    ylab("Number of Reports") +
-    theme_bw() +
-    theme(plot.title = element_text(lineheight=.8, face="bold"))
-}
-
 ####################### datasets for menu setup ####################### 
 #Fetch top 1000 most-reported brand/drug names
 topbrands <- cv_report_drug %>%
@@ -402,16 +374,32 @@ server <- function(input, output) {
   ##### Create time plot
   output$timeplot <- renderPlotly({
     
-    data <- cv_master_tab() %>%
-      dplyr::select(REPORT_ID, SERIOUSNESS_ENG, REPORTER_TYPE_ENG, DEATH, DISABILITY, CONGENITAL_ANOMALY,LIFE_THREATENING, HOSP_REQUIRED, 
-                    OTHER_MEDICALLY_IMP_COND, DATINTRECEIVED_CLEAN,GENDER_ENG)
+    adrplot_test <- cv_master_tab() %>%
+      dplyr::select(REPORT_ID,DATINTRECEIVED_CLEAN) %>%
+      mutate(plot_date = floor_date(ymd(DATINTRECEIVED_CLEAN), "month")) %>%
+      dplyr::select(REPORT_ID,plot_date)
     drug_selected <- current_search()$brand
+    
+    #adrplot_test <- reports_tab(current_generic="ampicillin",current_brand="PENBRITIN",current_rxn="Urticaria"))
     
     # specify the title of time plot based on reactive choice
     title <- ifelse(drug_selected == "", "All Drugs", drug_selected)
-    plottitle <- paste("Drug Adverse Event Reports for", title)
-    p <- adrplot(adrplot_test = data, plottitle = plottitle)
-    ggplotly(p)
+    nreports <- adrplot_test %>%
+      group_by(plot_date) %>%
+      summarise(count = n_distinct(REPORT_ID))
+    total_reports <- sum(nreports$count)
+    plottitle <- paste0("Drug Adverse Event Reports for ", title, " (", total_reports, " reports)")
+    
+    plot <- nreports %>%
+      ggplot(aes(x = plot_date, y = count)) +
+      geom_line(stat = "identity", size = 0.1) +
+      stat_smooth(method = "loess", size = 0.1) +
+      ggtitle(plottitle) +
+      xlab("Month") +
+      ylab("Number of Reports") +
+      theme_bw() +
+      theme(plot.title = element_text(lineheight=.8, face="bold"))
+    ggplotly(plot)
   })
   
   ##### Data about Reports
