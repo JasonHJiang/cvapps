@@ -131,7 +131,8 @@ ui <- dashboardPage(
   dashboardBody(
     customCSS(),
     fluidRow(
-      box(plotlyOutput(outputId = "timeplot"),
+      box(htmlOutput(outputId = "timeplot_title"),
+          htmlOutput(outputId = "timeplot"),
           "Trendline is a local non-parametric regression calculated with the LOESS model. ",
           "The shaded area is an approximation of the 95% confidence interval of the regression.",
           htmlOutput(outputId = "search_url"),
@@ -448,11 +449,11 @@ server <- function(input, output, session) {
   })
   output$current_search <- renderTable({
     data <- current_search()
-    result <- data.table(names = c("Name type:", 
+    result <- data.table(names = c("Name Type:", 
                                    "Name:", 
                                    "Adverse Reaction Term:",
                                    "Date Range:"),
-                         values = c(data$name_type,
+                         values = c(toupper(data$name_type),
                                     data$name,
                                     data$rxn,
                                     paste(data$date_range, collapse = " to ")))
@@ -462,38 +463,77 @@ server <- function(input, output, session) {
   include.colnames = FALSE)
   
   ### Create time plot
-  output$timeplot <- renderPlotly({
-    
+  output$timeplot_title <- renderUI({
     query <- faers_query()$openfda_query
     drug_name <- current_search()$name
     
     time_results <- query %>%
       fda_count("receivedate") %>%
       fda_limit(1000) %>%
-      fda_exec() 
-    if(is.null(time_results)){
-      time_results <- data.table(month = numeric(), count = numeric())
-    } else{
-      time_results <- time_results %>%
-        mutate(month = floor_date(ymd(time), "month")) %>%
-        dplyr::count(month, wt = count)
-    }
-    
-    
+      fda_exec()
     title <- drug_name
     if ("" == title) title <- "All Drugs"
-    nreports <- sum(time_results$n)
+    nreports <- sum(time_results$count)
     plottitle <- paste0("Drug Adverse Event Reports for ", title, " (", nreports, " reports)")
-    plot <- time_results %>%
-      ggplot(aes(x = month, y = n)) +
-      geom_line(stat = "identity", size = 0.1) +
-      stat_smooth(method = "loess", size = 0.1) +
-      ggtitle(plottitle) + 
-      xlab("Month") + 
-      ylab("Number of Reports") +
-      theme_bw() +
-      theme(plot.title = element_text(lineheight=.8, face="bold"))
-    ggplotly(plot)
+    h3(strong(plottitle))
+  })
+  output$timeplot <- renderGvis({
+    query <- faers_query()$openfda_query
+    
+    time_results <- query %>%
+      fda_count("receivedate") %>%
+      fda_limit(1000) %>%
+      fda_exec() %>%
+      mutate(month = floor_date(ymd(time), "month")) %>%
+      dplyr::count(month, wt = count) %>%
+      rename(total = n)
+    serious_results <- query %>%
+      fda_filter("serious", "1") %>%
+      fda_count("receivedate") %>%
+      fda_limit(1000) %>%
+      fda_exec() %>%
+      mutate(month = floor_date(ymd(time), "month")) %>%
+      dplyr::count(month, wt = count) %>%
+      rename(serious = n)
+    death_results <- query %>%
+      fda_filter("seriousnessdeath", "1") %>%
+      fda_count("receivedate") %>%
+      fda_limit(1000) %>%
+      fda_exec() %>%
+      mutate(month = floor_date(ymd(time), "month")) %>%
+      dplyr::count(month, wt = count) %>%
+      rename(death = n)
+    results <- time_results %>%
+      left_join(serious_results, by = "month") %>%
+      left_join(death_results, by = "month")
+    results$serious[is.na(results$serious)] <- 0
+    results$death[is.na(results$death)] <- 0
+    
+    # plot <- ggplot(results) +
+    #   aes(x = month, y = total, color = "total") +
+    #   geom_line() +
+    #   stat_smooth(method = "loess", size = 0.1) +
+    #   geom_line(aes(x = month, y = serious, color = "serious")) +
+    #   geom_line(aes(x = month, y = death, color = "death")) +
+    #   ggtitle(plottitle) + 
+    #   xlab("Month") + 
+    #   ylab("Number of Reports") +
+    #   theme_bw() +
+    #   theme(plot.title = element_text(lineheight=.8, face="bold"))
+    # ggplotly(plot)
+    colors <- google_colors[c(19, 14, 2)]
+    colors_string <- colors %>%
+      sapply(function(x) paste0("'", x, "'")) %>%
+      paste(collapse = ", ") %>%
+      {paste0("[", ., "]")}
+    gvisLineChart(results,
+                  xvar = "month",
+                  yvar = c("total", "serious", "death"),
+                  options = list(
+                    height = 344,
+                    chartArea = "{top: 20, height: '80%', left: 100, width: '85%'}",
+                    colors = colors_string
+                  ))
   })
   
   ### Data about Reports
