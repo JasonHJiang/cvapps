@@ -531,6 +531,7 @@ server <- function(input, output, session) {
                   yvar = c("total", "serious", "death"),
                   options = list(
                     height = 344,
+                    vAxis = "{title: 'Number of Reports'}",
                     chartArea = "{top: 20, height: '80%', left: 100, width: '85%'}",
                     colors = colors_string
                   ))
@@ -557,7 +558,7 @@ server <- function(input, output, session) {
       .$results %>%
       .$total
     
-    if(!is.null(unknown)){ reporter_results <- rbind(reporter_results, c("Unknown", unknown)) %>%
+    if(!is.null(unknown)){ reporter_results <- rbind(reporter_results, c("Not Reported", unknown)) %>%
       mutate(count = as.numeric(count))
     }
     
@@ -574,7 +575,7 @@ server <- function(input, output, session) {
     if(is.null(serious_results)) serious_results <- data.table(term = numeric(), count = numeric())
     
     serious_results <- serious_results %>%
-      mutate(label = ifelse(term == 1, "Yes", "No")) %>%
+      mutate(label = ifelse(term == 1, "Serious", "Non-serious")) %>%
       select(label, count)
     
     unknown <- data$openfda_query %>%
@@ -585,7 +586,8 @@ server <- function(input, output, session) {
       .$results %>%
       .$total
     
-    if(!is.null(unknown)){ serious_results <- rbind(serious_results, c("Unknown", unknown)) %>%
+    if(!is.null(unknown)){
+      serious_results <- rbind(serious_results, c("Not Reported", unknown)) %>%
       mutate(count = as.numeric(count))
     }
     
@@ -606,20 +608,17 @@ server <- function(input, output, session) {
     
     congenital_results <- data$openfda_query %>% 
       fda_count("seriousnesscongenitalanomali") %>% 
-      fda_exec() 
-    
+      fda_exec()
     if(is.null(congenital_results)) congenital_results <- data.table(term = character(), count = numeric())
     
     death_results <-  data$openfda_query %>% 
       fda_count("seriousnessdeath") %>% 
-      fda_exec() 
-    
+      fda_exec()
     if(is.null(death_results)) death_results <- data.table(term = character(), count = numeric())
     
     disabling_results <-  data$openfda_query %>% 
       fda_count("seriousnessdisabling") %>% 
-      fda_exec() 
-    
+      fda_exec()
     if(is.null(disabling_results)) disabling_results <- data.table(term = character(), count = numeric())
     
     hospital_results <-  data$openfda_query %>% 
@@ -637,33 +636,27 @@ server <- function(input, output, session) {
       fda_exec()
     if(is.null(serother_results)) serother_results <- data.table(term = character(), count = numeric())
     
-    
-    serious_reasons <- bind_rows("congenital" = congenital_results,
-                                 "death" = death_results,
-                                 "disabling" = disabling_results,
-                                 "hospitalization" = hospital_results,
-                                 "lifethreatening" = lifethreaten_results,
-                                 "other" = serother_results,
+    serious_reasons <- bind_rows("Congenital Anomaly" = congenital_results,
+                                 "Death" = death_results,
+                                 "Disabling" = disabling_results,
+                                 "Hospitalization" = hospital_results,
+                                 "Life-threatening" = lifethreaten_results,
+                                 "Other" = serother_results,
                                  .id = "label") %>%
-      select(label, count)
-    
-    serious_reasons <- mutate(serious_reasons, percentage = count/total_serious*100 %>% signif(digits = 3)) %>% 
-      select(-count) %>%
+      mutate(percentage = count/total_serious * 100) %>%
       arrange(desc(percentage))
+    serious_reasons$percentage %<>% round(digits = 2)
     
-    gvisBarChart(serious_reasons, 
+    gvisBarChart(serious_reasons,
                  xvar = "label",
-                 yvar = "percentage", 
-                 options = list(title = paste0("Reasons for serious reports (", total_serious, " serious reports)"),
-                                legend = "{position:'none'}",
-                                bars = 'horizontal',
-                                #hAxis = "{format:'percent'}",
-                                axes= "x: {
-                                0: { side: 'top', label: 'Percentage'} 
-  }",
-                                bar = list(groupWidth =  '90%')
+                 yvar = "percentage",
+                 options = list(
+                   legend = "{position: 'none'}",
+                   hAxis = "{title: 'Percentage'}",
+                   chartArea = "{top: 0, height: '80%', left: 100, width: '60%'}",
+                   bar = "{groupWidth: '90%'}"
                  )
-                 )
+    )
   })
   output$countryplot <- renderGvis({
     data <- faers_query()
@@ -697,12 +690,9 @@ server <- function(input, output, session) {
     
     sex_results <- data$openfda_query %>% 
       fda_count("patient.patientsex") %>% 
-      fda_exec()
+      fda_exec() %>%
+      inner_join(sex_code, by = "term")
     if(is.null(sex_results)) sex_results <- data.table(term = numeric(), count = numeric())
-    
-    sex_results <- sex_results %>%
-      left_join(sex_code) %>%
-      select(label, count)
     
     unknown <- data$openfda_query %>%
       fda_filter("_missing_", "patient.patientsex") %>%
@@ -711,14 +701,12 @@ server <- function(input, output, session) {
       .$meta %>%
       .$results %>%
       .$total
+    if (!is.null(unknown)) sex_results %<>% rbind(c(3, unknown, "Not Reported"))
+    sex_results %<>% select(label, count) %>% mutate(count = as.numeric(count))
     
-    if(!is.null(unknown)){ 
-      sex_results[sex_results$label == "Unknown", "count"] <- sex_results[sex_results$label == "Unknown", "count"] + unknown
-    }
-    
-    gvisPieChart(sex_results, 
+    gvisPieChart(sex_results,
                  labelvar = "label",
-                 numvar = "count", 
+                 numvar = "count",
                  options = list(pieHole = 0.4))
   })
   output$agegroupplot <- renderGvis({
