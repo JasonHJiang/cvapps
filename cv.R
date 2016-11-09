@@ -35,14 +35,20 @@ cv_drug_product_ingredients <-  tbl(hcopen, "cv_drug_product_ingredients")
 cv_report_drug <- tbl(hcopen, "cv_report_drug")
 cv_reactions <- tbl(hcopen, "cv_reactions")
 cv_report_drug_indication <- tbl(hcopen, "cv_report_drug_indication")
+cv_substances <- tbl(hcopen, "cv_substances")
 meddra <- tbl(hcopen, "meddra") %>%
   filter(Primary_SOC_flag == "Y") %>%
   select(PT_Term, HLT_Term, Version = MEDDRA_VERSION)
 
 ####################### datasets for menu setup ####################### 
-#Fetch top 1000 most-reported brand/drug names
+#Fetch brand/drug names
 topbrands <- cv_report_drug %>%
   distinct(DRUGNAME) %>%
+  as.data.frame() %>%
+  `[[`(1) %>%
+  sort()
+topings <- cv_substances %>%
+  distinct(ing) %>%
   as.data.frame() %>%
   `[[`(1) %>%
   sort()
@@ -61,9 +67,20 @@ ui <- dashboardPage(
       menuItem("Download", tabName = "downloaddata", icon = icon("download")),
       menuItem("About", tabName = "aboutinfo", icon = icon("info"))
     ),
-    selectizeInput("search_brand", 
-                "Brand Name",
-                c("Start typing to search..." = "", topbrands)),
+    conditionalPanel(
+      condition = "input.name_type == 'brand'",
+      selectizeInput("search_brand", 
+                     "Brand Name",
+                     c("Start typing to search..." = "", topbrands))),
+    conditionalPanel(
+      condition = "input.name_type == 'ing'",
+      selectizeInput("search_ing", 
+                     "Active Ingredient",
+                     c("Start typing to search..." = "", topings))),
+    radioButtons("name_type", "Drug name type:",
+                 c("Brand Name" = "brand",
+                   "Active Ingredient" = "ing"),
+                 selected = "ing"),
     selectizeInput("search_rxn", 
                    "Adverse Event Term",
                    c("Loading..." = "")),
@@ -218,11 +235,20 @@ server <- function(input, output, session) {
   # Relabel PT dropdown menu based on selected name
   observe({
     input$search_brand
+    input$search_ing
+    input$name_type
     isolate({
       pt_selected <- input$search_rxn
+      
       pt_choices <- cv_reactions
-      if ("" != input$search_brand) {
+      
+      if (input$name_type == "brand" & input$search_brand != "") {
         related_reports <- cv_report_drug %>% filter(DRUGNAME == input$search_brand)
+        pt_choices %<>% semi_join(related_reports, by = "REPORT_ID")
+        
+      } else if (input$name_type == "ing" & input$search_ing != "") {
+        related_drugs <- cv_substances %>% filter(ing == input$search_ing) %>% distinct(DRUGNAME)
+        related_reports <- cv_report_drug %>% semi_join(related_drugs, by = "DRUGNAME")
         pt_choices %<>% semi_join(related_reports, by = "REPORT_ID")
       }
       pt_choices %<>%
@@ -230,9 +256,11 @@ server <- function(input, output, session) {
         as.data.frame() %>%
         `[[`(1) %>%
         sort()
+      
       if (! pt_selected %in% pt_choices) pt_selected = ""
       updateSelectizeInput(session, "search_rxn",
-                           choices = c("Start typing to search..." = "", pt_choices))
+                           choices = c("Start typing to search..." = "", pt_choices),
+                           selected = pt_selected)
     })
   })
   
@@ -242,8 +270,14 @@ server <- function(input, output, session) {
   current_search <- reactive({
     input$searchButton
     isolate({
+      if (input$name_type == "brand") {
+        name <- input$search_brand
+      } else {
+        name <- input$search_ing
+      }
       list(
-        brand      = input$search_brand,
+        name_type  = input$name_type,
+        name       = name,
         rxn        = input$search_rxn,
         date_range = input$searchDateRange
       )
@@ -254,7 +288,12 @@ server <- function(input, output, session) {
     cv_reports_filtered <- cv_reports %>%
       filter(DATINTRECEIVED_CLEAN >= data$date_range[1], DATINTRECEIVED_CLEAN <= data$date_range[2])
     cv_report_drug_filtered <- cv_report_drug
-    if ("" != data$brand) cv_report_drug_filtered %<>% filter(DRUGNAME == data$brand)
+    if (data$name_type == "brand" & data$name != "") {
+      cv_report_drug_filtered %<>% filter(DRUGNAME == data$name)
+    } else if (data$name_type == "ing" & data$name != "") {
+      related_drugs <- cv_substances %>% filter(ing == data$name)
+      cv_report_drug_filtered %<>% semi_join(related_drugs, by = "DRUGNAME")
+    }
     cv_reactions_filtered <- cv_reactions
     if ("" != data$rxn) cv_reactions_filtered %<>% filter(PT_NAME_ENG == data$rxn)
     
@@ -359,10 +398,12 @@ server <- function(input, output, session) {
   ##### Construct Current_Query_Table for generic name, brand name, adverse reaction term & date range searched
   output$current_search <- renderTable({
     data <- current_search()
-    result <- data.table(names = c("Brand Name:", 
+    result <- data.table(names = c("Name Type:",
+                                   "Name:",
                                    "Adverse Reaction Term:",
                                    "Date Range:"),
-                         values = c(data$brand,
+                         values = c(data$name_type %>% toupper(),
+                                    data$name,
                                     data$rxn,
                                     paste(data$date_range, collapse = " to ")))
     result$values["" == result$values] <- "Not Specified"
@@ -373,12 +414,11 @@ server <- function(input, output, session) {
   
   ##### Create time plot
   output$timeplot <- renderPlotly({
-    
     adrplot_test <- cv_master_tab() %>%
       dplyr::select(REPORT_ID,DATINTRECEIVED_CLEAN) %>%
       mutate(plot_date = floor_date(ymd(DATINTRECEIVED_CLEAN), "month")) %>%
       dplyr::select(REPORT_ID,plot_date)
-    drug_selected <- current_search()$brand
+    drug_selected <- current_search()$name
     
     #adrplot_test <- reports_tab(current_generic="ampicillin",current_brand="PENBRITIN",current_rxn="Urticaria"))
     
@@ -683,14 +723,18 @@ server <- function(input, output, session) {
   
   #### Data about Reactions
   output$top_pt <- renderGvis({
-    current_brand <- current_search()$brand
-    data <- cv_reactions %>%
-      dplyr::select(REPORT_ID, PT_NAME_ENG)
-    if ("" != current_brand) {
-      cv_reports_filtered <- cv_report_drug %>%
-        filter(DRUGNAME == current_brand)
-      data %<>%
-        semi_join(cv_reports_filtered, by = "REPORT_ID")
+    search <- current_search()
+    
+    data <- cv_reactions %>% select(REPORT_ID, PT_NAME_ENG)
+    if ("" != search$name) {
+      if (search$name_type == "brand") {
+        cv_reports_filtered <- cv_report_drug %>% filter(DRUGNAME == search$name)
+        data %<>% semi_join(cv_reports_filtered, by = "REPORT_ID")
+      } else if (search$name_type == "ing") {
+        related_drugs <- cv_substances %>% filter(ing == search$name) %>% distinct(DRUGNAME)
+        cv_reports_filtered <- cv_report_drug %>% semi_join(related_drugs, by = "DRUGNAME")
+        data %<>% semi_join(cv_reports_filtered, by = "REPORT_ID")
+      }
     }
     data %<>%
       group_by(PT_NAME_ENG) %>%
@@ -700,15 +744,19 @@ server <- function(input, output, session) {
     gvisBarChart_HCSC(data, "PT_NAME_ENG", "count", google_colors[1])
   })
   output$top_hlt <- renderGvis({
-    current_brand <- current_search()$brand
+    search <- current_search()
     data <- cv_reactions %>%
       dplyr::select(REPORT_ID, PT_NAME_ENG, MEDDRA_VERSION) %>%
       inner_join(meddra, by = c("PT_NAME_ENG" = "PT_Term", "MEDDRA_VERSION" = "Version"))
-    if ("" != current_brand) {
-      cv_reports_filtered <- cv_report_drug %>%
-        filter(DRUGNAME == current_brand)
-      data %<>%
-        semi_join(cv_reports_filtered, by = "REPORT_ID")
+    if ("" != search$name) {
+      if (search$name_type == "brand") {
+        cv_reports_filtered <- cv_report_drug %>% filter(DRUGNAME == search$name)
+        data %<>% semi_join(cv_reports_filtered, by = "REPORT_ID")
+      } else if (search$name_type == "ing") {
+        related_drugs <- cv_substances %>% filter(ing == search$name) %>% distinct(DRUGNAME)
+        cv_reports_filtered <- cv_report_drug %>% semi_join(related_drugs, by = "DRUGNAME")
+        data %<>% semi_join(cv_reports_filtered, by = "REPORT_ID")
+      }
     }
     data %<>%
       group_by(HLT_Term) %>%
