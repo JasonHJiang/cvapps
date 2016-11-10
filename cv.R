@@ -2,9 +2,6 @@
 library(magrittr)
 library(lubridate)
 library(dplyr)
-# use this more widely instead of data.frames?
-library(data.table)
-library(stringr)
 library(utils)
 library(zoo)
 library(pool)
@@ -91,10 +88,11 @@ ui <- dashboardPage(
                    startview = "year",
                    format = "yyyy-mm-dd"),
     # hacky way to get borders correct
-    tags$div(class="form-group shiny-input-container",
-    actionButton("searchButton",
-                 "Search",
-                 width = '100%')
+    tags$div(
+      class="form-group shiny-input-container",
+      actionButton("searchButton",
+                   "Search",
+                   width = '100%')
     ),
     tags$br(),
     tags$h3(strong("Current Query:")),
@@ -117,16 +115,15 @@ ui <- dashboardPage(
               fluidRow(
                 box(h3("Reporter"),
                     htmlOutput("reporterplot"),
-                    p("Qualification of the person who filed the report."),
-                    p("Unknown is the number of reports without the primarysource.qualification field."),
+                    "Qualification of the person who filed the report.",
                     width = 4),
                 box(h3("Serious reports"),
                     htmlOutput("seriousplot"),
-                    p("Reports marked as serious."),
+                    "Reports marked as serious.",
                     width = 4),
                 box(h3("Reasons for serious reports"),
                     htmlOutput("seriousreasonsplot"),
-                    p("Total sums to more than 100% because reports can be marked serious for multiple reasons."),
+                    "Total sums to more than 100% because reports can be marked serious for multiple reasons.",
                     width = 4)
               )
       ),
@@ -380,37 +377,25 @@ server <- function(input, output, session) {
   
   
   ##### Output ####
-  ############# Download Tab
-  output$download_reports <- downloadHandler(
-    filename = function() {paste0(cv_download_reports()$download_format, '.csv')},
-    content = function(file){
-      write.csv(cv_download_reports()$reports_tab_master,
-                file,
-                fileEncoding = "UTF-8",
-                row.names = FALSE)
-    }
-  )
-  output$download_reports_type <- renderText(cv_download_reports()$download_type)
-  output$download_reports_size <- renderText(cv_download_reports()$reports_tab_master_size)
-  
   ##### Construct Current_Query_Table for generic name, brand name, adverse reaction term & date range searched
   output$current_search <- renderTable({
     data <- current_search()
-    result <- data.table(names = c("Name Type:",
+    result <- data.frame(names = c("Name Type:",
                                    "Name:",
                                    "Adverse Reaction Term:",
                                    "Date Range:"),
                          values = c(data$name_type %>% toupper(),
                                     data$name,
                                     data$rxn,
-                                    paste(data$date_range, collapse = " to ")))
+                                    paste(data$date_range, collapse = " to ")),
+                         stringsAsFactors = FALSE)
     result$values["" == result$values] <- "Not Specified"
     result
   },
   include.colnames = FALSE
   )
   
-  ##### Create time plot  ### Create time plot
+  ##### Create time plot  ###
   output$timeplot_title <- renderUI({
     nreports <- cv_master_tab() %>%
       distinct(REPORT_ID) %>%
@@ -459,195 +444,101 @@ server <- function(input, output, session) {
   
   ##### Data about Reports
   output$reporterplot <- renderGvis({
-    data <- cv_master_tab() %>%
-      dplyr::select(REPORT_ID, SERIOUSNESS_ENG, REPORTER_TYPE_ENG, DEATH, DISABILITY, CONGENITAL_ANOMALY,LIFE_THREATENING, HOSP_REQUIRED, 
-                    OTHER_MEDICALLY_IMP_COND, DATINTRECEIVED_CLEAN,GENDER_ENG)
-    reporter_df <- data %>% dplyr::select(REPORT_ID, REPORTER_TYPE_ENG)
-    # test
+    reporter_results <- cv_master_tab() %>%
+      group_by(REPORTER_TYPE_ENG) %>%
+      summarise(count = n_distinct(REPORT_ID))
+    reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == ""] <- "Not Reported"
     # data <- reports_tab(current_generic="ampicillin",current_brand="PENBRITIN",current_rxn="Urticaria",date_ini=ymd("19650101"),date_end=ymd("20151231"))
-    
-    reporter_results<-dplyr::summarise(group_by(reporter_df, REPORTER_TYPE_ENG),count=n_distinct(REPORT_ID))
-    reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == ""] <- "Not Specified"
     
     gvisPieChart(reporter_results, 
                  labelvar = "REPORTER_TYPE_ENG",
-                 numvar = "n", 
+                 numvar = "count", 
                  options = list(pieHole = 0.4))
   })
   output$seriousplot <- renderGvis({
-    data <- cv_master_tab() %>%
-      dplyr::select(REPORT_ID, SERIOUSNESS_ENG, REPORTER_TYPE_ENG, DEATH, DISABILITY, CONGENITAL_ANOMALY,LIFE_THREATENING, HOSP_REQUIRED, 
-                    OTHER_MEDICALLY_IMP_COND, DATINTRECEIVED_CLEAN,GENDER_ENG)
-    serious_results <- data %>%
-      dplyr::select(REPORT_ID,SERIOUSNESS_ENG) %>%
+    serious_results <- cv_master_tab() %>%
       group_by(SERIOUSNESS_ENG) %>%
-      dplyr::summarise(count = n_distinct(REPORT_ID))
-    serious_results$SERIOUSNESS_ENG[serious_results$SERIOUSNESS_ENG == ""] <- "Not Specified"
+      summarise(count = n_distinct(REPORT_ID))
+    serious_results$SERIOUSNESS_ENG[serious_results$SERIOUSNESS_ENG == ""] <- "Not Reported"
     
     gvisPieChart(serious_results, 
                  labelvar = "SERIOUSNESS_ENG",
-                 numvar = "n", 
+                 numvar = "count", 
                  options = list(pieHole = 0.4))
   })
   output$seriousreasonsplot <- renderGvis({
     data <- cv_master_tab() %>%
-      dplyr::select(REPORT_ID, SERIOUSNESS_ENG, REPORTER_TYPE_ENG, DEATH, DISABILITY, CONGENITAL_ANOMALY,LIFE_THREATENING, HOSP_REQUIRED, 
-                    OTHER_MEDICALLY_IMP_COND, DATINTRECEIVED_CLEAN,GENDER_ENG)
-    total_serious <- dplyr::summarise(group_by(data, SERIOUSNESS_ENG),count=n_distinct(REPORT_ID))
-    total_serious_final <- total_serious$count[total_serious$SERIOUSNESS_ENG == "Yes"]
+      filter(SERIOUSNESS_ENG == "Yes")
     
+    total_serious <- data %>%
+      distinct(REPORT_ID) %>%
+      nrow()
     
-    serious_reason_df <- data %>% mutate(SERIOUSNESS_ENG = ifelse(REPORT_ID == 645744, "Yes", SERIOUSNESS_ENG))
-    # REPORT_ID = 645744 has serious_reason specifed but seriousness_eng is balnk
-    
-    # Congenital
-    congenital_results <- dplyr::summarise(group_by(serious_reason_df, SERIOUSNESS_ENG,CONGENITAL_ANOMALY),count=n_distinct(REPORT_ID))
-    
-    if(any(congenital_results$CONGENITAL_ANOMALY == 1, na.rm=TRUE) ==TRUE){
-      congenital_results_final <- filter(congenital_results,SERIOUSNESS_ENG == "Yes", CONGENITAL_ANOMALY == 1)%>%
-        mutate(Reasons = "CONGENITAL ANOMALY")%>%
-        ungroup() %>%
-        dplyr::select(Reasons,count)
-    } else {
-      Reasons <- I("CONGENITAL ANOMALY")
-      count <- c(0)
-      congenital_results_final <- data.frame(Reasons,count)
-    }
-    
-    # Death
-    death_results <- dplyr::summarise(group_by(serious_reason_df, SERIOUSNESS_ENG,DEATH),count=n_distinct(REPORT_ID))
-    
-    if(any(death_results$DEATH == 1, na.rm=TRUE) ==TRUE){
-      death_results_final <- filter(death_results,SERIOUSNESS_ENG == "Yes", DEATH == 1)%>%
-        mutate(Reasons = "DEATH")%>%
-        ungroup() %>%
-        dplyr::select(Reasons,count)
-    } else {
-      Reasons <- I("DEATH")
-      count <- c(0)
-      death_results_final <- data.frame(Reasons,count)
-    }
-    
-    # Disability
-    disabling_results <- dplyr::summarise(group_by(serious_reason_df, SERIOUSNESS_ENG,DISABILITY),count=n_distinct(REPORT_ID))
-    
-    if(any(disabling_results$DISABILITY == 1, na.rm=TRUE) ==TRUE){
-      disabling_results_final <- filter(disabling_results,SERIOUSNESS_ENG == "Yes", DISABILITY == 1)%>%
-        mutate(Reasons = "DISABILITY")%>%
-        ungroup() %>%
-        dplyr::select(Reasons,count)
-    } else {
-      Reasons <- I("DISABILITY")
-      count <- c(0)
-      disabling_results_final <- data.frame(Reasons,count)
-    }
-    
-    # Hospitalization
-    hospital_results <- dplyr::summarise(group_by(serious_reason_df, SERIOUSNESS_ENG,HOSP_REQUIRED),count=n_distinct(REPORT_ID))
-    
-    if(any(hospital_results$HOSP_REQUIRED == 1, na.rm=TRUE) ==TRUE ) {
-      hospital_results_final <- filter(hospital_results,SERIOUSNESS_ENG == "Yes",HOSP_REQUIRED == 1) %>%
-        mutate(Reasons = "HOSPITALIZATION") %>%
-        ungroup() %>%
-        dplyr::select(Reasons,count)
-    } else {
-      Reasons <- I("HOSPITALIZATION")
-      count <- c(0)
-      hospital_results_final <- data.frame(Reasons,count)
-    }
-    
-    # Lifethreatening
-    lifethreaten_results <- dplyr::summarise(group_by(serious_reason_df, SERIOUSNESS_ENG,LIFE_THREATENING),count=n_distinct(REPORT_ID))
-    
-    if(any(lifethreaten_results$LIFE_THREATENING == 1, na.rm=TRUE) ==TRUE){
-      lifethreaten_results_final <- filter(lifethreaten_results,SERIOUSNESS_ENG == "Yes", LIFE_THREATENING == 1)%>%
-        mutate(Reasons = "LIFE_THREATENING")%>%
-        ungroup() %>%
-        dplyr::select(Reasons,count)
-    } else {
-      Reasons <- I("LIFE_THREATENING")
-      count <- c(0)
-      lifethreaten_results_final <- data.frame(Reasons,count)
-    }
-    
-    # Other
-    #serother_results <- ddply(serious_reason_df, c("SERIOUSNESS_ENG", "OTHER_MEDICALLY_IMP_COND"),count_func)
-    serother_results <- dplyr::summarise(group_by(serious_reason_df, SERIOUSNESS_ENG,OTHER_MEDICALLY_IMP_COND),count=n_distinct(REPORT_ID))
-    
-    if(any(serother_results$OTHER_MEDICALLY_IMP_COND == 1, na.rm=TRUE) ==TRUE){
-      serother_results_final <-filter(serother_results,SERIOUSNESS_ENG == "Yes", OTHER_MEDICALLY_IMP_COND == 1)%>%
-        mutate(Reasons = "OTHER_MEDICALLY_IMP_COND")%>%
-        ungroup() %>%
-        dplyr::select(Reasons,count)
-    } else {
-      Reasons <- I("OTHER_MEDICALLY_IMP_COND")
-      count <- c(0)
-      serother_results_final <- data.frame(Reasons,count)
-    }
+    n_congen <- data %>%
+      filter(CONGENITAL_ANOMALY == 1) %>%
+      distinct(REPORT_ID) %>%
+      nrow()
+    n_death <- data %>%
+      filter(DEATH == 1) %>%
+      distinct(REPORT_ID) %>%
+      nrow()
+    n_disab <- data %>%
+      filter(DISABILITY == 1) %>%
+      distinct(REPORT_ID) %>%
+      nrow()
+    n_lifethreat <- data %>%
+      filter(LIFE_THREATENING == 1) %>%
+      distinct(REPORT_ID) %>%
+      nrow()
+    n_hosp <- data %>%
+      filter(HOSP_REQUIRED == 1) %>%
+      distinct(REPORT_ID) %>%
+      nrow()
+    n_other <- data %>%
+      filter(OTHER_MEDICALLY_IMP_COND == 1) %>%
+      distinct(REPORT_ID) %>%
+      nrow()
     
     ## Check for NotSpecified ##
-    serious_reason <-data %>%
-      filter(SERIOUSNESS_ENG == "Yes" & is.na(DEATH) == TRUE & is.na(DISABILITY)==TRUE & is.na(CONGENITAL_ANOMALY)==TRUE & is.na(LIFE_THREATENING)==TRUE & 
-               is.na(HOSP_REQUIRED)==TRUE & is.na(OTHER_MEDICALLY_IMP_COND) == TRUE)
+    n_notspec <- data %>%
+      filter(DEATH != 1 | is.na(DEATH)) %>%
+      filter(DISABILITY != 1 | is.na(DISABILITY)) %>%
+      filter(CONGENITAL_ANOMALY != 1 | is.na(CONGENITAL_ANOMALY)) %>%
+      filter(LIFE_THREATENING != 1 | is.na(LIFE_THREATENING)) %>%
+      filter(HOSP_REQUIRED != 1 | is.na(HOSP_REQUIRED)) %>%
+      filter(OTHER_MEDICALLY_IMP_COND != 1 | is.na(OTHER_MEDICALLY_IMP_COND)) %>%
+      distinct(REPORT_ID) %>%
+      nrow()
     
-    if(nrow(serious_reason)!=0){
-      serious_reason <- serious_reason %>% 
-        mutate(NotSpecified = "Yes")%>%
-        dplyr::select(REPORT_ID, NotSpecified) 
-      serious_reason_df <- left_join(data,serious_reason)%>% mutate(SERIOUSNESS_ENG = ifelse(REPORT_ID == 645744, "Yes", SERIOUSNESS_ENG))
-      
-      # NotSpecified
-      #NotSpecified_results <- ddply(serious_reason_df,c("SERIOUSNESS_ENG","NotSpecified"),count_func)
-      NotSpecified_results <- dplyr::summarise(group_by(serious_reason_df, SERIOUSNESS_ENG,NotSpecified),count=n_distinct(REPORT_ID))
-      
-      if(any(NotSpecified_results$NotSpecified == "Yes", na.rm=TRUE) ==TRUE){
-        NotSpecified_results_final <- filter(NotSpecified_results,SERIOUSNESS_ENG == "Yes",NotSpecified == "Yes")%>%
-          mutate(Reasons = "NotSpecified")%>%
-          ungroup() %>%
-          dplyr::select(Reasons,count) 
-      } else {
-        Reasons <- I("NotSpecified")
-        count <- c(0)
-        NotSpecified_results_final <- data.frame(Reasons,count)
-      }
-      # Combine all SeriousReasons Frequency tables with NotSpecified
-      serious_reasons_restults <- congenital_results_final %>%
-        full_join(death_results_final) %>%
-        full_join(disabling_results_final) %>%
-        full_join(hospital_results_final) %>%
-        full_join(lifethreaten_results_final) %>%
-        full_join(serother_results_final)%>%
-        full_join(NotSpecified_results_final)
-      
-    } else {
-      # Combine all SeriousReasons Frequency tables WITHOUT NotSpecified
-      serious_reasons_restults <- congenital_results_final %>%
-        full_join(death_results_final) %>%
-        full_join(disabling_results_final) %>%
-        full_join(hospital_results_final) %>%
-        full_join(lifethreaten_results_final) %>%
-        full_join(serother_results_final) 
-    }
-    
-    # Calculate the percentage of each reason
-    serious_reasons_restults <- mutate(serious_reasons_restults, percentage = count/total_serious_final*100 %>% signif(digits = 3)) %>% 
-      dplyr::select(-count) %>%
+    serious_reasons <- data.frame(label = c("Congenital anomaly",
+                                            "Death",
+                                            "Disability",
+                                            "Hospitalization",
+                                            "Life-threatening",
+                                            "Other medically important condition",
+                                            "Not specified"),
+                                  count = c(n_congen,
+                                            n_death, 
+                                            n_disab,
+                                            n_lifethreat,
+                                            n_hosp,
+                                            n_other,
+                                            n_notspec),
+                                  stringsAsFactors = FALSE) %>%
+      mutate(percentage = count/total_serious * 100) %>% 
       arrange(desc(percentage))
+    serious_reasons$percentage %<>% round(digits = 2)
     
-    # GoogleVis plot html: use plot() to graph it
-    gvisBarChart(serious_reasons_restults, 
-                 xvar = "Reasons",
-                 yvar = "percentage", 
-                 options = list(title = paste0("Reasons for serious reports (", total_serious_final, " serious reports)"),
-                                legend = "{position:'none'}",
-                                bars = 'horizontal',
-                                #hAxis = "{format:'percent'}",
-                                axes= "x: {
-                                0: { side: 'top', label: 'Count'} 
-  }",
-                                bar = list(groupWidth =  '90%')
+    gvisBarChart(serious_reasons,
+                 xvar = "label",
+                 yvar = "percentage",
+                 options = list(
+                   legend = "{position: 'none'}",
+                   hAxis = "{title: 'Percentage'}",
+                   chartArea = "{top: 0, height: '80%', left: 100, width: '60%'}",
+                   bar = "{groupWidth: '90%'}"
                  )
-                 )
+    )
   })
   
   #### Data about Patients
@@ -791,6 +682,19 @@ server <- function(input, output, session) {
                  numvar = "n", 
                  options = list(pieHole = 0.4))
   })
+  
+  ############# Download Tab
+  output$download_reports <- downloadHandler(
+    filename = function() {paste0(cv_download_reports()$download_format, '.csv')},
+    content = function(file){
+      write.csv(cv_download_reports()$reports_tab_master,
+                file,
+                fileEncoding = "UTF-8",
+                row.names = FALSE)
+    }
+  )
+  output$download_reports_type <- renderText(cv_download_reports()$download_type)
+  output$download_reports_size <- renderText(cv_download_reports()$reports_tab_master_size)
   
 }
 
