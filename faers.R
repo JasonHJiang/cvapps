@@ -63,10 +63,10 @@ reporter_code <- data.table(term = 1:5,
                                       "Lawyer",
                                       "Consumer or Non-Health Professional"))
 outcome_code <- data.table(term = 1:6,
-                           label = c("Recovererd/resolved",
+                           label = c("Recovered/resolved",
                                      "Recovering/resolving",
                                      "Not recovered/not resolved",
-                                     "Recovered/resolved with sequelae",
+                                     "Recovered/resolved with sequelae (consequent health issues)",
                                      "Fatal",
                                      "Unknown"))
 sex_code <- data.table(term = 0:2,
@@ -133,8 +133,6 @@ ui <- dashboardPage(
     fluidRow(
       box(htmlOutput(outputId = "timeplot_title"),
           htmlOutput(outputId = "timeplot"),
-          "Trendline is a local non-parametric regression calculated with the LOESS model. ",
-          "The shaded area is an approximation of the 95% confidence interval of the regression.",
           htmlOutput(outputId = "search_url"),
           width = 12
           )
@@ -443,10 +441,6 @@ server <- function(input, output, session) {
   })
   
   ########## Output
-  output$search_url <- renderUI({
-    url <- faers_query()$query_url 
-    HTML(paste0("Reports by month from US FDA FAERS (open.fda.gov). Search URL: <a href = ", url, ">", url, "</a>"))
-  })
   output$current_search <- renderTable({
     data <- current_search()
     result <- data.table(names = c("Name Type:", 
@@ -464,16 +458,10 @@ server <- function(input, output, session) {
   
   ### Create time plot
   output$timeplot_title <- renderUI({
-    query <- faers_query()$openfda_query
+    nreports <- faers_query()$total_reports
     drug_name <- current_search()$name
     
-    time_results <- query %>%
-      fda_count("receivedate") %>%
-      fda_limit(1000) %>%
-      fda_exec()
-    title <- drug_name
-    if ("" == title) title <- "All Drugs"
-    nreports <- sum(time_results$count)
+    title <- ifelse("" == drug_name, "All Drugs", drug_name)
     plottitle <- paste0("Drug Adverse Event Reports for ", title, " (", nreports, " reports)")
     h3(strong(plottitle))
   })
@@ -485,7 +473,7 @@ server <- function(input, output, session) {
       fda_limit(1000) %>%
       fda_exec() %>%
       mutate(month = floor_date(ymd(time), "month")) %>%
-      dplyr::count(month, wt = count) %>%
+      count(month, wt = count) %>%
       rename(total = n)
     serious_results <- query %>%
       fda_filter("serious", "1") %>%
@@ -493,7 +481,7 @@ server <- function(input, output, session) {
       fda_limit(1000) %>%
       fda_exec() %>%
       mutate(month = floor_date(ymd(time), "month")) %>%
-      dplyr::count(month, wt = count) %>%
+      count(month, wt = count) %>%
       rename(serious = n)
     death_results <- query %>%
       fda_filter("seriousnessdeath", "1") %>%
@@ -501,7 +489,7 @@ server <- function(input, output, session) {
       fda_limit(1000) %>%
       fda_exec() %>%
       mutate(month = floor_date(ymd(time), "month")) %>%
-      dplyr::count(month, wt = count) %>%
+      count(month, wt = count) %>%
       rename(death = n)
     results <- time_results %>%
       left_join(serious_results, by = "month") %>%
@@ -509,32 +497,24 @@ server <- function(input, output, session) {
     results$serious[is.na(results$serious)] <- 0
     results$death[is.na(results$death)] <- 0
     
-    # plot <- ggplot(results) +
-    #   aes(x = month, y = total, color = "total") +
-    #   geom_line() +
-    #   stat_smooth(method = "loess", size = 0.1) +
-    #   geom_line(aes(x = month, y = serious, color = "serious")) +
-    #   geom_line(aes(x = month, y = death, color = "death")) +
-    #   ggtitle(plottitle) + 
-    #   xlab("Month") + 
-    #   ylab("Number of Reports") +
-    #   theme_bw() +
-    #   theme(plot.title = element_text(lineheight=.8, face="bold"))
-    # ggplotly(plot)
-    colors <- google_colors[c(19, 14, 2)]
-    colors_string <- colors %>%
-      sapply(function(x) paste0("'", x, "'")) %>%
+    colors_string <- google_colors[c(19, 14, 2)] %>%
+      {paste0("'", ., "'")} %>%
       paste(collapse = ", ") %>%
       {paste0("[", ., "]")}
     gvisLineChart(results,
                   xvar = "month",
                   yvar = c("total", "serious", "death"),
                   options = list(
-                    height = 344,
+                    height = 350,
                     vAxis = "{title: 'Number of Reports'}",
-                    chartArea = "{top: 20, height: '80%', left: 100, width: '85%'}",
+                    hAxis = "{title: 'Month'}",
+                    chartArea = "{top: 10, height: '80%', left: 120, width: '84%'}",
                     colors = colors_string
                   ))
+  })
+  output$search_url <- renderUI({
+    url <- faers_query()$query_url 
+    HTML(paste0("Reports by month from US FDA FAERS (open.fda.gov). Search URL: <a href = ", url, ">", url, "</a>"))
   })
   
   ### Data about Reports

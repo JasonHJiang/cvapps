@@ -106,11 +106,9 @@ ui <- dashboardPage(
   dashboardBody(
     customCSS(),
     fluidRow(
-      box(plotlyOutput(outputId = "timeplot"),
-          tags$br(),
-          tags$p("Trendline is a local non-parametric regression calculated with the LOESS model. 
-                 The shaded area is an approximation of the 95% confidence interval of the regression.", br(),
-                 "Reports by month from Canada Vigilance Adverse Reaction Online Database."),
+      box(htmlOutput(outputId = "timeplot_title"),
+          htmlOutput(outputId = "timeplot"),
+          "Reports by month from Canada Vigilance Adverse Reaction Online Database.",
           width = 12
           )
       ),
@@ -412,34 +410,51 @@ server <- function(input, output, session) {
   include.colnames = FALSE
   )
   
-  ##### Create time plot
-  output$timeplot <- renderPlotly({
-    adrplot_test <- cv_master_tab() %>%
-      dplyr::select(REPORT_ID,DATINTRECEIVED_CLEAN) %>%
-      mutate(plot_date = floor_date(ymd(DATINTRECEIVED_CLEAN), "month")) %>%
-      dplyr::select(REPORT_ID,plot_date)
-    drug_selected <- current_search()$name
+  ##### Create time plot  ### Create time plot
+  output$timeplot_title <- renderUI({
+    nreports <- cv_master_tab() %>%
+      distinct(REPORT_ID) %>%
+      nrow()
+    drug_name <- current_search()$name
     
-    #adrplot_test <- reports_tab(current_generic="ampicillin",current_brand="PENBRITIN",current_rxn="Urticaria"))
+    title <- ifelse("" == drug_name, "All Drugs", drug_name)
+    plottitle <- paste0("Drug Adverse Event Reports for ", title, " (", nreports, " reports)")
+    h3(strong(plottitle))
+  })
+  output$timeplot <- renderGvis({
+    # adrplot_test <- reports_tab(current_generic="ampicillin",current_brand="PENBRITIN",current_rxn="Urticaria"))
+    data <- cv_master_tab() %>%
+      mutate(month = floor_date(ymd(DATINTRECEIVED_CLEAN), "month")) %>%
+      group_by(month)
     
-    # specify the title of time plot based on reactive choice
-    title <- ifelse(drug_selected == "", "All Drugs", drug_selected)
-    nreports <- adrplot_test %>%
-      group_by(plot_date) %>%
-      summarise(count = n_distinct(REPORT_ID))
-    total_reports <- sum(nreports$count)
-    plottitle <- paste0("Drug Adverse Event Reports for ", title, " (", total_reports, " reports)")
+    time_results <- data %>%
+      summarise(total = n_distinct(REPORT_ID))
+    serious_results <- data %>%
+      filter(SERIOUSNESS_ENG == "Yes") %>%
+      summarise(serious = n_distinct(REPORT_ID))
+    death_results <- data %>%
+      filter(DEATH == 1) %>%
+      summarise(death = n_distinct(REPORT_ID))
+    results <- time_results %>%
+      left_join(serious_results, by = "month") %>%
+      left_join(death_results, by = "month")
+    results$serious[is.na(results$serious)] <- 0
+    results$death[is.na(results$death)] <- 0
     
-    plot <- nreports %>%
-      ggplot(aes(x = plot_date, y = count)) +
-      geom_line(stat = "identity", size = 0.1) +
-      stat_smooth(method = "loess", size = 0.1) +
-      ggtitle(plottitle) +
-      xlab("Month") +
-      ylab("Number of Reports") +
-      theme_bw() +
-      theme(plot.title = element_text(lineheight=.8, face="bold"))
-    ggplotly(plot)
+    colors_string <- google_colors[c(19, 14, 2)] %>%
+      {paste0("'", ., "'")} %>%
+      paste(collapse = ", ") %>%
+      {paste0("[", ., "]")}
+    gvisLineChart(results,
+                  xvar = "month",
+                  yvar = c("total", "serious", "death"),
+                  options = list(
+                    height = 350,
+                    vAxis = "{title: 'Number of Reports'}",
+                    hAxis = "{title: 'Month'}",
+                    chartArea = "{top: 10, height: '80%', left: 120, width: '84%'}",
+                    colors = colors_string
+                  ))
   })
   
   ##### Data about Reports

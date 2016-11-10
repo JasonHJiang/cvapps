@@ -25,7 +25,7 @@ google_colors = c(
 # default styles for easier plotting
 gvisBarChart_HCSC <- function(data, xvar, yvar, colors = google_colors) {
   colors_string <- colors %>%
-    sapply(function(x) paste0("'", x, "'")) %>%
+    {paste0("'", ., "'")} %>%
     paste(collapse = ", ") %>%
     {paste0("[", ., "]")}
   gvisBarChart(data = data,
