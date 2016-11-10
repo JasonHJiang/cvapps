@@ -2,9 +2,6 @@
 library(magrittr)
 library(lubridate)
 library(dplyr)
-# use this more widely instead of data.frames?
-library(data.table)
-library(stringr)
 library(utils)
 library(zoo)
 library(pool)

@@ -70,14 +70,14 @@ ui <- dashboardPage(
                      "Brand Name",
                      c("Start typing to search..." = "", topbrands))),
     conditionalPanel(
-      condition = "input.name_type == 'ing'",
+      condition = "input.name_type == 'ingredient'",
       selectizeInput("search_ing", 
                      "Active Ingredient",
                      c("Start typing to search..." = "", topings))),
     radioButtons("name_type", "Drug name type:",
                  c("Brand Name" = "brand",
-                   "Active Ingredient" = "ing"),
-                 selected = "ing"),
+                   "Active Ingredient" = "ingredient"),
+                 selected = "ingredient"),
     selectizeInput("search_rxn", 
                    "Adverse Event Term",
                    c("Loading..." = "")),
@@ -241,7 +241,7 @@ server <- function(input, output, session) {
         related_reports <- cv_report_drug %>% filter(DRUGNAME == input$search_brand)
         pt_choices %<>% semi_join(related_reports, by = "REPORT_ID")
         
-      } else if (input$name_type == "ing" & input$search_ing != "") {
+      } else if (input$name_type == "ingredient" & input$search_ing != "") {
         related_drugs <- cv_substances %>% filter(ing == input$search_ing) %>% distinct(DRUGNAME)
         related_reports <- cv_report_drug %>% semi_join(related_drugs, by = "DRUGNAME")
         pt_choices %<>% semi_join(related_reports, by = "REPORT_ID")
@@ -285,7 +285,7 @@ server <- function(input, output, session) {
     cv_report_drug_filtered <- cv_report_drug
     if (data$name_type == "brand" & data$name != "") {
       cv_report_drug_filtered %<>% filter(DRUGNAME == data$name)
-    } else if (data$name_type == "ing" & data$name != "") {
+    } else if (data$name_type == "ingredient" & data$name != "") {
       related_drugs <- cv_substances %>% filter(ing == data$name)
       cv_report_drug_filtered %<>% semi_join(related_drugs, by = "DRUGNAME")
     }
@@ -636,7 +636,7 @@ server <- function(input, output, session) {
       if (search$name_type == "brand") {
         cv_reports_filtered <- cv_report_drug %>% filter(DRUGNAME == search$name)
         data %<>% semi_join(cv_reports_filtered, by = "REPORT_ID")
-      } else if (search$name_type == "ing") {
+      } else if (search$name_type == "ingredient") {
         related_drugs <- cv_substances %>% filter(ing == search$name) %>% distinct(DRUGNAME)
         cv_reports_filtered <- cv_report_drug %>% semi_join(related_drugs, by = "DRUGNAME")
         data %<>% semi_join(cv_reports_filtered, by = "REPORT_ID")
@@ -658,7 +658,7 @@ server <- function(input, output, session) {
       if (search$name_type == "brand") {
         cv_reports_filtered <- cv_report_drug %>% filter(DRUGNAME == search$name)
         data %<>% semi_join(cv_reports_filtered, by = "REPORT_ID")
-      } else if (search$name_type == "ing") {
+      } else if (search$name_type == "ingredient") {
         related_drugs <- cv_substances %>% filter(ing == search$name) %>% distinct(DRUGNAME)
         cv_reports_filtered <- cv_report_drug %>% semi_join(related_drugs, by = "DRUGNAME")
         data %<>% semi_join(cv_reports_filtered, by = "REPORT_ID")
