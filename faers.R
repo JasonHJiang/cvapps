@@ -2,9 +2,6 @@
 library(magrittr)
 library(lubridate)
 library(dplyr)
-# use this more widely instead of data.frames?
-library(data.table)
-library(stringr)
 library(utils)
 library(zoo)
 library(pool)
@@ -39,15 +36,19 @@ dbuijs_api_key <- "QPV3z0OxVhzLfp5EGZTLT6QZGcTRrtXpYebmAs4n"
 topdrugs <- fda_query("/drug/event.json") %>%
   fda_count("patient.drug.openfda.generic_name.exact") %>% 
   fda_limit(1000) %>% 
-  fda_exec()
-# first two results are 0XYGEN and 3% DICLOFENAC SPRAY -> the 3% causes to glitches, 0xygen is bad typo
-# https://github.com/FDA/openfda/issues/29
-topdrugs <- c("Start typing to search..." = "", topdrugs$term %>% sort() %>% tail(-2))
+  fda_exec() %>%
+  .$term %>%
+  sort() %>%
+  grep("[%,]", ., value = TRUE, invert = TRUE) # https://github.com/FDA/openfda/issues/29
+topdrugs <- c("Start typing to search..." = "", topdrugs)
 topbrands <- fda_query("/drug/event.json") %>%
   fda_count("patient.drug.openfda.brand_name.exact") %>% 
   fda_limit(1000) %>% 
-  fda_exec()
-topbrands <- c("Start typing to search..." = "", topbrands$term %>% sort())
+  fda_exec() %>%
+  .$term %>%
+  sort() %>%
+  grep("[%,]", ., value = TRUE, invert = TRUE) # https://github.com/FDA/openfda/issues/29
+topbrands <- c("Start typing to search..." = "", topbrands)
 hcopen <- src_postgres(host = "shiny.hc.local", user = "hcreader", dbname = "hcopen", password = "canada1")
 meddra <- tbl(hcopen, "meddra") %>%
   filter(Primary_SOC_flag == "Y") %>%
@@ -55,31 +56,27 @@ meddra <- tbl(hcopen, "meddra") %>%
   mutate(term = toupper(PT_Term)) %>%
   as.data.frame()
 
-
-reporter_code <- data.table(term = 1:5,
-                            label = c("Physician",
-                                      "Pharmacist",
-                                      "Other Health Professional",
-                                      "Lawyer",
-                                      "Consumer or Non-Health Professional"))
-outcome_code <- data.table(term = 1:6,
+outcome_code <- data.frame(term = 1:6,
                            label = c("Recovered/resolved",
                                      "Recovering/resolving",
                                      "Not recovered/not resolved",
                                      "Recovered/resolved with sequelae (consequent health issues)",
                                      "Fatal",
-                                     "Unknown"))
-sex_code <- data.table(term = 0:2,
+                                     "Unknown"),
+                           stringsAsFactors = FALSE)
+sex_code <- data.frame(term = 0:2,
                        label = c("Unknown",
                                  "Male",
-                                 "Female"))
-age_code <- data.table(term = 800:805,
+                                 "Female"),
+                       stringsAsFactors = FALSE)
+age_code <- data.frame(term = 800:805,
                        label = c("Decade",
                                  "Year",
                                  "Month",
                                  "Week",
                                  "Day",
-                                 "Hour"))
+                                 "Hour"),
+                       stringsAsFactors = FALSE)
 
 
 ui <- dashboardPage(
@@ -142,32 +139,31 @@ ui <- dashboardPage(
               fluidRow(
                 box(h3("Reporter"),
                     htmlOutput("reporterplot"),
-                    p("Qualification of the person who filed the report."),
-                    p("Unknown is the number of reports without the primarysource.qualification field."),
+                    "Qualification of the person who filed the report.",
                     width = 3),
                 box(h3("Serious reports"),
                     htmlOutput("seriousplot"),
-                    p("Reports marked as serious."),
+                    "Reports marked as serious.",
                     width = 3),
                 box(h3("Reasons for serious reports"),
                     htmlOutput("seriousreasonsplot"),
-                    p("Total sums to more than 100% because reports can be marked serious for multiple reasons."),
+                    "Total sums to more than 100% because reports can be marked serious for multiple reasons.",
                     width = 3),
                 box(h3("Country"),
                     htmlOutput("countryplot"),
-                    p("Country the reaction(s) occurred in. This is not necessarily the same country the report was received from."),
+                    "Country the reaction(s) occurred in. This is not necessarily the same country the report was received from.",
                     width = 3)
               )
       ),
       tabItem(tabName = "patientdata",
               fluidRow(
-                box(h3("Gender"),
+                box(h3("Sex"),
                     htmlOutput("sexplot"),
-                    p("Unknown includes both reports explicitly marked unknown and reports with no gender information."),
+                    "Includes both reports explicitly marked unknown and reports with no sex information.",
                     width = 3),
                 box(h3("Age Groups"),
                     htmlOutput("agegroupplot"),
-                    p("Unknown includes reports with no age information."), 
+                    "Includes reports with no age information.", 
                     width = 3),
                 box(h3("Age Histogram"),
                     plotlyOutput("agehist"),
@@ -178,41 +174,41 @@ ui <- dashboardPage(
               fluidRow(
                 box(h3("Most Frequent Indications"),
                     htmlOutput("indication_plot"),
-                    p("This plot includes all indications for all drugs present in the matching reports.
+                    "This plot includes all indications for all drugs present in the matching reports.
                            The open.fda.gov search API does not allow searching or filtering within drugs.
                            The search query filters unique reports, which may have one or more drugs associated with them.
                            It is not currently possible to search for only those indications associated with a specific drug.
-                           "),
+                           ",
                     width = 6),
                 box(h3("Most Frequently Occurring Drugs (Generic Name)"),
                     htmlOutput("drug_plot"),
-                    p("This plot includes all drugs present in the matching reports.
+                    "This plot includes all drugs present in the matching reports.
                        The open.fda.gov search API does not allow searching or filtering within drugs.
                        The search query filters unique reports, which may have one or more drugs associated with them.
-                       It is not currently possible to retrieve correlations between drugs."),
+                       It is not currently possible to retrieve correlations between drugs.",
                     width = 6)
               ),
               fluidRow(
                 box(h3("Most Frequent Established Pharmaceutical Classes"),
                     htmlOutput("drugclassplot"),
-                    p("This plot includes all drug classes present in the matching reports, including the search term.
+                    "This plot includes all drug classes present in the matching reports, including the search term.
                        The total number of instances for each class will be geater 
                        than the number of reports when reports include more than one drug of the same class.
                        The open.fda.gov search API does not allow searching or filtering within drugs.
                        The search query filters unique reports, which may have one or more drugs associated with them.
-                       It is not currently possible to retrieve correlations between drugs."), width = 6)
+                       It is not currently possible to retrieve correlations between drugs.", width = 6)
               )
       ),
       tabItem(tabName = "rxndata",
               fluidRow(
                 box(h3("Most Frequent Adverse Events (Preferred Terms)"),
                     htmlOutput("top_pt"),
-                    p("For more rigorous analysis, use disproportionality statistics."),
+                    "For more rigorous analysis, use disproportionality statistics.",
                     width = 6),
                 box(h3("Most Frequent Adverse Events (High-Level Terms)"),
                     htmlOutput("top_hlt"),
-                    p("Based on the counts for the top 1000 adverse event preferred terms. ",
-                      "For more rigorous analysis, use disproportionality statistics."),
+                    "Based on the counts for the top 1000 adverse event preferred terms. ",
+                      "For more rigorous analysis, use disproportionality statistics.",
                     width = 6)
               ),
               fluidRow(
@@ -268,37 +264,27 @@ server <- function(input, output, session) {
     input$name_type
     isolate({
       pt_selected <- input$search_rxn
-      
-      if ((input$name_type == "generic" & input$search_generic == "") |
-          (input$name_type == "brand" & input$search_brand == "")) {
-        pt_choices <- fda_query("/drug/event.json") %>%
-          fda_count("patient.reaction.reactionmeddrapt.exact") %>%
-          fda_limit(1000) %>%
-          fda_exec()
-        pt_choices <- pt_choices$term
-      }
+      pt_choices <- fda_query("/drug/event.json")
       
       if (input$name_type == "generic" & input$search_generic != "") {
         query_str <- paste0('"', gsub(" ", "+", input$search_generic), '"')
-        pt_choices <- fda_query("/drug/event.json") %>%
-          fda_filter("patient.drug.openfda.generic_name.exact", query_str) %>%
-          fda_count("patient.reaction.reactionmeddrapt.exact") %>%
-          fda_limit(1000) %>%
-          fda_exec()
-        pt_choices <- pt_choices$term
+        pt_choices %<>% fda_filter("patient.drug.openfda.generic_name.exact", query_str)
       } else if (input$name_type == "brand" & input$search_brand != "") {
         query_str <- paste0('"', gsub(" ", "+", input$search_brand), '"')
-        pt_choices <- fda_query("/drug/event.json") %>%
-          fda_filter("patient.drug.openfda.brand_name.exact", query_str) %>%
-          fda_count("patient.reaction.reactionmeddrapt.exact") %>%
-          fda_limit(1000) %>%
-          fda_exec()
-        pt_choices <- pt_choices$term
-      } 
+        pt_choices %<>% fda_filter("patient.drug.openfda.brand_name.exact", query_str)
+      }
+      
+      pt_choices %<>%
+        fda_count("patient.reaction.reactionmeddrapt.exact") %>%
+        fda_limit(1000) %>%
+        fda_exec() %>%
+        .$term %>%
+        sort() %>%
+        grep("[%,']", ., value = TRUE, invert = TRUE) # https://github.com/FDA/openfda/issues/29
       
       if (! pt_selected %in% pt_choices) pt_selected = ""
       updateSelectizeInput(session, "search_rxn",
-                           choices = c("Start typing to search..." = "", pt_choices %>% sort()),
+                           choices = c("Start typing to search..." = "", pt_choices),
                            selected = pt_selected)
     })
   })
@@ -324,52 +310,35 @@ server <- function(input, output, session) {
       )
     })})
   faers_query <- reactive({
-    data <- current_search()
+    search <- current_search()
     
     openfda_query <- fda_query("/drug/event.json")
-    query_str <- paste0("[", data$date_range[1], "+TO+", data$date_range[2], "]")
+    query_str <- paste0("[", search$date_range[1], "+TO+", search$date_range[2], "]")
     openfda_query %<>% fda_filter("receivedate", query_str)
-    if("" != data$name) {
-      query_str <- paste0('"', gsub(" ", "+", data$name), '"')
-      if (data$name_type == "generic") {
+    if("" != search$name) {
+      query_str <- paste0('"', gsub(" ", "+", search$name), '"')
+      if (search$name_type == "generic") {
         openfda_query %<>% fda_filter("patient.drug.openfda.generic_name.exact", query_str)
       } else {
         openfda_query %<>% fda_filter("patient.drug.openfda.brand_name.exact", query_str)
       }
     }
-    if("" != data$rxn) {
-      query_str <- paste0('"', gsub(" ", "+", data$rxn), '"')
+    if("" != search$rxn) {
+      query_str <- paste0('"', gsub(" ", "+", search$rxn), '"')
       openfda_query %<>% fda_filter("patient.reaction.reactionmeddrapt.exact", query_str)
     }
     
-    query_url <- openfda_query %>%
-      fda_search() %>%
-      fda_limit(100) %>%
-      fda_url()
-    
-    total_reports <- openfda_query %>%
-      fda_search() %>%
-      fda_url() %>%
-      fda_fetch() %>%
-      .$meta %>%
-      .$results %>%
-      .$total
-    
-    list(
-      query_url = query_url,
-      total_reports = total_reports,
-      openfda_query = openfda_query
-    )
+    openfda_query
   })
   ages <- reactive({
-    query <- faers_query()$openfda_query
+    query <- faers_query()
     
     age_decades <- query %>% 
       fda_filter("patient.patientonsetageunit", "800") %>%
       fda_count("patient.patientonsetage") %>%
       fda_limit(1000) %>%
       fda_exec()
-    if(is.null(age_decades)) age_decades <- data.table(term = numeric(), count = numeric())
+    if(is.null(age_decades)) age_decades <- data.frame(term = numeric(), count = numeric())
     age_decades %<>% mutate(term = term*10)
     
     age_years <- query %>% 
@@ -377,14 +346,14 @@ server <- function(input, output, session) {
       fda_count("patient.patientonsetage") %>%
       fda_limit(1000) %>%
       fda_exec()
-    if(is.null(age_years)) age_years <- data.table(term = numeric(), count = numeric())
+    if(is.null(age_years)) age_years <- data.frame(term = numeric(), count = numeric())
     
     age_months <- query %>% 
       fda_filter("patient.patientonsetageunit", "802") %>%
       fda_count("patient.patientonsetage") %>%
       fda_limit(1000) %>%
       fda_exec()
-    if(is.null(age_months)) age_months <- data.table(term = numeric(), count = numeric())
+    if(is.null(age_months)) age_months <- data.frame(term = numeric(), count = numeric())
     age_months %<>% mutate(term = term/12)
     
     age_weeks <- query %>% 
@@ -392,7 +361,7 @@ server <- function(input, output, session) {
       fda_count("patient.patientonsetage") %>%
       fda_limit(1000) %>%
       fda_exec()
-    if(is.null(age_weeks)) age_weeks <- data.table(term = numeric(), count = numeric())
+    if(is.null(age_weeks)) age_weeks <- data.frame(term = numeric(), count = numeric())
     age_weeks %<>% mutate(term = term/52)
     
     age_days <- query %>% 
@@ -400,7 +369,7 @@ server <- function(input, output, session) {
       fda_count("patient.patientonsetage") %>%
       fda_limit(1000) %>%
       fda_exec()
-    if(is.null(age_days)) age_days <- data.table(term = numeric(), count = numeric())
+    if(is.null(age_days)) age_days <- data.frame(term = numeric(), count = numeric())
     age_days %<>% mutate(term = term/365)
     
     age_hours <- query %>% 
@@ -409,7 +378,7 @@ server <- function(input, output, session) {
       fda_limit(1000) %>%
       fda_exec()
     
-    if(is.null(age_hours)) age_hours <- data.table(term = numeric(), count = numeric())
+    if(is.null(age_hours)) age_hours <- data.frame(term = numeric(), count = numeric())
     age_hours %<>% mutate(term = term/(365*24))
     
     unknown <- query %>%
@@ -437,20 +406,21 @@ server <- function(input, output, session) {
              age_group = ifelse(term >= 13 & term < 18, "Adolescent", age_group),
              age_group = ifelse(term >= 18 & term <= 65, "Adult", age_group),
              age_group = ifelse(term > 65, "Elderly", age_group),
-             age_group = ifelse(is.na(term), "Unknown", age_group))
+             age_group = ifelse(is.na(term), "Not Reported", age_group))
   })
   
   ########## Output
   output$current_search <- renderTable({
     data <- current_search()
-    result <- data.table(names = c("Name Type:", 
+    result <- data.frame(names = c("Name Type:", 
                                    "Name:", 
                                    "Adverse Reaction Term:",
                                    "Date Range:"),
                          values = c(toupper(data$name_type),
                                     data$name,
                                     data$rxn,
-                                    paste(data$date_range, collapse = " to ")))
+                                    paste(data$date_range, collapse = " to ")),
+                         stringsAsFactors = FALSE)
     result$values["" == result$values] <- "Not Specified"
     result
   },
@@ -458,7 +428,14 @@ server <- function(input, output, session) {
   
   ### Create time plot
   output$timeplot_title <- renderUI({
-    nreports <- faers_query()$total_reports
+    query <- faers_query()
+    nreports <- query %>%
+      fda_search() %>%
+      fda_url() %>%
+      fda_fetch() %>%
+      .$meta %>%
+      .$results %>%
+      .$total
     drug_name <- current_search()$name
     
     title <- ifelse("" == drug_name, "All Drugs", drug_name)
@@ -466,7 +443,7 @@ server <- function(input, output, session) {
     h3(strong(plottitle))
   })
   output$timeplot <- renderGvis({
-    query <- faers_query()$openfda_query
+    query <- faers_query()
     
     time_results <- query %>%
       fda_count("receivedate") %>%
@@ -513,34 +490,41 @@ server <- function(input, output, session) {
                   ))
   })
   output$search_url <- renderUI({
-    url <- faers_query()$query_url 
+    url <- faers_query() %>%
+      fda_search() %>%
+      fda_limit(100) %>%
+      fda_url()
     HTML(paste0("Reports by month from US FDA FAERS (open.fda.gov). Search URL: <a href = ", url, ">", url, "</a>"))
   })
   
   ### Data about Reports
   output$reporterplot <- renderGvis({
-    data <- faers_query()
+    query <- faers_query()
     
-    reporter_results <- data$openfda_query %>% 
-      fda_count("primarysource.qualification") %>% 
-      fda_exec() 
-    if(is.null(reporter_results)) reporter_results <- data.table(term = numeric(), count = numeric())
-    
+    reporter_results <- query %>%
+      fda_count("primarysource.qualification") %>%
+      fda_exec()
+    if (is.null(reporter_results)) reporter_results <- data.frame(term = numeric(), count = numeric())
+    reporter_code <- data.frame(term = 1:5,
+                                label = c("Physician",
+                                          "Pharmacist",
+                                          "Other health professional",
+                                          "Lawyer",
+                                          "Consumer or non-health professional"),
+                                stringsAsFactors = FALSE)
     reporter_results <- reporter_results %>%
       left_join(reporter_code) %>%
       select(label, count)
     
-    unknown <- data$openfda_query %>%
+    unknown <- query %>%
       fda_filter("_missing_", "primarysource.qualification") %>%
       fda_url() %>%
       fda_fetch() %>%
       .$meta %>%
       .$results %>%
       .$total
-    
-    if(!is.null(unknown)){ reporter_results <- rbind(reporter_results, c("Not Reported", unknown)) %>%
-      mutate(count = as.numeric(count))
-    }
+    if (!is.null(unknown)) reporter_results <- rbind(reporter_results, c("Not reported", unknown))
+    reporter_results %<>% mutate(count = as.numeric(count))
     
     gvisPieChart(reporter_results, 
                  labelvar = "label",
@@ -548,29 +532,25 @@ server <- function(input, output, session) {
                  options = list(pieHole = 0.4))
   })
   output$seriousplot <- renderGvis({
-    data <- faers_query()
-    serious_results <- data$openfda_query %>% 
-      fda_count("serious") %>% 
-      fda_exec() 
-    if(is.null(serious_results)) serious_results <- data.table(term = numeric(), count = numeric())
+    query <- faers_query()
+    serious_results <- query %>%
+      fda_count("serious") %>%
+      fda_exec()
+    if (is.null(serious_results)) serious_results <- data.frame(term = numeric(), count = numeric())
     
     serious_results <- serious_results %>%
       mutate(label = ifelse(term == 1, "Serious", "Non-serious")) %>%
       select(label, count)
     
-    unknown <- data$openfda_query %>%
+    unknown <- query %>%
       fda_filter("_missing_", "serious") %>%
       fda_url() %>%
       fda_fetch() %>%
       .$meta %>%
       .$results %>%
       .$total
-    
-    if(!is.null(unknown)){
-      serious_results <- rbind(serious_results, c("Not Reported", unknown)) %>%
-      mutate(count = as.numeric(count))
-    }
-    
+    if (!is.null(unknown)) serious_results <- rbind(serious_results, c("Not Reported", unknown))
+    serious_results %<>% mutate(count = as.numeric(count))
     
     gvisPieChart(serious_results, 
                  labelvar = "label",
@@ -578,43 +558,43 @@ server <- function(input, output, session) {
                  options = list(pieHole = 0.4))
   })
   output$seriousreasonsplot <- renderGvis({
-    data <- faers_query()
+    query <- faers_query()
     
-    total_serious <- data$openfda_query %>% 
-      fda_count("serious") %>% 
+    congenital_results <- query %>%
+      fda_count("seriousnesscongenitalanomali") %>%
+      fda_exec()
+    if (is.null(congenital_results)) congenital_results <- data.frame(term = character(), count = numeric())
+    
+    death_results <-  query %>% 
+      fda_count("seriousnessdeath") %>% 
+      fda_exec()
+    if (is.null(death_results)) death_results <- data.frame(term = character(), count = numeric())
+    
+    disabling_results <-  query %>%
+      fda_count("seriousnessdisabling") %>%
+      fda_exec()
+    if (is.null(disabling_results)) disabling_results <- data.frame(term = character(), count = numeric())
+    
+    hospital_results <-  query %>%
+      fda_count("seriousnesshospitalization") %>%
+      fda_exec()
+    if (is.null(hospital_results)) hospital_results <- data.frame(term = character(), count = numeric())
+    
+    lifethreaten_results <-  query %>%
+      fda_count("seriousnesslifethreatening") %>%
+      fda_exec()
+    if (is.null(lifethreaten_results)) lifethreaten_results <- data.frame(term = character(), count = numeric())
+    
+    serother_results <-  query %>%
+      fda_count("seriousnessother") %>%
+      fda_exec()
+    if (is.null(serother_results)) serother_results <- data.frame(term = character(), count = numeric())
+    
+    total_serious <- query %>%
+      fda_count("serious") %>%
       fda_exec() %>%
       filter(term == "1") %>%
       .$count
-    
-    congenital_results <- data$openfda_query %>% 
-      fda_count("seriousnesscongenitalanomali") %>% 
-      fda_exec()
-    if(is.null(congenital_results)) congenital_results <- data.table(term = character(), count = numeric())
-    
-    death_results <-  data$openfda_query %>% 
-      fda_count("seriousnessdeath") %>% 
-      fda_exec()
-    if(is.null(death_results)) death_results <- data.table(term = character(), count = numeric())
-    
-    disabling_results <-  data$openfda_query %>% 
-      fda_count("seriousnessdisabling") %>% 
-      fda_exec()
-    if(is.null(disabling_results)) disabling_results <- data.table(term = character(), count = numeric())
-    
-    hospital_results <-  data$openfda_query %>% 
-      fda_count("seriousnesshospitalization") %>% 
-      fda_exec()
-    if(is.null(hospital_results)) hospital_results <- data.table(term = character(), count = numeric())
-    
-    lifethreaten_results <-  data$openfda_query %>% 
-      fda_count("seriousnesslifethreatening") %>% 
-      fda_exec()
-    if(is.null(lifethreaten_results)) lifethreaten_results <- data.table(term = character(), count = numeric())
-    
-    serother_results <-  data$openfda_query %>% 
-      fda_count("seriousnessother") %>% 
-      fda_exec()
-    if(is.null(serother_results)) serother_results <- data.table(term = character(), count = numeric())
     
     serious_reasons <- bind_rows("Congenital Anomaly" = congenital_results,
                                  "Death" = death_results,
@@ -639,14 +619,14 @@ server <- function(input, output, session) {
     )
   })
   output$countryplot <- renderGvis({
-    data <- faers_query()
+    query <- faers_query()
     
-    country_results <- data$openfda_query %>% 
-      fda_count("occurcountry") %>% 
-      fda_exec() 
-    if(is.null(country_results)) country_results <- data.table(term = character(), count = numeric())
+    country_results <- query %>%
+      fda_count("occurcountry") %>%
+      fda_exec()
+    if (is.null(country_results)) country_results <- data.frame(term = character(), count = numeric())
     
-    unknown <- data$openfda_query %>%
+    unknown <- query %>%
       fda_filter("_missing_", "occurcountry") %>%
       fda_url() %>%
       fda_fetch() %>%
@@ -654,9 +634,8 @@ server <- function(input, output, session) {
       .$results %>%
       .$total
     
-    if(!is.null(unknown)){ country_results <- rbind(country_results, c("Unknown", unknown)) %>%
-      mutate(count = as.numeric(count))
-    }
+    if (!is.null(unknown)) country_results <- rbind(country_results, c("Not Reported", unknown))
+    country_results %<>% mutate(count = as.numeric(count))
     
     gvisPieChart(country_results, 
                  labelvar = "term",
@@ -666,15 +645,15 @@ server <- function(input, output, session) {
   
   ### Data about Patients
   output$sexplot <- renderGvis({
-    data <- faers_query()
+    query <- faers_query()
     
-    sex_results <- data$openfda_query %>% 
+    sex_results <- query %>% 
       fda_count("patient.patientsex") %>% 
       fda_exec() %>%
-      inner_join(sex_code, by = "term")
-    if(is.null(sex_results)) sex_results <- data.table(term = numeric(), count = numeric())
+      left_join(sex_code, by = "term")
+    if(is.null(sex_results)) sex_results <- data.frame(term = numeric(), count = numeric())
     
-    unknown <- data$openfda_query %>%
+    unknown <- query %>%
       fda_filter("_missing_", "patient.patientsex") %>%
       fda_url() %>%
       fda_fetch() %>%
@@ -721,50 +700,54 @@ server <- function(input, output, session) {
   
   ### Data about Drugs
   output$indication_plot <- renderGvis({
-    query <- faers_query()$openfda_query
+    query <- faers_query()
     
     indications <- query %>%
       fda_count("patient.drug.drugindication.exact") %>%
       fda_limit(25) %>%
       fda_exec()
     
-    if(is.null(indications)) indications <- data.table(term = character(), count = numeric())
-    gvisBarChart_HCSC(indications, "term", "count", google_colors[1])
+    if(is.null(indications)) indications <- data.frame(term = character(), count = numeric())
+    gvisBarChart_HCSC(indications, "term", "count", google_colors[4])
   })
   output$drug_plot <- renderGvis({
-    query <- faers_query()$openfda_query
+    query <- faers_query()
     
     drugs <- query %>%
       fda_count("patient.drug.openfda.generic_name.exact") %>%
       fda_limit(25) %>%
       fda_exec()
     
-    if (is.null(drugs)) drugs <- data.table(term = character(), count = numeric())
-    gvisBarChart_HCSC(drugs, "term", "count", google_colors[2])
+    if (is.null(drugs)) drugs <- data.frame(term = character(), count = numeric())
+    gvisBarChart_HCSC(drugs, "term", "count", google_colors[5])
   })
   output$drugclassplot <- renderGvis({
-    query <- faers_query()$openfda_query
+    query <- faers_query()
     
     drugclass <- query %>%
       fda_count("patient.drug.openfda.pharm_class_epc.exact") %>%
       fda_limit(25) %>%
       fda_exec()
     
-    if(is.null(drugclass)) drugclass <- data.table(term = character(), count = numeric())
+    if(is.null(drugclass)) drugclass <- data.frame(term = character(), count = numeric())
     gvisBarChart_HCSC(drugclass, "term", "count", google_colors[3])
   })
   
   ### Data about Reactions
   output$top_pt <- renderGvis({
-    query <- faers_query()$openfda_query
+    query <- faers_query()
+    
     data <- query %>%
       fda_count("patient.reaction.reactionmeddrapt.exact") %>%
       fda_limit(25) %>%
       fda_exec()
-    gvisBarChart_HCSC(data, "term", "count", google_colors[1])
+    
+    gvisBarChart_HCSC(data, "term", "count", google_colors[4])
     })
   output$top_hlt <- renderGvis({
-    data <- faers_query()$openfda_query %>%
+    query <- faers_query()
+    
+    data <- query %>%
       fda_count("patient.reaction.reactionmeddrapt.exact") %>%
       fda_limit(1000) %>%
       fda_exec() %>%
@@ -774,14 +757,16 @@ server <- function(input, output, session) {
       summarise(count = sum(count)) %>%
       top_n(25, count) %>%
       arrange(desc(count))
-    gvisBarChart_HCSC(data, "HLT_Term", "count", google_colors[2])
+    
+    gvisBarChart_HCSC(data, "HLT_Term", "count", google_colors[5])
     })
   output$outcomeplot <- renderGvis({
-    outcome_results <- faers_query()$openfda_query %>% 
+    query <- faers_query()
+    
+    outcome_results <- query %>% 
       fda_count("patient.reaction.reactionoutcome") %>% 
       fda_exec()
-    if(is.null(outcome_results)) outcome_results <- data.table(term = numeric(), count = numeric())
-    
+    if(is.null(outcome_results)) outcome_results <- data.frame(term = numeric(), count = numeric())
     outcome_results <- outcome_results %>%  
       left_join(outcome_code) %>%
       select(label, count)
