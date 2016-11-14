@@ -148,11 +148,13 @@ ui <- dashboardPage(
                 box(h3("Reasons for serious reports"),
                     htmlOutput("seriousreasonsplot"),
                     "Total sums to more than 100% because reports can be marked serious for multiple reasons.",
-                    width = 3),
+                    width = 5)
+              ),
+              fluidRow(
                 box(h3("Country"),
                     htmlOutput("countryplot"),
                     "Country the reaction(s) occurred in. This is not necessarily the same country the report was received from.",
-                    width = 3)
+                    width = 6)
               )
       ),
       tabItem(tabName = "patientdata",
@@ -408,7 +410,7 @@ server <- function(input, output, session) {
              age_group = ifelse(term >= 13 & term < 18, "Adolescent", age_group),
              age_group = ifelse(term >= 18 & term <= 65, "Adult", age_group),
              age_group = ifelse(term > 65, "Elderly", age_group),
-             age_group = ifelse(is.na(term), "Not Reported", age_group))
+             age_group = ifelse(is.na(term), "Not reported", age_group))
   })
   
   ########## Output
@@ -476,10 +478,6 @@ server <- function(input, output, session) {
     results$serious[is.na(results$serious)] <- 0
     results$death[is.na(results$death)] <- 0
     
-    colors_string <- google_colors[c(19, 14, 2)] %>%
-      {paste0("'", ., "'")} %>%
-      paste(collapse = ", ") %>%
-      {paste0("[", ., "]")}
     gvisLineChart(results,
                   xvar = "month",
                   yvar = c("total", "serious", "death"),
@@ -488,7 +486,7 @@ server <- function(input, output, session) {
                     vAxis = "{title: 'Number of Reports'}",
                     hAxis = "{title: 'Month'}",
                     chartArea = "{top: 10, height: '80%', left: 120, width: '84%'}",
-                    colors = colors_string
+                    colors = colorCodeToString(google_colors[c(19, 14, 2)])
                   ))
   })
   output$search_url <- renderUI({
@@ -528,10 +526,7 @@ server <- function(input, output, session) {
     if (!is.null(unknown)) reporter_results <- rbind(reporter_results, c("Not reported", unknown))
     reporter_results %<>% mutate(count = as.numeric(count))
     
-    gvisPieChart(reporter_results, 
-                 labelvar = "label",
-                 numvar = "count", 
-                 options = list(pieHole = 0.4))
+    gvisPieChart_HCSC(reporter_results, "label", "count")
   })
   output$seriousplot <- renderGvis({
     query <- faers_query()
@@ -542,7 +537,8 @@ server <- function(input, output, session) {
     
     serious_results <- serious_results %>%
       mutate(label = ifelse(term == 1, "Serious", "Non-serious")) %>%
-      select(label, count)
+      select(label, count) %>%
+      slice(match(c("Serious", "Non-serious", "Not reported"), label))
     
     unknown <- query %>%
       fda_filter("_missing_", "serious") %>%
@@ -554,10 +550,7 @@ server <- function(input, output, session) {
     if (!is.null(unknown)) serious_results <- rbind(serious_results, c("Not Reported", unknown))
     serious_results %<>% mutate(count = as.numeric(count))
     
-    gvisPieChart(serious_results, 
-                 labelvar = "label",
-                 numvar = "count", 
-                 options = list(pieHole = 0.4))
+    gvisPieChart_HCSC(serious_results, "label", "count")
   })
   output$seriousreasonsplot <- renderGvis({
     query <- faers_query()
@@ -598,7 +591,7 @@ server <- function(input, output, session) {
       filter(term == "1") %>%
       .$count
     
-    serious_reasons <- bind_rows("Congenital Anomaly" = congenital_results,
+    serious_reasons <- bind_rows("Congenital anomaly" = congenital_results,
                                  "Death" = death_results,
                                  "Disabling" = disabling_results,
                                  "Hospitalization" = hospital_results,
@@ -615,8 +608,9 @@ server <- function(input, output, session) {
                  options = list(
                    legend = "{position: 'none'}",
                    hAxis = "{title: 'Percentage'}",
-                   chartArea = "{top: 0, height: '80%', left: 100, width: '60%'}",
-                   bar = "{groupWidth: '90%'}"
+                   chartArea = "{top: 0, height: '80%', left: 150, width: '60%'}",
+                   bar = "{groupWidth: '90%'}",
+                   colors = colorCodeToString(google_colors[5])
                  )
     )
   })
@@ -625,6 +619,7 @@ server <- function(input, output, session) {
     
     country_results <- query %>%
       fda_count("occurcountry") %>%
+      fda_limit(10) %>%
       fda_exec()
     if (is.null(country_results)) country_results <- data.frame(term = character(), count = numeric())
     
@@ -636,13 +631,20 @@ server <- function(input, output, session) {
       .$results %>%
       .$total
     
-    if (!is.null(unknown)) country_results <- rbind(country_results, c("Not Reported", unknown))
+    if (!is.null(unknown)) country_results <- rbind(country_results, c("not reported", unknown))
     country_results %<>% mutate(count = as.numeric(count))
     
-    gvisPieChart(country_results, 
-                 labelvar = "term",
-                 numvar = "count", 
-                 options = list(pieHole = 0.4))
+    gvisBarChart(data = country_results,
+                 xvar = "term",
+                 yvar = "count",
+                 options = list(
+                   legend = "{position: 'none'}",
+                   hAxis = "{title: 'Number of Reports'}",
+                   colors = colorCodeToString(google_colors[9]),
+                   height = 300,
+                   chartArea = "{top: 0, height: '80%', left: 100, width: '80%'}",
+                   bar = "{groupWidth: '80%'}"
+                 ))
   })
   
   ### Data about Patients
@@ -662,24 +664,17 @@ server <- function(input, output, session) {
       .$meta %>%
       .$results %>%
       .$total
-    if (!is.null(unknown)) sex_results %<>% rbind(c(3, unknown, "Not Reported"))
+    if (!is.null(unknown)) sex_results %<>% rbind(c(3, unknown, "Not reported"))
     sex_results %<>% select(label, count) %>% mutate(count = as.numeric(count))
     
-    gvisPieChart(sex_results,
-                 labelvar = "label",
-                 numvar = "count",
-                 options = list(pieHole = 0.4))
+    gvisPieChart_HCSC(sex_results, "label", "count")
   })
   output$agegroupplot <- renderGvis({
     age_groups <- ages() %>%
       group_by(age_group) %>%
       summarise(count = sum(count))
     
-    gvisPieChart(age_groups, 
-                 labelvar = "age_group",
-                 numvar = "count", 
-                 options = list(pieHole = 0.4,
-                                sliceVisibilityThreshold = 0.001))
+    gvisPieChart_HCSC(age_groups, "age_group", "count")
   })
   output$agehist <- renderPlotly({
     age_groups <- ages() %>% filter(age_group != "Unknown", term <= 130)
@@ -773,10 +768,7 @@ server <- function(input, output, session) {
       left_join(outcome_code) %>%
       select(label, count)
     
-    gvisPieChart(outcome_results, 
-                 labelvar = "label",
-                 numvar = "count", 
-                 options = list(pieHole = 0.4))
+    gvisPieChart_HCSC(outcome_results, "label", "count")
   })
   
 }

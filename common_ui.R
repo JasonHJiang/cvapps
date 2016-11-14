@@ -23,21 +23,35 @@ google_colors = c(
   "#3B3EAC"
 )
 # default styles for easier plotting
-gvisBarChart_HCSC <- function(data, xvar, yvar, colors = google_colors) {
+colorCodeToString <- function(colors) {
   colors_string <- colors %>%
-    {paste0("'", ., "'")} %>%
+  {paste0("'", ., "'")} %>%
     paste(collapse = ", ") %>%
     {paste0("[", ., "]")}
+}
+gvisBarChart_HCSC <- function(data, xvar, yvar, colors = google_colors) {
   gvisBarChart(data = data,
                xvar = xvar,
                yvar = yvar,
                options = list(
                  legend = "{position: 'none'}",
                  hAxis = "{title: 'Number of Reports'}",
-                 colors = colors_string,
+                 colors = colorCodeToString(colors),
                  height = 600,
                  chartArea = "{top: 20, height: '90%', left: 250, width: '60%'}",
                  bar = "{groupWidth: '80%'}"
+               )
+  )
+}
+gvisPieChart_HCSC <- function(data, labelvar, numvar, colors = google_colors) {
+  gvisPieChart(data = data,
+               labelvar = labelvar,
+               numvar = numvar,
+               options = list(
+                 colors = colorCodeToString(colors),
+                 chartArea = "{top: 15, height: '80%', width: '90%'}",
+                 pieHole = 0.4,
+                 fontSize = 11
                )
   )
 }

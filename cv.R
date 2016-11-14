@@ -116,15 +116,15 @@ ui <- dashboardPage(
                 box(h3("Reporter"),
                     htmlOutput("reporterplot"),
                     "Qualification of the person who filed the report.",
-                    width = 4),
+                    width = 3),
                 box(h3("Serious reports"),
                     htmlOutput("seriousplot"),
                     "Reports marked as serious.",
-                    width = 4),
+                    width = 3),
                 box(h3("Reasons for serious reports"),
                     htmlOutput("seriousreasonsplot"),
                     "Total sums to more than 100% because reports can be marked serious for multiple reasons.",
-                    width = 4)
+                    width = 5)
               )
       ),
       tabItem(tabName = "patientdata",
@@ -447,24 +447,26 @@ server <- function(input, output, session) {
     reporter_results <- cv_master_tab() %>%
       group_by(REPORTER_TYPE_ENG) %>%
       summarise(count = n_distinct(REPORT_ID))
-    reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == ""] <- "Not Reported"
+    reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == ""] <- "Not reported"
+    reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == "Consumer Or Other Non Health Professional"] <- "Consumer or non-health professional"
+    reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == "Other Health Professional"] <- "Other health professional"
     # data <- reports_tab(current_generic="ampicillin",current_brand="PENBRITIN",current_rxn="Urticaria",date_ini=ymd("19650101"),date_end=ymd("20151231"))
     
-    gvisPieChart(reporter_results, 
-                 labelvar = "REPORTER_TYPE_ENG",
-                 numvar = "count", 
-                 options = list(pieHole = 0.4))
+    gvisPieChart_HCSC(reporter_results, "REPORTER_TYPE_ENG", "count")
   })
   output$seriousplot <- renderGvis({
     serious_results <- cv_master_tab() %>%
+      mutate(SERIOUSNESS_ENG = ifelse(REPORT_ID == 645744, "Yes", SERIOUSNESS_ENG)) %>%
       group_by(SERIOUSNESS_ENG) %>%
-      summarise(count = n_distinct(REPORT_ID))
-    serious_results$SERIOUSNESS_ENG[serious_results$SERIOUSNESS_ENG == ""] <- "Not Reported"
+      summarise(count = n_distinct(REPORT_ID)) %>%
+      mutate(label = NA,
+             label = ifelse(SERIOUSNESS_ENG == "Yes", "Serious", label),
+             label = ifelse(SERIOUSNESS_ENG == "No", "Non-serious", label),
+             label = ifelse(SERIOUSNESS_ENG == "", "Not reported", label)) %>%
+      select(label, count) %>%
+      slice(match(c("Serious", "Non-serious", "Not reported"), label))
     
-    gvisPieChart(serious_results, 
-                 labelvar = "SERIOUSNESS_ENG",
-                 numvar = "count", 
-                 options = list(pieHole = 0.4))
+    gvisPieChart_HCSC(serious_results, "label", "count")
   })
   output$seriousreasonsplot <- renderGvis({
     data <- cv_master_tab() %>%
@@ -535,8 +537,9 @@ server <- function(input, output, session) {
                  options = list(
                    legend = "{position: 'none'}",
                    hAxis = "{title: 'Percentage'}",
-                   chartArea = "{top: 0, height: '80%', left: 100, width: '60%'}",
-                   bar = "{groupWidth: '90%'}"
+                   chartArea = "{top: 0, height: '80%', left: 150, width: '60%'}",
+                   bar = "{groupWidth: '90%'}",
+                   colors = colorCodeToString(google_colors[5])
                  )
     )
   })
@@ -547,28 +550,19 @@ server <- function(input, output, session) {
       dplyr::select(REPORT_ID, DATINTRECEIVED_CLEAN, GENDER_ENG, AGE_Y, AGE_GROUP_CLEAN)
     
     # replace blank in GENDER_ENG with character "Unknown"
-    data$GENDER_ENG[data$GENDER_ENG == ""] <- "Unknown"
+    data$GENDER_ENG[data$GENDER_ENG == ""] <- "Not specified"
+    data$GENDER_ENG[data$GENDER_ENG == "Not specified"] <- "Not reported"
     
     sex_results <- dplyr::summarise(group_by(data, GENDER_ENG),count=n_distinct(REPORT_ID))
     
-    gvisPieChart(sex_results, 
-                 labelvar = "GENDER_ENG",
-                 numvar = "count", 
-                 options = list(pieHole = 0.4, pieSliceText="percentage", fontSize=12))
+    gvisPieChart_HCSC(sex_results, "GENDER_ENG", "count")
   })
   output$agegroupplot <- renderGvis({
     age_groups <- ages() %>%
       group_by(age_group) %>%
       summarise(count = sum(count))
     
-    gvisPieChart(age_groups, 
-                 labelvar = "age_group",
-                 numvar = "count", 
-                 options = list(height = 300,
-                                pieHole = 0.3,
-                                fontSize = 12,
-                                sliceVisibilityThreshold = 0.0001)
-                 )
+    gvisPieChart_HCSC(age_groups, "age_group", "count")
   })
   output$agehist <- renderPlotly({
     age_groups <- ages() %>% filter(age_group != "Unknown", AGE_Y <= 130)
@@ -674,13 +668,9 @@ server <- function(input, output, session) {
   output$outcomeplot <- renderGvis({
     data <- cv_master_tab() %>%
       dplyr::select(REPORT_ID, OUTCOME_ENG)
-    
     outcome_results <-  dplyr::summarise(group_by(data, OUTCOME_ENG),count=n_distinct(REPORT_ID))
     
-    gvisPieChart(outcome_results, 
-                 labelvar = "OUTCOME_ENG",
-                 numvar = "n", 
-                 options = list(pieHole = 0.4))
+    gvisPieChart_HCSC(outcome_results, "OUTCOME_ENG", "n")
   })
   
   ############# Download Tab
