@@ -426,7 +426,7 @@ server <- function(input, output, session) {
     results$serious[is.na(results$serious)] <- 0
     results$death[is.na(results$death)] <- 0
     
-    colors_string <- google_colors[c(19, 14, 2)] %>%
+    colors_string <- google_colors[c(18, 13, 2)] %>%
       {paste0("'", ., "'")} %>%
       paste(collapse = ", ") %>%
       {paste0("[", ., "]")}
@@ -516,19 +516,17 @@ server <- function(input, output, session) {
                                             "Death",
                                             "Disability",
                                             "Hospitalization",
-                                            "Life-threatening",
-                                            "Other medically important condition",
-                                            "Not specified"),
+                                            "Life-threatening"),
                                   count = c(n_congen,
                                             n_death, 
                                             n_disab,
                                             n_lifethreat,
-                                            n_hosp,
-                                            n_other,
-                                            n_notspec),
+                                            n_hosp),
                                   stringsAsFactors = FALSE) %>%
       mutate(percentage = count/total_serious * 100) %>% 
-      arrange(desc(percentage))
+      arrange(desc(percentage)) %>%
+      rbind(list("Other medically important condition", n_other, n_other/total_serious * 100)) %>%
+      rbind(list("Not specified", n_notspec, n_notspec/total_serious * 100))
     serious_reasons$percentage %<>% round(digits = 2)
     
     gvisBarChart(serious_reasons,

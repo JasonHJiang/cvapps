@@ -486,7 +486,7 @@ server <- function(input, output, session) {
                     vAxis = "{title: 'Number of Reports'}",
                     hAxis = "{title: 'Month'}",
                     chartArea = "{top: 10, height: '80%', left: 120, width: '84%'}",
-                    colors = colorCodeToString(google_colors[c(19, 14, 2)])
+                    colors = colorCodeToString(google_colors[c(18, 13, 2)])
                   ))
   })
   output$search_url <- renderUI({
@@ -596,10 +596,10 @@ server <- function(input, output, session) {
                                  "Disabling" = disabling_results,
                                  "Hospitalization" = hospital_results,
                                  "Life-threatening" = lifethreaten_results,
-                                 "Other" = serother_results,
                                  .id = "label") %>%
       mutate(percentage = count/total_serious * 100) %>%
-      arrange(desc(percentage))
+      arrange(desc(percentage)) %>%
+      rbind(list("Other", 1, serother_results$count, serother_results$count/total_serious * 100))
     serious_reasons$percentage %<>% round(digits = 2)
     
     gvisBarChart(serious_reasons,
@@ -640,7 +640,7 @@ server <- function(input, output, session) {
                  options = list(
                    legend = "{position: 'none'}",
                    hAxis = "{title: 'Number of Reports'}",
-                   colors = colorCodeToString(google_colors[9]),
+                   colors = colorCodeToString(google_colors[8]),
                    height = 300,
                    chartArea = "{top: 0, height: '80%', left: 100, width: '80%'}",
                    bar = "{groupWidth: '80%'}"
