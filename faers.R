@@ -230,7 +230,7 @@ ui <- dashboardPage(
                 "</p>",
                 "<p>",
                 "This app has been developed by the Data Sciences Unit of RMOD at Health Canada. ",
-                "This app is a prototype experiment that utilizes publically available data (Open FDA) ",
+                "This app is a prototype experiment that utilizes publically available data (openFDA) ",
                 "and presents it in an interactive way for enhanced visualizations. This app allows users to ",
                 "effortlessly interact with the reports database, conduct searches and view results in highly ",
                 "interactive dashboards. <b>NOTE</b>: This app uses US Trade Name and Generic Name definitions; ",
@@ -245,7 +245,9 @@ ui <- dashboardPage(
                 "and Health Canada claims no responsibility for out-of-date information. For more information, please refer to ",
                 "<a href = \"https://open.fda.gov/drug/event/reference/\">",
                 "https://open.fda.gov/drug/event/reference/",
-                "</a>.",
+                "</a>. Due to ongoing issues with the openFDA API (",
+                "<a href = \"https://github.com/FDA/openfda/issues/29\">https://github.com/FDA/openfda/issues/29</a>",
+                "), some search terms with symbols may not be available for querying.",
                 "</p>")),
               aboutAuthors()
               )
