@@ -427,8 +427,7 @@ server <- function(input, output, session) {
                          stringsAsFactors = FALSE)
     result$values["" == result$values] <- "Not Specified"
     result
-  },
-  include.colnames = FALSE)
+  }, include.colnames = FALSE)
   
   ### Create time plot
   output$timeplot_title <- renderUI({

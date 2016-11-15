@@ -71,10 +71,11 @@ cv_drug_rxn_meddra <- hcopen %>% tbl("cv_drug_rxn_meddra")
 cv_drug_rxn_2006 <- cv_drug_rxn_meddra %>% filter(quarter >= 2006.1)
 count_quarter_pt <- group_by(cv_drug_rxn_2006, ing, PT_NAME_ENG, quarter) %>%
   dplyr::summarize(count = n_distinct(REPORT_ID)) %>%
-  ungroup()
+  ungroup() %>% as.data.frame()
 count_quarter_hlt <- group_by(cv_drug_rxn_2006, ing, HLT_NAME_ENG, quarter) %>%
   dplyr::summarize(count = n_distinct(REPORT_ID)) %>%
-  ungroup()
+  ungroup() %>% as.data.frame()
+quarters <- count_quarter_pt %>% select(quarter) %>% distinct() %>% as.data.frame()
 
 
 # PT-HLT mapping
@@ -110,10 +111,12 @@ ui <- dashboardPage(
                     value = FALSE),
       div(style="display: inline-block; width: 50%;",
           textInput(inputId = "min_count",
-                  label = "Min. count:")),
+                  label = "Min. count:",
+                  value = "0")),
       div(style="display: inline-block; width: 50%;",
         textInput(inputId = "min_exp",
-                  label = "Min. expected:")),
+                  label = "Min. expected:",
+                  value = "0")),
       checkboxInput(inputId = "inf_filter_pt",
                     label = "Exclude Inf PRR from table",
                     value = FALSE),
@@ -205,18 +208,6 @@ ui <- dashboardPage(
 
 ############################## Server component ####
 server <- function(input, output, session) {
-  observe({
-    filter <- as.numeric(input$min_count)
-    if (is.na(filter) | filter < 0) filter = 0
-    filter <- floor(filter)
-    updateTextInput(session, "min_count", value = filter)
-  })
-  observe({
-    filter <- as.numeric(input$min_exp)
-    if (is.na(filter) | filter < 0) filter = 0
-    updateTextInput(session, "min_exp", value = filter)
-  })
-  
   # Relabel rxns dropdown menu based on selected drug
   observeEvent(input$search_drug, {
     hlt_choices <- drug_PT_HLT
@@ -273,34 +264,48 @@ server <- function(input, output, session) {
     }
   })
   
-  # Data frame generate reactive function to be used to assign: data <- cv_reports_tab()
-  search_tab <- reactive({
+  ########## Reactive data processing
+  # Data structure to store current query info
+  current_search <- reactive({
     input$search_button
     isolate({
-      #codes about select specific generic, brand and reaction name in search side bar, making sure they're not NA
-      current_drug <- ifelse(input$search_drug == "", "Not Specified", input$search_drug)
-      current_hlt <- ifelse(input$search_hlt == "", "Not Specified", input$search_hlt)
-      current_pt <- ifelse(input$search_pt == "", "Not Specified", input$search_pt)
+      min_count <- as.numeric(input$min_count)
+      if (is.na(min_count) | min_count < 0) min_count = 0
+      min_count <- floor(min_count)
+      updateTextInput(session, "min_count", value = min_count)
       
-      search_tab_df <- data.frame(names = c("Generic Name:",
-                                            "High-Level Term:",
-                                            "Preferred Term:"),
-                                  terms = c(current_drug,
-                                            current_hlt,
-                                            current_pt),
-                                  stringsAsFactors=FALSE)
+      min_exp <- as.numeric(input$min_exp)
+      if (is.na(min_exp) | min_exp < 0) min_exp = 0
+      updateTextInput(session, "min_exp", value = min_exp)
+      
+      list(min_count = min_count,
+           min_exp = min_exp,
+           drug = input$search_drug,
+           hlt = input$search_hlt,
+           pt = input$search_pt,
+           filter_inf = input$inf_filter_pt)
     })
   })
+  
+  ########## Output
   # Display what query was searched
-  output$current_search <- renderTable(
-    search_tab(),
-    include.colnames = FALSE
-  )
+  output$current_search <- renderTable({
+    data <- current_search()
+    result <- data.frame(names = c("Generic Name:",
+                                   "High-Level Term:",
+                                   "Preferred Term:"),
+                         terms = c(data$drug,
+                                   data$hlt,
+                                   data$pt),
+                         stringsAsFactors=FALSE)
+    result["" == result] <- "Not Specified"
+    result
+  }, include.colnames = FALSE)
   
   output$pt_data_dl <- downloadHandler(
     filename = function() {
-      current_drug <- search_tab()$terms[1]
-      if (current_drug == "Not Specified") current_drug <- "all"
+      current_drug <- current_search()$drug
+      if (current_drug == "") current_drug <- "all"
       current_drug <- gsub(" ", "_", current_drug)
       current_drug <- gsub("\\|", "-", current_drug)
       paste0('pt_data_', current_drug, '.csv')
@@ -311,8 +316,8 @@ server <- function(input, output, session) {
   )
   output$hlt_data_dl <- downloadHandler(
     filename = function() {
-      current_drug <- search_tab()$terms[1]
-      if (current_drug == "Not Specified") current_drug <- "all"
+      current_drug <- current_search()$drug
+      if (current_drug == "") current_drug <- "all"
       current_drug <- gsub(" ", "_", current_drug)
       current_drug <- gsub("\\|", "-", current_drug)
       paste0('hlt_data_', current_drug, '.csv')
@@ -326,121 +331,22 @@ server <- function(input, output, session) {
   table_pt_data <- reactive({
     input$search_button # hacky way to get eventReactive but also initial load
     isolate({
-    # PRR and ROR values of Inf means there are no other drugs associated with that specific adverse reaction, so denomimator is zero!
-    # prr_tab_df is simply the table displayed at the bottom
-    table <- master_table_pt
-    if (input$search_drug != "") table %<>% filter(drug_code == input$search_drug)
-    if (input$search_pt != "") table %<>% filter(event_effect == input$search_pt)
-    if (input$inf_filter_pt) table %<>% filter(PRR != Inf)
-    table %<>% filter(count >= input$min_count) %>%
-      filter(expected_count >= input$min_exp) %>%
-      arrange(desc(median_IC), desc(LB95_IC), drug_code, event_effect) %>%
-      as.data.frame() %>%
-      lapply(function(x) {if (is.numeric(x)) round(x,3) else x}) %>%
-      as.data.frame()
-  })
-  })
-
-  # time-series data
-  time_data_pt <- reactive({
-    top_pairs <- table_pt_data() %>% select(drug_code, event_effect) %>%
-      mutate(drug_code = as.character(drug_code), event_effect = as.character(event_effect)) %>% head(10)
-    if (1 == nrow(top_pairs)) {
-      # the SQL IN comparison complains if there's only one value to match to (when we specify both drug and rxn)
-      timeplot_df <- count_quarter_pt %>% filter(ing == top_pairs$drug_code,
-                                                 PT_NAME_ENG == top_pairs$event_effect) %>% as.data.frame()
-    } else {
-      timeplot_df <- count_quarter_pt %>% filter(ing %in% top_pairs$drug_code,
-                                                 PT_NAME_ENG %in% top_pairs$event_effect) %>% as.data.frame()
-    }
-    # timeplot_df <- count_quarter_pt %>% as.data.frame() %>%
-    #   semi_join(top_pairs, by = c("ing" = "drug_code", "PT_NAME_ENG" = "event_effect")) %>%
-    #   as.data.frame()
-    quarters_df <- count_quarter_pt %>% select(quarter) %>% distinct() %>% as.data.frame() %>% cbind(count = 0)
-    pairs_df <- top_pairs %>% rename(ing = drug_code, PT_NAME_ENG = event_effect) %>% cbind(count = 0)
-    filled_time_df <- full_join(pairs_df, quarters_df, by = "count") %>% bind_rows(timeplot_df)
-    filled_time_df %<>% group_by(ing, PT_NAME_ENG, quarter) %>% summarise(count = sum(count))
-    # filled_time_df <- timeplot_df %>%
-    #   mutate(label = paste0(ing, "_", PT_NAME_ENG)) %>%
-    #   select(-ing, -PT_NAME_ENG) %>%
-    #   spread(label, count)
-    # filled_time_df[is.na(filled_time_df)] <- 0
-    # filled_time_df
-  })
-
-
-  table_hlt_data <- reactive({
-    input$search_button # hacky way to get eventReactive but also initial load
-    isolate({
+      data <- current_search()
       # PRR and ROR values of Inf means there are no other drugs associated with that specific adverse reaction, so denomimator is zero!
       # prr_tab_df is simply the table displayed at the bottom
-      table <- master_table_hlt
-      if (input$search_drug != "") table %<>% filter(drug_code == input$search_drug)
-      if (input$search_hlt != "") table %<>% filter(event_effect == input$search_hlt)
-      if (input$inf_filter_pt) table %<>% filter(PRR != Inf)
-      table %<>% filter(count >= input$min_count) %>%
-        filter(expected_count >= input$min_exp) %>%
+      table <- master_table_pt
+      if (data$drug != "") table %<>% filter(drug_code == data$drug)
+      if (data$pt != "") table %<>% filter(event_effect == data$pt)
+      if (data$filter_inf) table %<>% filter(PRR != Inf)
+      table %>% filter(count >= data$min_count) %>%
+        filter(expected_count >= data$min_exp) %>%
         arrange(desc(median_IC), desc(LB95_IC), drug_code, event_effect) %>%
         as.data.frame() %>%
         lapply(function(x) {if (is.numeric(x)) round(x,3) else x}) %>%
         as.data.frame()
     })
   })
-
-  # time-series data
-  time_data_hlt <- reactive({
-    top_pairs <- table_hlt_data() %>% dplyr::select(drug_code, event_effect) %>%
-      mutate(drug_code = as.character(drug_code), event_effect = as.character(event_effect)) %>% head(10)
-    if (1 == nrow(top_pairs)) {
-      # the SQL IN comparison complains if there's only one value to match to (when we specify both drug and rxn)
-      timeplot_df <- count_quarter_hlt %>% filter(ing == top_pairs$drug_code,
-                                                  HLT_NAME_ENG == top_pairs$event_effect) %>% as.data.frame()
-    } else {
-      timeplot_df <- count_quarter_hlt %>% filter(ing %in% top_pairs$drug_code,
-                                                  HLT_NAME_ENG %in% top_pairs$event_effect) %>% as.data.frame()
-    }
-    quarters_df <- count_quarter_hlt %>% select(quarter) %>% distinct() %>% as.data.frame() %>% cbind(count = 0)
-    pairs_df <- top_pairs %>% rename(ing = drug_code, HLT_NAME_ENG = event_effect) %>% cbind(count = 0)
-    filled_time_df <- full_join(pairs_df, quarters_df, by = "count") %>% bind_rows(timeplot_df)
-    filled_time_df %<>% group_by(ing, HLT_NAME_ENG, quarter) %>% summarise(count = sum(count))
-  })
   
-
-
-  # Time Plot
-  output$timeplot_pt <- renderPlot({
-    input$search_button # hacky way to get eventReactive but also initial load
-    isolate({
-    current_drug <- ifelse(input$search_drug == "","All Drugs",input$search_drug)
-    current_rxn <- ifelse(input$search_pt == "","Top 10 Reactions with Highest IC Estimates",input$search_pt)
-    })
-    plottitle <- paste("Non-Cumulative Report Count Time Plot for:", current_drug, "&", current_rxn)
-
-    df <- time_data_pt() %>%
-    #   mutate(qtr = (quarter%%1 - 0.1)*2.5 + quarter%/%1)
-    # gvisLineChart(df,
-    #               xvar = "qtr",
-    #               yvar = names(df)[2:11]
-    #               options = list(
-    #                 height = 350,
-    #                 vAxis = "{title: 'Number of Reports'}",
-    #                 hAxis = "{title: 'Month'}",
-    #                 chartArea = "{top: 10, height: '80%', left: 120, width: '84%'}")
-    # )
-      mutate(qtr = as.yearqtr(quarter %>% as.character(), '%Y.%q'))
-    p <- ggplot(df, aes(x = qtr, y = count)) +
-      scale_x_yearqtr(breaks = seq(min(df$qtr), max(df$qtr), 0.25),
-                      format = "%Y Q%q") +
-      geom_line(aes(colour=PT_NAME_ENG)) + geom_point()  +
-      ggtitle(plottitle) +
-      xlab("Quarter") +
-      ylab("Report Count") +
-      theme_bw() +
-      theme(plot.title = element_text(lineheight=.8, face="bold"), axis.text.x = element_text(angle=30, vjust=0.9, hjust=1))
-    print(p)
-
-  })
-
   # pass either datatable object or data to be turned into one to renderDataTable
   output$table_pt <- DT::renderDataTable(DT::datatable(
     table_pt_data(),
@@ -454,6 +360,122 @@ server <- function(input, output, session) {
       columnDefs = list(list(visible = FALSE,
                              targets = c(5, 6, 9, 13, 14, 16, 17)))
     )))
+  
+  table_hlt_data <- reactive({
+    input$search_button # hacky way to get eventReactive but also initial load
+    isolate({
+      data <- current_search()
+      # PRR and ROR values of Inf means there are no other drugs associated with that specific adverse reaction, so denomimator is zero!
+      # prr_tab_df is simply the table displayed at the bottom
+      table <- master_table_hlt
+      if (data$drug != "") table %<>% filter(drug_code == data$drug)
+      if (data$hlt != "") table %<>% filter(event_effect == data$hlt)
+      if (data$filter_inf) table %<>% filter(PRR != Inf)
+      table %<>% filter(count >= data$min_count) %>%
+        filter(expected_count >= data$min_exp) %>%
+        arrange(desc(median_IC), desc(LB95_IC), drug_code, event_effect) %>%
+        as.data.frame() %>%
+        lapply(function(x) {if (is.numeric(x)) round(x,3) else x}) %>%
+        as.data.frame()
+    })
+  })
+  
+  # pass either datatable object or data to be turned into one to renderDataTable
+  output$table_hlt <- DT::renderDataTable(DT::datatable(
+    table_hlt_data(),
+    extensions = 'Buttons',
+    options = list(
+      scrollX = TRUE,
+      dom = 'Bfrtip',
+      buttons = list(list(extend = 'colvis',
+                          text = 'Columns to display',
+                          columns = 5:17)),
+      columnDefs = list(list(visible = FALSE,
+                             targets = c(5, 6, 9, 13, 14, 16, 17)))
+    )))
+  
+  # time-series data
+  time_data_pt <- reactive({
+    top_pairs <- table_pt_data() %>% head(10) %>% select(drug_code, event_effect) %>%
+      mutate(drug_code = as.character(drug_code), event_effect = as.character(event_effect))
+    timeplot_df <- count_quarter_pt %>% semi_join(top_pairs, by = c("ing" = "drug_code", "PT_NAME_ENG" = "event_effect"))
+    quarters_df <- quarters %>% cbind(count = 0)
+    pairs_df <- top_pairs %>% rename(ing = drug_code, PT_NAME_ENG = event_effect) %>% cbind(count = 0)
+    filled_time_df <- full_join(pairs_df, quarters_df, by = "count") %>%
+      bind_rows(timeplot_df) %>%
+      group_by(ing, PT_NAME_ENG, quarter) %>%
+      summarise(n = sum(count)) %>%
+      ungroup() %>%
+      mutate(label = paste0(ing, "_", PT_NAME_ENG)) %>%
+      select(label, quarter, n)
+    total_df <- count_quarter_pt
+    if (current_search()$drug != "") total_df %<>% filter(ing == current_search()$drug)
+    total_df %<>% count(quarter, wt = count) %>%
+      mutate(label = paste0("total for query")) %>%
+      select(label, quarter, n)
+    
+    # filled_time_df <- timeplot_df %>%
+    #   mutate(label = paste0(ing, "_", PT_NAME_ENG)) %>%
+    #   select(-ing, -PT_NAME_ENG) %>%
+    #   spread(label, count)
+    # filled_time_df[is.na(filled_time_df)] <- 0
+    # filled_time_df
+    rbind(filled_time_df, total_df)
+  })
+  
+  
+  # Time Plot
+  output$timeplot_pt <- renderPlot({
+    data <- current_search()
+    
+    current_drug <- ifelse(data$drug == "", "All Drugs", data$drug)
+    current_rxn <- ifelse(data$pt == "", "Top 10 Reactions with Highest IC Estimates", data$pt)
+    plottitle <- paste("Non-Cumulative Report Count Time Plot for:", current_drug, "&", current_rxn)
+    
+    df <- time_data_pt() %>%
+      #   mutate(qtr = (quarter%%1 - 0.1)*2.5 + quarter%/%1)
+      # gvisLineChart(df,
+      #               xvar = "qtr",
+      #               yvar = names(df)[2:11]
+      #               options = list(
+      #                 height = 350,
+      #                 vAxis = "{title: 'Number of Reports'}",
+      #                 hAxis = "{title: 'Month'}",
+      #                 chartArea = "{top: 10, height: '80%', left: 120, width: '84%'}")
+      # )
+      mutate(qtr = as.yearqtr(quarter %>% as.character(), '%Y.%q'))
+    p <- ggplot(df, aes(x = qtr, y = n)) +
+      scale_x_yearqtr(breaks = seq(min(df$qtr), max(df$qtr), 0.25),
+                      format = "%Y Q%q") +
+      geom_line(aes(colour=label)) + geom_point()  +
+      ggtitle(plottitle) +
+      xlab("Quarter") +
+      ylab("Report Count") +
+      theme_bw() +
+      theme(plot.title = element_text(lineheight=.8, face="bold"), axis.text.x = element_text(angle=30, vjust=0.9, hjust=1))
+    print(p)
+    
+  })
+  
+  
+  # time-series data
+  time_data_hlt <- reactive({
+    top_pairs <- table_hlt_data() %>% dplyr::select(drug_code, event_effect) %>%
+      mutate(drug_code = as.character(drug_code), event_effect = as.character(event_effect)) %>% head(10)
+    if (1 == nrow(top_pairs)) {
+      # the SQL IN comparison complains if there's only one value to match to (when we specify both drug and rxn)
+      timeplot_df <- count_quarter_hlt %>% filter(ing == top_pairs$drug_code,
+                                                  HLT_NAME_ENG == top_pairs$event_effect) %>% as.data.frame()
+    } else {
+      timeplot_df <- count_quarter_hlt %>% filter(ing %in% top_pairs$drug_code,
+                                                  HLT_NAME_ENG %in% top_pairs$event_effect) %>% as.data.frame()
+    }
+    quarters_df <- quarters %>% cbind(count = 0)
+    pairs_df <- top_pairs %>% rename(ing = drug_code, HLT_NAME_ENG = event_effect) %>% cbind(count = 0)
+    filled_time_df <- full_join(pairs_df, quarters_df, by = "count") %>% bind_rows(timeplot_df)
+    filled_time_df %<>% group_by(ing, HLT_NAME_ENG, quarter) %>% summarise(count = sum(count))
+  })
+  
 
   # Time Plot
   output$timeplot_hlt <- renderPlot({
@@ -476,22 +498,8 @@ server <- function(input, output, session) {
       theme_bw() +
       theme(plot.title = element_text(lineheight=.8, face="bold"), axis.text.x = element_text(angle=30, vjust=0.9, hjust=1))
     print(p)
-
   })
 
-  # pass either datatable object or data to be turned into one to renderDataTable
-  output$table_hlt <- DT::renderDataTable(DT::datatable(
-    table_hlt_data(),
-    extensions = 'Buttons',
-    options = list(
-      scrollX = TRUE,
-      dom = 'Bfrtip',
-      buttons = list(list(extend = 'colvis',
-                          text = 'Columns to display',
-                          columns = 5:17)),
-      columnDefs = list(list(visible = FALSE,
-                             targets = c(5, 6, 9, 13, 14, 16, 17)))
-    )))
 }
 
 options(shiny.trace = FALSE, shiny.reactlog = FALSE)
