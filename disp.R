@@ -108,9 +108,12 @@ ui <- dashboardPage(
       checkboxInput(inputId = "checkbox_filter_pt",
                     label = "Only see PTs from chosen HLT",
                     value = FALSE),
-      sliderInput(inputId = "min_count",
-                  label = "Minimum count:", 
-                  min=1, max=20, value=1),
+      div(style="display: inline-block; width: 50%;",
+          textInput(inputId = "min_count",
+                  label = "Min. count:")),
+      div(style="display: inline-block; width: 50%;",
+        textInput(inputId = "min_exp",
+                  label = "Min. expected:")),
       checkboxInput(inputId = "inf_filter_pt",
                     label = "Exclude Inf PRR from table",
                     value = FALSE),
@@ -202,6 +205,18 @@ ui <- dashboardPage(
 
 ############################## Server component ####
 server <- function(input, output, session) {
+  observe({
+    filter <- as.numeric(input$min_count)
+    if (is.na(filter) | filter < 0) filter = 0
+    filter <- floor(filter)
+    updateTextInput(session, "min_count", value = filter)
+  })
+  observe({
+    filter <- as.numeric(input$min_exp)
+    if (is.na(filter) | filter < 0) filter = 0
+    updateTextInput(session, "min_exp", value = filter)
+  })
+  
   # Relabel rxns dropdown menu based on selected drug
   observeEvent(input$search_drug, {
     hlt_choices <- drug_PT_HLT
@@ -318,6 +333,7 @@ server <- function(input, output, session) {
     if (input$search_pt != "") table %<>% filter(event_effect == input$search_pt)
     if (input$inf_filter_pt) table %<>% filter(PRR != Inf)
     table %<>% filter(count >= input$min_count) %>%
+      filter(expected_count >= input$min_exp) %>%
       arrange(desc(median_IC), desc(LB95_IC), drug_code, event_effect) %>%
       as.data.frame() %>%
       lapply(function(x) {if (is.numeric(x)) round(x,3) else x}) %>%
@@ -363,6 +379,7 @@ server <- function(input, output, session) {
       if (input$search_hlt != "") table %<>% filter(event_effect == input$search_hlt)
       if (input$inf_filter_pt) table %<>% filter(PRR != Inf)
       table %<>% filter(count >= input$min_count) %>%
+        filter(expected_count >= input$min_exp) %>%
         arrange(desc(median_IC), desc(LB95_IC), drug_code, event_effect) %>%
         as.data.frame() %>%
         lapply(function(x) {if (is.numeric(x)) round(x,3) else x}) %>%
