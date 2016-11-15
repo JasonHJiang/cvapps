@@ -1,6 +1,7 @@
 # data manip + utils
 library(magrittr)
 library(lubridate)
+library(tidyr)
 library(dplyr)
 library(utils)
 library(zoo)
@@ -44,7 +45,8 @@ master_table_pt <- cv_bcpnn %>%
   inner_join(cv_prr, by = c("drug_code", "event_effect")) %>%
   inner_join(cv_ror, by = c("drug_code", "event_effect")) %>%
   inner_join(cv_counts, by = c("drug_code", "event_effect")) %>%
-  select(1:4, 16:17, 5:15)
+  select(1:4, 16:17, 5:15) %>%
+  as.data.frame() # already pull entire table to display at onset of app, might as well do everything locally (faster)
 
 hlt_bcpnn <- hcopen %>% tbl("HLT_IC_161027") %>%
   select(drug_code, event_effect, count, expected_count, median_IC, LB95_IC, UB95_IC)
@@ -62,7 +64,8 @@ master_table_hlt <- hlt_bcpnn %>%
   inner_join(hlt_prr, by = c("drug_code", "event_effect")) %>%
   inner_join(hlt_ror, by = c("drug_code", "event_effect")) %>%
   inner_join(hlt_counts, by = c("drug_code", "event_effect")) %>%
-  select(1:4, 16:17, 5:15)
+  select(1:4, 16:17, 5:15) %>%
+  as.data.frame()
 
 cv_drug_rxn_meddra <- hcopen %>% tbl("cv_drug_rxn_meddra")
 cv_drug_rxn_2006 <- cv_drug_rxn_meddra %>% filter(quarter >= 2006.1)
@@ -324,7 +327,7 @@ server <- function(input, output, session) {
 
   # time-series data
   time_data_pt <- reactive({
-    top_pairs <- table_pt_data() %>% dplyr::select(drug_code, event_effect) %>%
+    top_pairs <- table_pt_data() %>% select(drug_code, event_effect) %>%
       mutate(drug_code = as.character(drug_code), event_effect = as.character(event_effect)) %>% head(10)
     if (1 == nrow(top_pairs)) {
       # the SQL IN comparison complains if there's only one value to match to (when we specify both drug and rxn)
@@ -334,10 +337,19 @@ server <- function(input, output, session) {
       timeplot_df <- count_quarter_pt %>% filter(ing %in% top_pairs$drug_code,
                                                  PT_NAME_ENG %in% top_pairs$event_effect) %>% as.data.frame()
     }
+    # timeplot_df <- count_quarter_pt %>% as.data.frame() %>%
+    #   semi_join(top_pairs, by = c("ing" = "drug_code", "PT_NAME_ENG" = "event_effect")) %>%
+    #   as.data.frame()
     quarters_df <- count_quarter_pt %>% select(quarter) %>% distinct() %>% as.data.frame() %>% cbind(count = 0)
     pairs_df <- top_pairs %>% rename(ing = drug_code, PT_NAME_ENG = event_effect) %>% cbind(count = 0)
     filled_time_df <- full_join(pairs_df, quarters_df, by = "count") %>% bind_rows(timeplot_df)
     filled_time_df %<>% group_by(ing, PT_NAME_ENG, quarter) %>% summarise(count = sum(count))
+    # filled_time_df <- timeplot_df %>%
+    #   mutate(label = paste0(ing, "_", PT_NAME_ENG)) %>%
+    #   select(-ing, -PT_NAME_ENG) %>%
+    #   spread(label, count)
+    # filled_time_df[is.na(filled_time_df)] <- 0
+    # filled_time_df
   })
 
 
@@ -388,6 +400,16 @@ server <- function(input, output, session) {
     plottitle <- paste("Non-Cumulative Report Count Time Plot for:", current_drug, "&", current_rxn)
 
     df <- time_data_pt() %>%
+    #   mutate(qtr = (quarter%%1 - 0.1)*2.5 + quarter%/%1)
+    # gvisLineChart(df,
+    #               xvar = "qtr",
+    #               yvar = names(df)[2:11]
+    #               options = list(
+    #                 height = 350,
+    #                 vAxis = "{title: 'Number of Reports'}",
+    #                 hAxis = "{title: 'Month'}",
+    #                 chartArea = "{top: 10, height: '80%', left: 120, width: '84%'}")
+    # )
       mutate(qtr = as.yearqtr(quarter %>% as.character(), '%Y.%q'))
     p <- ggplot(df, aes(x = qtr, y = count)) +
       scale_x_yearqtr(breaks = seq(min(df$qtr), max(df$qtr), 0.25),
