@@ -117,8 +117,11 @@ ui <- dashboardPage(
         textInput(inputId = "min_exp",
                   label = "Min. expected:",
                   value = "0")),
-      checkboxInput(inputId = "inf_filter_pt",
+      checkboxInput(inputId = "inf_filter",
                     label = "Exclude Inf PRR from table",
+                    value = FALSE),
+      checkboxInput(inputId = "display_total",
+                    label = "Plot total counts for query",
                     value = FALSE),
       # hacky way to get borders correct
       tags$div(class="form-group shiny-input-container",
@@ -283,7 +286,8 @@ server <- function(input, output, session) {
            drug = input$search_drug,
            hlt = input$search_hlt,
            pt = input$search_pt,
-           filter_inf = input$inf_filter_pt)
+           filter_inf = input$inf_filter,
+           display_total = input$display_total)
     })
   })
   
@@ -408,11 +412,16 @@ server <- function(input, output, session) {
       ungroup() %>%
       mutate(label = paste0(ing, "_", PT_NAME_ENG)) %>%
       select(label, quarter, n)
-    total_df <- count_quarter_pt
-    if (current_search()$drug != "") total_df %<>% filter(ing == current_search()$drug)
-    total_df %<>% count(quarter, wt = count) %>%
-      mutate(label = paste0("total for query")) %>%
-      select(label, quarter, n)
+    if (current_search()$display_total) {
+      total_df <- count_quarter_pt
+      if (current_search()$drug != "") total_df %<>% filter(ing == current_search()$drug)
+      total_df %<>% count(quarter, wt = count) %>%
+        mutate(label = paste0("total for query")) %>%
+        select(label, quarter, n)
+      filled_time_df %<>% rbind(total_df)
+    }
+    
+    filled_time_df
     
     # filled_time_df <- timeplot_df %>%
     #   mutate(label = paste0(ing, "_", PT_NAME_ENG)) %>%
@@ -420,7 +429,6 @@ server <- function(input, output, session) {
     #   spread(label, count)
     # filled_time_df[is.na(filled_time_df)] <- 0
     # filled_time_df
-    rbind(filled_time_df, total_df)
   })
   
   
@@ -460,20 +468,28 @@ server <- function(input, output, session) {
   
   # time-series data
   time_data_hlt <- reactive({
-    top_pairs <- table_hlt_data() %>% dplyr::select(drug_code, event_effect) %>%
-      mutate(drug_code = as.character(drug_code), event_effect = as.character(event_effect)) %>% head(10)
-    if (1 == nrow(top_pairs)) {
-      # the SQL IN comparison complains if there's only one value to match to (when we specify both drug and rxn)
-      timeplot_df <- count_quarter_hlt %>% filter(ing == top_pairs$drug_code,
-                                                  HLT_NAME_ENG == top_pairs$event_effect) %>% as.data.frame()
-    } else {
-      timeplot_df <- count_quarter_hlt %>% filter(ing %in% top_pairs$drug_code,
-                                                  HLT_NAME_ENG %in% top_pairs$event_effect) %>% as.data.frame()
-    }
+    top_pairs <- table_hlt_data() %>% head(10) %>% select(drug_code, event_effect) %>%
+      mutate(drug_code = as.character(drug_code), event_effect = as.character(event_effect))
+    timeplot_df <- count_quarter_hlt %>% semi_join(top_pairs, by = c("ing" = "drug_code", "HLT_NAME_ENG" = "event_effect"))
     quarters_df <- quarters %>% cbind(count = 0)
     pairs_df <- top_pairs %>% rename(ing = drug_code, HLT_NAME_ENG = event_effect) %>% cbind(count = 0)
-    filled_time_df <- full_join(pairs_df, quarters_df, by = "count") %>% bind_rows(timeplot_df)
-    filled_time_df %<>% group_by(ing, HLT_NAME_ENG, quarter) %>% summarise(count = sum(count))
+    filled_time_df <- full_join(pairs_df, quarters_df, by = "count") %>%
+      bind_rows(timeplot_df) %>%
+      group_by(ing, HLT_NAME_ENG, quarter) %>%
+      summarise(n = sum(count)) %>%
+      ungroup() %>%
+      mutate(label = paste0(ing, "_", HLT_NAME_ENG)) %>%
+      select(label, quarter, n)
+    if (current_search()$display_total) {
+      total_df <- count_quarter_hlt
+      if (current_search()$drug != "") total_df %<>% filter(ing == current_search()$drug)
+      total_df %<>% count(quarter, wt = count) %>%
+        mutate(label = paste0("total for query")) %>%
+        select(label, quarter, n)
+      filled_time_df %<>% rbind(total_df)
+    }
+    
+    filled_time_df
   })
   
 
@@ -488,10 +504,10 @@ server <- function(input, output, session) {
 
     df <- time_data_hlt() %>%
       mutate(qtr = as.yearqtr(quarter %>% as.character(), '%Y.%q'))
-    p <- ggplot(df, aes(x = qtr, y = count)) +
+    p <- ggplot(df, aes(x = qtr, y = n)) +
       scale_x_yearqtr(breaks = seq(min(df$qtr), max(df$qtr), 0.25),
                       format = "%Y Q%q") +
-      geom_line(aes(colour=HLT_NAME_ENG)) + geom_point()  +
+      geom_line(aes(colour=label)) + geom_point()  +
       ggtitle(plottitle) +
       xlab("Quarter") +
       ylab("Report Count") +
