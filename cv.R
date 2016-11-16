@@ -61,7 +61,6 @@ ui <- dashboardPage(
       menuItem("Patients", tabName = "patientdata", icon = icon("user-md")),
       menuItem("Drugs", tabName = "drugdata", icon = icon("flask")),
       menuItem("Reactions", tabName = "rxndata", icon = icon("heart-o")),
-      menuItem("Download", tabName = "downloaddata", icon = icon("download")),
       menuItem("About", tabName = "aboutinfo", icon = icon("info"))
     ),
     conditionalPanel(
@@ -94,11 +93,14 @@ ui <- dashboardPage(
                    "Search",
                    width = '100%')
     ),
-    tags$br(),
-    tags$h3(strong("Current Query:")),
+    div(style="display: inline-block; width: 57%;",
+        selectInput("search_dataset_type",
+                    "Download Type",
+                    c("Report Data", "Drug Data", "Reaction Data"))),
+    div(style="display: inline-block; vertical-align: bottom; height: 54px;",
+        downloadButton(outputId = 'download_reports',
+                       label = 'Download')),
     tableOutput("current_search")
-    # downloadButton(outputId = "hlt_data_dl",
-    #                label = "Export data")
   ), 
   
   dashboardBody(
@@ -174,21 +176,6 @@ ui <- dashboardPage(
               )
       ),
       
-      tabItem(tabName = "downloaddata",
-              fluidRow(
-                box(
-                  tags$h3("Download Data Used for Current Searched Combination"),
-                  tags$p("Please select a category: "),
-                  selectInput("search_dataset_type",
-                                 "Information Category",
-                                 c("Report Info", "Drug Info", "Reaction Info")),
-                  actionButton("search_report_type_dl","Prepare download"),
-                  textOutput("download_reports_type"),
-                  textOutput("download_reports_size"),
-                  downloadButton('download_reports', 'Download')
-                )
-              )
-      ),
       tabItem(tabName = "aboutinfo",
               box(
               width = 12,
@@ -300,33 +287,36 @@ server <- function(input, output, session) {
   subset_cv_reports <- reactive({cv_reports %>% semi_join(report_id_subset(), by = "REPORT_ID") %>% as.data.frame()})
   subset_cv_drug <- reactive({cv_report_drug %>% semi_join(report_id_subset(), by = "REPORT_ID") %>% as.data.frame()})
   subset_cv_indic <- reactive({cv_report_drug_indication %>% semi_join(report_id_subset(), by = "REPORT_ID") %>% as.data.frame()})
-  cv_download_reports <- eventReactive(input$search_report_type_dl, {
+  cv_download_reports <- reactive({
     selected_ids <- report_id_subset()
+    data_type <- ""
     
-    if(input$search_dataset_type == "Report Info"){
+    if(input$search_dataset_type == "Report Data"){
       reports_tab_master <- cv_reports %>%
-        semi_join(selected_ids)
+        semi_join(selected_ids, by = "REPORT_ID")
+      data_type <- "report"
       
-    } else if(input$search_dataset_type == "Drug Info"){
+    } else if(input$search_dataset_type == "Drug Data"){
       reports_tab_master <- cv_report_drug %>%
-        semi_join(selected_ids)
+        semi_join(selected_ids, by = "REPORT_ID") %>%
+        left_join(cv_report_drug_indication, by = c("REPORT_DRUG_ID", "REPORT_ID", "DRUG_PRODUCT_ID", "DRUGNAME"))
+      data_type <- "drug"
       
-    } else if(input$search_dataset_type == "Reaction Info"){
+    } else if(input$search_dataset_type == "Reaction Data"){
       reports_tab_master <- cv_reactions %>%
-        semi_join(selected_ids)
+        semi_join(selected_ids, by = "REPORT_ID")
+      data_type <- "rxn"
     }
     reports_tab_master %<>% as.data.frame()
     
-    download_type <- paste("Report Type to be downloaded is", input$search_dataset_type)
     # reports_tab_master_size <- paste("Size of Dataset is",
     #                                  format(object.size(reports_tab_master),
     #                                         units = "auto"))
-    reports_tab_master_size <- ""
     
-    return(list(reports_tab_master = reports_tab_master,
-                download_type = download_type,
-                download_format = input$search_dataset_type,
-                reports_tab_master_size = reports_tab_master_size)) 
+    return(list(
+      reports_tab_master = reports_tab_master,
+      data_type = data_type
+    )) 
   })
   ages <- reactive({
     data <- subset_cv_reports() %>%
@@ -672,7 +662,14 @@ server <- function(input, output, session) {
   
   ############# Download Tab
   output$download_reports <- downloadHandler(
-    filename = function() {paste0(cv_download_reports()$download_format, '.csv')},
+    filename = function() {
+      current_rxn <- current_search()$rxn
+      if (current_rxn == "") current_rxn <- "all"
+      current_drug <- current_search()$name
+      if (current_drug == "") current_drug <- "all"
+      current_drug <- gsub(" ", "_", current_drug)
+      paste0(cv_download_reports()$data_type, '_', current_drug, '_', current_rxn, '.csv')
+    },
     content = function(file){
       write.csv(cv_download_reports()$reports_tab_master,
                 file,
@@ -680,8 +677,6 @@ server <- function(input, output, session) {
                 row.names = FALSE)
     }
   )
-  output$download_reports_type <- renderText(cv_download_reports()$download_type)
-  output$download_reports_size <- renderText(cv_download_reports()$reports_tab_master_size)
   
 }
 
