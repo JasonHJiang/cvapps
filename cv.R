@@ -221,13 +221,13 @@ server <- function(input, output, session) {
     input$name_type
     isolate({
       pt_selected <- input$search_rxn
-      
+
       pt_choices <- cv_reactions
-      
+
       if (input$name_type == "brand" & input$search_brand != "") {
         related_reports <- cv_report_drug %>% filter(DRUGNAME == input$search_brand)
         pt_choices %<>% semi_join(related_reports, by = "REPORT_ID")
-        
+
       } else if (input$name_type == "ingredient" & input$search_ing != "") {
         related_drugs <- cv_substances %>% filter(ing == input$search_ing) %>% distinct(DRUGNAME)
         related_reports <- cv_report_drug %>% semi_join(related_drugs, by = "DRUGNAME")
@@ -238,16 +238,16 @@ server <- function(input, output, session) {
         as.data.frame() %>%
         `[[`(1) %>%
         sort()
-      
+
       if (! pt_selected %in% pt_choices) pt_selected = ""
       updateSelectizeInput(session, "search_rxn",
                            choices = c("Start typing to search..." = "", pt_choices),
                            selected = pt_selected)
     })
   })
-  
-  
-  ##### Reactive data processing 
+
+
+  ##### Reactive data processing
   # Data structure to store current query info
   current_search <- reactive({
     input$searchButton
@@ -264,9 +264,9 @@ server <- function(input, output, session) {
         date_range = input$searchDateRange
       )
     })})
-  report_id_subset <- reactive({
+  subset_cv <- reactive({
     data <- current_search()
-    
+
     cv_reports_filtered <- cv_reports %>%
       filter(DATINTRECEIVED_CLEAN >= data$date_range[1], DATINTRECEIVED_CLEAN <= data$date_range[2]) %>%
       select(REPORT_ID)
@@ -279,34 +279,28 @@ server <- function(input, output, session) {
     }
     cv_reactions_filtered <- cv_reactions
     if ("" != data$rxn) cv_reactions_filtered %<>% filter(PT_NAME_ENG == data$rxn)
-    
-    tab_master <-  cv_reports_filtered %>%
+
+    selected_ids <-  cv_reports_filtered %>%
       semi_join(cv_report_drug_filtered, by = "REPORT_ID") %>%
       semi_join(cv_reactions_filtered, by = "REPORT_ID")
-  })
-  subset_cv <- reactive({ # so then all data is polled upon search, not just when display corresponding plot
-    selected_ids <- report_id_subset()
-    
+
+    # so then all data is polled upon search, not just when display corresponding plot
     report_subset <- cv_reports %>%
-      semi_join(selected_ids, by = "REPORT_ID") %>%
-      as.data.frame()
+      semi_join(selected_ids, by = "REPORT_ID")
     drug_subset <- cv_report_drug %>%
       semi_join(selected_ids, by = "REPORT_ID") %>%
-      left_join(cv_report_drug_indication, by = c("REPORT_DRUG_ID", "REPORT_ID", "DRUG_PRODUCT_ID", "DRUGNAME")) %>%
-      as.data.frame()
+      left_join(cv_report_drug_indication, by = c("REPORT_DRUG_ID", "REPORT_ID", "DRUG_PRODUCT_ID", "DRUGNAME"))
     rxn_subset <- cv_reactions %>%
       semi_join(selected_ids, by = "REPORT_ID") %>%
-      left_join(meddra, by = c("PT_NAME_ENG" = "PT_Term", "MEDDRA_VERSION" = "Version")) %>%
-      as.data.frame()
-    
+      left_join(meddra, by = c("PT_NAME_ENG" = "PT_Term", "MEDDRA_VERSION" = "Version"))
+
     list(report = report_subset,
          drug_tbl = drug_subset,
          rxn_tbl = rxn_subset)
   })
   cv_download_reports <- reactive({
-    selected_ids <- report_id_subset()
     data_type <- ""
-    
+
     if(input$search_dataset_type == "Report Data"){
       reports_tab_master <- subset_cv()$report
       data_type <- "report"
@@ -318,46 +312,60 @@ server <- function(input, output, session) {
       data_type <- "rxn"
     }
     reports_tab_master %<>% as.data.frame()
-    
+
     # reports_tab_master_size <- paste("Size of Dataset is",
     #                                  format(object.size(reports_tab_master),
     #                                         units = "auto"))
-    
+
     return(list(
       reports_tab_master = reports_tab_master,
       data_type = data_type
-    )) 
+    ))
   })
   ages <- reactive({
     data <- subset_cv()$report %>%
-      select(REPORT_ID, AGE_UNIT_ENG, AGE_Y) %>%
       filter(AGE_UNIT_ENG != "", !is.na(AGE_Y))
-    
+
     # Age groups frequency table
-    age_decade <- data %>% 
+    age_decade <- data %>%
       filter(AGE_UNIT_ENG == "Decade") %>%
-      mutate(AGE_Y = AGE_Y * 10)
-    age_years <- data %>% 
-      filter(AGE_UNIT_ENG == "Years")
-    age_months <- data %>% 
+      mutate(AGE_Y = AGE_Y * 10) %>%
+      count(AGE_Y) %>%
+      as.data.frame()
+    age_years <- data %>%
+      filter(AGE_UNIT_ENG == "Years") %>%
+      count(AGE_Y) %>%
+      as.data.frame()
+    age_months <- data %>%
       filter(AGE_UNIT_ENG == "Months") %>%
-      mutate(AGE_Y = AGE_Y / 12)
-    age_weeks <- data %>% 
+      mutate(AGE_Y = AGE_Y / 12) %>%
+      count(AGE_Y) %>%
+      as.data.frame()
+    age_weeks <- data %>%
       filter(AGE_UNIT_ENG == "Weeks") %>%
-      mutate(AGE_Y = AGE_Y / 52)
-    age_days <- data %>% 
+      mutate(AGE_Y = AGE_Y / 52) %>%
+      count(AGE_Y) %>%
+      as.data.frame()
+    age_days <- data %>%
       filter(AGE_UNIT_ENG == "Days") %>%
-      mutate(AGE_Y = AGE_Y / 365)
-    age_hours <- data %>% 
+      mutate(AGE_Y = AGE_Y / 365) %>%
+      count(AGE_Y) %>%
+      as.data.frame()
+    age_hours <- data %>%
       filter(AGE_UNIT_ENG == "Hours") %>%
-      mutate(AGE_Y = AGE_Y / (365*24))
-    age_minutes <- data %>% 
+      mutate(AGE_Y = AGE_Y / (365*24)) %>%
+      count(AGE_Y) %>%
+      as.data.frame()
+    age_minutes <- data %>%
       filter(AGE_UNIT_ENG == "Minutes") %>%
-      mutate(AGE_Y = AGE_Y / (365*24*60))
+      mutate(AGE_Y = AGE_Y / (365*24*60)) %>%
+      count(AGE_Y) %>%
+      as.data.frame()
     age_unknown <- subset_cv()$report %>%
-      select(REPORT_ID, AGE_UNIT_ENG, AGE_Y) %>%
       filter(AGE_UNIT_ENG == "" | is.na(AGE_Y)) %>%
-      mutate(AGE_Y = NA)
+      tally() %>%
+      as.data.frame() %>%
+      cbind("AGE_Y" = NA, .)
     ages <- bind_rows(age_decade,
                       age_years,
                       age_months,
@@ -366,8 +374,7 @@ server <- function(input, output, session) {
                       age_hours,
                       age_minutes,
                       age_unknown) %>%
-      group_by(AGE_Y) %>%
-      summarise(count = n()) %>%
+      count(AGE_Y, wt = n) %>%
       mutate(age_group = NA,
              age_group = ifelse(AGE_Y <= 25/365, "Neonate", age_group),
              age_group = ifelse(AGE_Y > 25/365 & AGE_Y < 1, "Infant", age_group),
@@ -377,7 +384,7 @@ server <- function(input, output, session) {
              age_group = ifelse(AGE_Y > 65, "Elderly", age_group),
              age_group = ifelse(is.na(AGE_Y), "Unknown", age_group))
   })
-  
+
   
   ##### Output ####
   ##### Construct Current_Query_Table for generic name, brand name, adverse reaction term & date range searched
@@ -402,33 +409,47 @@ server <- function(input, output, session) {
   output$timeplot_title <- renderUI({
     nreports <- subset_cv()$report %>%
       distinct(REPORT_ID) %>%
-      nrow()
+      tally() %>%
+      as.data.frame()
     drug_name <- current_search()$name
-    
+
     title <- ifelse("" == drug_name, "All Drugs", drug_name)
     plottitle <- paste0("Drug Adverse Event Reports for ", title, " (", nreports, " reports)")
     h3(strong(plottitle))
   })
   output$timeplot <- renderGvis({
     # adrplot_test <- reports_tab(current_generic="ampicillin",current_brand="PENBRITIN",current_rxn="Urticaria"))
-    data <- subset_cv()$report %>%
-      mutate(month = floor_date(ymd(DATINTRECEIVED_CLEAN), "month")) %>%
-      group_by(month)
-    
+    data <- subset_cv()$report
+
     time_results <- data %>%
-      summarise(total = n_distinct(REPORT_ID))
+      group_by(DATINTRECEIVED_CLEAN) %>%
+      summarise(n()) %>%
+      as.data.frame() %>%
+      mutate(month = floor_date(ymd(DATINTRECEIVED_CLEAN), "month")) %>%
+      count(month, wt = count) %>%
+      rename(total = n)
     serious_results <- data %>%
       filter(SERIOUSNESS_ENG == "Yes") %>%
-      summarise(serious = n_distinct(REPORT_ID))
+      group_by(DATINTRECEIVED_CLEAN) %>%
+      summarise(n()) %>%
+      as.data.frame() %>%
+      mutate(month = floor_date(ymd(DATINTRECEIVED_CLEAN), "month")) %>%
+      count(month, wt = count) %>%
+      rename(serious = n)
     death_results <- data %>%
       filter(DEATH == 1) %>%
-      summarise(death = n_distinct(REPORT_ID))
+      group_by(DATINTRECEIVED_CLEAN) %>%
+      summarise(n()) %>%
+      as.data.frame() %>%
+      mutate(month = floor_date(ymd(DATINTRECEIVED_CLEAN), "month")) %>%
+      count(month, wt = count) %>%
+      rename(death = n)
     results <- time_results %>%
       left_join(serious_results, by = "month") %>%
       left_join(death_results, by = "month")
     results$serious[is.na(results$serious)] <- 0
     results$death[is.na(results$death)] <- 0
-    
+
     gvisLineChart(results,
                   xvar = "month",
                   yvar = c("total", "serious", "death"),
@@ -444,25 +465,25 @@ server <- function(input, output, session) {
   ##### Data about Reports
   output$reporterplot <- renderGvis({
     reporter_results <- subset_cv()$report %>%
-      group_by(REPORTER_TYPE_ENG) %>%
-      summarise(count = n_distinct(REPORT_ID))
+      count(REPORTER_TYPE_ENG) %>%
+      as.data.frame()
     reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == ""] <- "Not reported"
     reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == "Consumer Or Other Non Health Professional"] <- "Consumer or non-health professional"
     reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == "Other Health Professional"] <- "Other health professional"
     # data <- reports_tab(current_generic="ampicillin",current_brand="PENBRITIN",current_rxn="Urticaria",date_ini=ymd("19650101"),date_end=ymd("20151231"))
-    
+
     gvisPieChart_HCSC(reporter_results, "REPORTER_TYPE_ENG", "count")
   })
   output$seriousplot <- renderGvis({
     serious_results <- subset_cv()$report %>%
-      mutate(SERIOUSNESS_ENG = ifelse(REPORT_ID == 645744, "Yes", SERIOUSNESS_ENG)) %>%
-      group_by(SERIOUSNESS_ENG) %>%
-      summarise(count = n_distinct(REPORT_ID)) %>%
+      count(SERIOUSNESS_ENG) %>%
+      select(SERIOUSNESS_ENG, n) %>%
+      as.data.frame() %>%
       mutate(label = NA,
              label = ifelse(SERIOUSNESS_ENG == "Yes", "Serious", label),
              label = ifelse(SERIOUSNESS_ENG == "No", "Non-serious", label),
              label = ifelse(SERIOUSNESS_ENG == "", "Not reported", label)) %>%
-      select(label, count) %>%
+      select(label, n) %>%
       slice(match(c("Serious", "Non-serious", "Not reported"), label))
     
     gvisPieChart_HCSC(serious_results, "label", "count")
@@ -472,34 +493,26 @@ server <- function(input, output, session) {
       filter(SERIOUSNESS_ENG == "Yes")
     
     total_serious <- data %>%
-      distinct(REPORT_ID) %>%
-      nrow()
+      tally() %>% as.data.frame() %>% `$`(n)
     
     n_congen <- data %>%
       filter(CONGENITAL_ANOMALY == 1) %>%
-      distinct(REPORT_ID) %>%
-      nrow()
+      tally() %>% as.data.frame() %>% `$`(n)
     n_death <- data %>%
       filter(DEATH == 1) %>%
-      distinct(REPORT_ID) %>%
-      nrow()
+      tally() %>% as.data.frame() %>% `$`(n)
     n_disab <- data %>%
       filter(DISABILITY == 1) %>%
-      distinct(REPORT_ID) %>%
-      nrow()
+      tally() %>% as.data.frame() %>% `$`(n)
     n_lifethreat <- data %>%
       filter(LIFE_THREATENING == 1) %>%
-      distinct(REPORT_ID) %>%
-      nrow()
+      tally() %>% as.data.frame() %>% `$`(n)
     n_hosp <- data %>%
       filter(HOSP_REQUIRED == 1) %>%
-      distinct(REPORT_ID) %>%
-      nrow()
+      tally() %>% as.data.frame() %>% `$`(n)
     n_other <- data %>%
       filter(OTHER_MEDICALLY_IMP_COND == 1) %>%
-      distinct(REPORT_ID) %>%
-      nrow()
-    
+      tally() %>% as.data.frame() %>% `$`(n)
     ## Check for NotSpecified ##
     n_notspec <- data %>%
       filter(DEATH != 1 | is.na(DEATH)) %>%
@@ -508,26 +521,25 @@ server <- function(input, output, session) {
       filter(LIFE_THREATENING != 1 | is.na(LIFE_THREATENING)) %>%
       filter(HOSP_REQUIRED != 1 | is.na(HOSP_REQUIRED)) %>%
       filter(OTHER_MEDICALLY_IMP_COND != 1 | is.na(OTHER_MEDICALLY_IMP_COND)) %>%
-      distinct(REPORT_ID) %>%
-      nrow()
-    
+      tally() %>% as.data.frame() %>% `$`(n)
+
     serious_reasons <- data.frame(label = c("Congenital anomaly",
                                             "Death",
                                             "Disability",
                                             "Hospitalization",
                                             "Life-threatening"),
                                   count = c(n_congen,
-                                            n_death, 
+                                            n_death,
                                             n_disab,
                                             n_lifethreat,
                                             n_hosp),
                                   stringsAsFactors = FALSE) %>%
-      mutate(percentage = count/total_serious * 100) %>% 
+      mutate(percentage = count/total_serious * 100) %>%
       arrange(desc(percentage)) %>%
       rbind(list("Other medically important condition", n_other, n_other/total_serious * 100)) %>%
       rbind(list("Not specified", n_notspec, n_notspec/total_serious * 100))
     serious_reasons$percentage %<>% round(digits = 2)
-    
+
     gvisBarChart(serious_reasons,
                  xvar = "label",
                  yvar = "percentage",
@@ -541,38 +553,36 @@ server <- function(input, output, session) {
     )
   })
   
-  #### Data about Patients
+  ### Data about Patients
   output$sexplot <- renderGvis({
     data <- subset_cv()$report %>%
-      select(REPORT_ID, GENDER_ENG)
-    
+      count(GENDER_ENG) %>%
+      as.data.frame()
     # replace blank in GENDER_ENG with character "Unknown"
     data$GENDER_ENG[data$GENDER_ENG == ""] <- "Not specified"
     data$GENDER_ENG[data$GENDER_ENG == "Not specified"] <- "Not reported"
-    
-    sex_results <- dplyr::summarise(group_by(data, GENDER_ENG),count=n_distinct(REPORT_ID))
-    
-    gvisPieChart_HCSC(sex_results, "GENDER_ENG", "count")
+    sex_results <- count(data, GENDER_ENG, wt = n)
+
+    gvisPieChart_HCSC(sex_results, "GENDER_ENG", "n")
   })
   output$agegroupplot <- renderGvis({
     age_groups <- ages() %>%
-      group_by(age_group) %>%
-      summarise(count = sum(count))
-    
-    gvisPieChart_HCSC(age_groups, "age_group", "count")
+      count(age_group, wt = nn)
+
+    gvisPieChart_HCSC(age_groups, "age_group", "n")
   })
   output$agehist <- renderPlotly({
     age_groups <- ages() %>% filter(age_group != "Unknown", AGE_Y <= 130)
-    unknown <- ages() %>% filter(age_group != "Unknown", AGE_Y > 130)
-    unknown_count <- sum(unknown$count)
-    
+    excluded <- ages() %>% filter(age_group != "Unknown", AGE_Y > 130)
+    excluded_count <- sum(excluded$nn)
+
     plottitle <- paste0("Histogram of Patient Ages")
-    if(unknown_count > 0) plottitle <- paste0(plottitle, "<br>(", unknown_count, " reports with age greater than 130 excluded)")
-    
-    hist <- ggplot(age_groups, aes(x = AGE_Y, weight = count, fill = age_group)) +
+    if(excluded_count > 0) plottitle <- paste0(plottitle, "<br>(", excluded_count, " reports with age greater than 130 excluded)")
+
+    hist <- ggplot(age_groups, aes(x = AGE_Y, weight = nn, fill = age_group)) +
       geom_histogram() +
-      ggtitle(plottitle) + 
-      xlab("Age at onset (years)") + 
+      ggtitle(plottitle) +
+      xlab("Age at onset (years)") +
       ylab("Number of Reports") +
       theme_bw() +
       theme(plot.title = element_text(lineheight=.8, size = rel(0.85),face="bold")) +
@@ -580,73 +590,71 @@ server <- function(input, output, session) {
     #   theme(axis.title.x = element_text(size = rel(0.8)))
     ggplotly(hist)
   })
-  
+
   #### Data about Drugs
   output$indication_plot <- renderGvis({
     # Data frame used to obtain Top_25_indication bar chart: Indication is only associated with individual drug
     # When brand name is unspecified, chart shows top 25 indications associated with all drugs + date_range
     # When brand name is specified, chart shows top 25 indications associated with specified drug + date_range
-    
+
     indications_sorted <- subset_cv()$drug_tbl %>%
       filter(!is.na(INDICATION_NAME_ENG)) %>%
       group_by(INDICATION_NAME_ENG) %>%
       summarise(count = n_distinct(REPORT_ID)) %>%
       arrange(desc(count)) %>%
       head(25) %>%
-      as.data.frame() 
-    
+      as.data.frame()
+
     # NOTE ABOUT INDICATIONS STRUCTURE:
     # REPORT_ID -> multiple drugs per report
     # DRUG_ID -> multiple reports may use the same drugs
     # REPORT_DRUG_ID -> unique for each drug/report combination. count is less than total reports since drugs can have multiple indications
     # so distinct REPORT_DRUG_ID x INDICATION_NAME_ENG includes the entire set of reports
-    
+
     gvisBarChart_HCSC(indications_sorted, "INDICATION_NAME_ENG", "count", google_colors[1])
   })
   output$drug_plot <- renderGvis({
-    # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name 
-    #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq) 
+    # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name
+    #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
     data <- subset_cv()$drug_tbl %>%
       group_by(DRUGNAME) %>%
       summarise(count = n_distinct(REPORT_ID)) %>%
       arrange(desc(count)) %>%
       head(25) %>%
       as.data.frame()
-    
+
     # the top drugs reported here might be influenced by such drug is originally most reported among all reports
     gvisBarChart_HCSC(data, "DRUGNAME", "count", google_colors[2])
   })
-  
+
   #### Data about Reactions
   output$top_pt <- renderGvis({
     data <- subset_cv()$rxn_tbl %>%
-      group_by(PT_NAME_ENG) %>%
-      summarise(count = n_distinct(REPORT_ID)) %>%
-      arrange(desc(count)) %>%
-      head(25) %>%
-      as.data.frame()
-    
-    gvisBarChart_HCSC(data, "PT_NAME_ENG", "count", google_colors[1])
+      count(PT_NAME_ENG) %>%
+      arrange(desc(n)) %>%
+      as.data.frame() %>%
+      head(25)
+
+    gvisBarChart_HCSC(data, "PT_NAME_ENG", "n", google_colors[1])
   })
   output$top_hlt <- renderGvis({
     data <- subset_cv()$rxn_tbl %>%
       filter(!is.na(HLT_Term)) %>%
-      group_by(HLT_Term) %>%
-      summarise(count = n_distinct(REPORT_ID)) %>%
-      arrange(desc(count)) %>%
-      head(25) %>%
-      as.data.frame()
-    
-    gvisBarChart_HCSC(data, "HLT_Term", "count", google_colors[2])
+      count(HLT_Term) %>%
+      arrange(desc(n)) %>%
+      as.data.frame() %>%
+      head(25)
+
+    gvisBarChart_HCSC(data, "HLT_Term", "n", google_colors[2])
   })
   output$outcomeplot <- renderGvis({
     data <- subset_cv()$report %>%
-      group_by(OUTCOME_ENG) %>%
-      summarise(count = n_distinct(REPORT_ID))
-    
-    gvisPieChart_HCSC(data, "OUTCOME_ENG", "count")
+      count(OUTCOME_ENG) %>%
+      as.data.frame()
+
+    gvisPieChart_HCSC(data, "OUTCOME_ENG", "n")
   })
-  
+
   ############# Download Tab
   output$download_reports <- downloadHandler(
     filename = function() {
