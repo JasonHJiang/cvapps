@@ -219,43 +219,41 @@ ui <- dashboardPage(
                     width = 4)
               )
       ),
-      tabItem(tabName = "aboutinfo",
-              box(
-              width = 12,
-              h2("About"),
-              # using tags$p() and tags$a() inserts spaces between text and hyperlink...thanks R
-              HTML(paste0(
-                "<p>",
-                "This is a beta product developed using Open FDA data. DO NOT use as sole evidence to support ",
-                "regulatory decisions or making decisions regarding medical care.  We do not hold any responsibility ",
-                "for the authenticity or legitimacy of data.",
-                "</p>",
-                "<p>",
-                "This app has been developed by the Data Sciences Unit of RMOD at Health Canada. ",
-                "This app is a prototype experiment that utilizes publically available data (openFDA) ",
-                "and presents it in an interactive way for enhanced visualizations. This app allows users to ",
-                "effortlessly interact with the reports database, conduct searches and view results in highly ",
-                "interactive dashboards. <b>NOTE</b>: This app uses US Trade Name and Generic Name definitions; ",
-                "therefore it may not be relevant in Canadian Context.",
-                "</p>",
-                "<p>",
-                "Data provided by the U.S. Food and Drug Administration (FDA), retrieved through the openFDA API (",
-                "<a href = \"https://open.fda.gov\">",
-                "https://open.fda.gov",
-                "</a>",
-                "). The recency of the data is therefore dependent on when the API data source is updated, ",
-                "and Health Canada claims no responsibility for out-of-date information. For more information, please refer to ",
-                "<a href = \"https://open.fda.gov/drug/event/reference/\">",
-                "https://open.fda.gov/drug/event/reference/",
-                "</a>. Due to ongoing issues with the openFDA API (",
-                "<a href = \"https://github.com/FDA/openfda/issues/29\">https://github.com/FDA/openfda/issues/29</a>",
-                "), some search terms with symbols may not be available for querying.",
-                "</p>")),
-              aboutAuthors()
-              )
-      )
+      tabItem(tabName = "aboutinfo", box(
+        width = 12,
+        h2("About"),
+        # using tags$p() and tags$a() inserts spaces between text and hyperlink...thanks R
+        HTML(paste0(
+          "<p>",
+          "This is a beta product developed using Open FDA data. DO NOT use as sole evidence to support ",
+          "regulatory decisions or making decisions regarding medical care.  We do not hold any responsibility ",
+          "for the authenticity or legitimacy of data.",
+          "</p>",
+          "<p>",
+          "This app has been developed by the Data Sciences Unit of RMOD at Health Canada. ",
+          "This app is a prototype experiment that utilizes publically available data (openFDA) ",
+          "and presents it in an interactive way for enhanced visualizations. This app allows users to ",
+          "effortlessly interact with the reports database, conduct searches and view results in highly ",
+          "interactive dashboards. <b>NOTE</b>: This app uses US Trade Name and Generic Name definitions; ",
+          "therefore it may not be relevant in Canadian Context.",
+          "</p>",
+          "<p>",
+          "Data provided by the U.S. Food and Drug Administration (FDA), retrieved through the openFDA API (",
+          "<a href = \"https://open.fda.gov\">",
+          "https://open.fda.gov",
+          "</a>",
+          "). The recency of the data is therefore dependent on when the API data source is updated, ",
+          "and Health Canada claims no responsibility for out-of-date information. For more information, please refer to ",
+          "<a href = \"https://open.fda.gov/drug/event/reference/\">",
+          "https://open.fda.gov/drug/event/reference/",
+          "</a>. Due to ongoing issues with the openFDA API (",
+          "<a href = \"https://github.com/FDA/openfda/issues/29\">https://github.com/FDA/openfda/issues/29</a>",
+          "), some search terms with symbols may not be available for querying.",
+          "</p>")),
+        aboutAuthors()
+      ))
     )
-  ), 
+  ),
   skin = "blue"
 )
 
