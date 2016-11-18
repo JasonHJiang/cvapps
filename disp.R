@@ -69,23 +69,18 @@ master_table_hlt <- hlt_bcpnn %>%
 
 cv_drug_rxn_meddra <- hcopen %>% tbl("cv_drug_rxn_meddra")
 cv_drug_rxn_2006 <- cv_drug_rxn_meddra %>% filter(quarter >= 2006.1)
-count_quarter_pt <- group_by(cv_drug_rxn_2006, ing, PT_NAME_ENG, quarter) %>%
-  dplyr::summarize(count = n_distinct(REPORT_ID)) %>%
-  ungroup() %>% as.data.frame()
-count_quarter_hlt <- group_by(cv_drug_rxn_2006, ing, HLT_NAME_ENG, quarter) %>%
-  dplyr::summarize(count = n_distinct(REPORT_ID)) %>%
-  ungroup() %>% as.data.frame()
+count_quarter_pt <- count(cv_drug_rxn_2006, ing, PT_NAME_ENG, quarter) %>% as.data.frame()
+count_quarter_hlt <- count(cv_drug_rxn_2006, ing, HLT_NAME_ENG, quarter) %>% as.data.frame()
 quarters <- count_quarter_pt %>% select(quarter) %>% distinct() %>% as.data.frame()
 
 
 # PT-HLT mapping
 drug_PT_HLT <- cv_drug_rxn_2006 %>%
-  dplyr::select(ing, PT_NAME_ENG, HLT_NAME_ENG) %>%
-  dplyr::distinct() %>%
-  dplyr::filter(!is.na(HLT_NAME_ENG))
+  select(ing, PT_NAME_ENG, HLT_NAME_ENG) %>%
+  distinct() %>%
+  filter(!is.na(HLT_NAME_ENG))
 # drug and adverse event dropdown menu choices
-drug_choices <- drug_PT_HLT %>% dplyr::distinct(ing) %>% as.data.frame()
-drug_choices <- sort(drug_choices$ing)
+drug_choices <- drug_PT_HLT %>% distinct(ing) %>% as.data.frame() %>% `$`("ing") %>% sort()
 
 
 ################################## UI component ####
@@ -99,7 +94,7 @@ ui <- dashboardPage(
       menuItem("Disproportionality Analysis", tabName = "data", icon = icon("database")),
       selectizeInput(inputId ="search_drug",
                      label = "Generic Name/Ingredient",
-                     choices = c("Start typing to search..." = "", drug_choices)),
+                     choices = c(drug_choices, "Start typing to search..." = "")),
       selectizeInput(inputId = "search_hlt",
                      label = "Adverse Event High-Level Term",
                      choices = c("Loading..." = "")),
@@ -222,11 +217,11 @@ server <- function(input, output, session) {
       pt_choices %<>% filter(ing == input$search_drug)
     }
     hlt_choices %<>%
-      dplyr::distinct(HLT_NAME_ENG) %>%
+      distinct(HLT_NAME_ENG) %>%
       as.data.frame() %>% `[[`(1) %>%
       sort()
     pt_choices %<>%
-      dplyr::distinct(PT_NAME_ENG) %>%
+      distinct(PT_NAME_ENG) %>%
       as.data.frame() %>% `[[`(1) %>%
       sort()
     updateSelectizeInput(session, "search_hlt",
@@ -402,28 +397,30 @@ server <- function(input, output, session) {
   
   # time-series data
   time_data_pt <- reactive({
+    cur_search <- current_search()
+    
     top_pairs <- table_pt_data() %>% head(10) %>% select(drug_code, event_effect) %>%
       mutate(drug_code = as.character(drug_code), event_effect = as.character(event_effect))
     timeplot_df <- count_quarter_pt %>% semi_join(top_pairs, by = c("ing" = "drug_code", "PT_NAME_ENG" = "event_effect"))
-    quarters_df <- quarters %>% cbind(count = 0)
-    pairs_df <- top_pairs %>% rename(ing = drug_code, PT_NAME_ENG = event_effect) %>% cbind(count = 0)
-    filled_time_df <- full_join(pairs_df, quarters_df, by = "count") %>%
+    quarters_df <- quarters %>% cbind(n = 0)
+    pairs_df <- top_pairs %>% rename(ing = drug_code, PT_NAME_ENG = event_effect) %>% cbind(n = 0)
+    filled_time_df <- full_join(pairs_df, quarters_df, by = "n") %>%
       bind_rows(timeplot_df) %>%
-      group_by(ing, PT_NAME_ENG, quarter) %>%
-      summarise(n = sum(count)) %>%
+      count(ing, PT_NAME_ENG, quarter, wt = n) %>%
       ungroup() %>%
       mutate(label = paste0(ing, "_", PT_NAME_ENG)) %>%
-      select(label, quarter, n)
-    if (current_search()$display_total) {
+      select(label, quarter, nn)
+    if (cur_search$display_total) {
       total_df <- count_quarter_pt
-      if (current_search()$drug != "") total_df %<>% filter(ing == current_search()$drug)
-      total_df %<>% count(quarter, wt = count) %>%
+      if (cur_search$drug != "") total_df %<>% filter(ing == cur_search$drug)
+      if (cur_search$pt != "") total_df %<>% filter(PT_NAME_ENG == cur_search$pt)
+      total_df %<>% count(quarter, wt = n) %>%
         mutate(label = paste0("total for query")) %>%
-        select(label, quarter, n)
+        select(label, quarter, nn)
       filled_time_df %<>% rbind(total_df)
     }
     
-    filled_time_df
+    filled_time_df %<>% rename(n = nn)
     
     # filled_time_df <- timeplot_df %>%
     #   mutate(label = paste0(ing, "_", PT_NAME_ENG)) %>%
@@ -470,28 +467,30 @@ server <- function(input, output, session) {
   
   # time-series data
   time_data_hlt <- reactive({
+    cur_search <- current_search()
+    
     top_pairs <- table_hlt_data() %>% head(10) %>% select(drug_code, event_effect) %>%
       mutate(drug_code = as.character(drug_code), event_effect = as.character(event_effect))
     timeplot_df <- count_quarter_hlt %>% semi_join(top_pairs, by = c("ing" = "drug_code", "HLT_NAME_ENG" = "event_effect"))
-    quarters_df <- quarters %>% cbind(count = 0)
-    pairs_df <- top_pairs %>% rename(ing = drug_code, HLT_NAME_ENG = event_effect) %>% cbind(count = 0)
-    filled_time_df <- full_join(pairs_df, quarters_df, by = "count") %>%
+    quarters_df <- quarters %>% cbind(n = 0)
+    pairs_df <- top_pairs %>% rename(ing = drug_code, HLT_NAME_ENG = event_effect) %>% cbind(n = 0)
+    filled_time_df <- full_join(pairs_df, quarters_df, by = "n") %>%
       bind_rows(timeplot_df) %>%
-      group_by(ing, HLT_NAME_ENG, quarter) %>%
-      summarise(n = sum(count)) %>%
+      count(ing, HLT_NAME_ENG, quarter, wt = n) %>%
       ungroup() %>%
       mutate(label = paste0(ing, "_", HLT_NAME_ENG)) %>%
-      select(label, quarter, n)
-    if (current_search()$display_total) {
+      select(label, quarter, nn)
+    if (cur_search$display_total) {
       total_df <- count_quarter_hlt
-      if (current_search()$drug != "") total_df %<>% filter(ing == current_search()$drug)
-      total_df %<>% count(quarter, wt = count) %>%
+      if (cur_search$drug != "") total_df %<>% filter(ing == cur_search$drug)
+      if (cur_search$hlt != "") total_df %<>% filter(HLT_NAME_ENG == cur_search$hlt)
+      total_df %<>% count(quarter, wt = n) %>%
         mutate(label = paste0("total for query")) %>%
-        select(label, quarter, n)
+        select(label, quarter, nn)
       filled_time_df %<>% rbind(total_df)
     }
     
-    filled_time_df
+    filled_time_df %<>% rename(n = nn)
   })
   
 
