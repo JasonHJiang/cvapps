@@ -43,7 +43,8 @@ topbrands <- cv_report_drug %>%
   distinct(DRUGNAME) %>%
   as.data.frame() %>%
   `[[`(1) %>%
-  sort()
+  sort() %>%
+  `[`(-c(1,2)) # dropping +ARTHRI-PLUS\u0099 which is problematic
 topings <- cv_substances %>%
   distinct(ing) %>%
   as.data.frame() %>%
@@ -67,12 +68,12 @@ ui <- dashboardPage(
       condition = "input.name_type == 'brand'",
       selectizeInput("search_brand", 
                      "Brand Name",
-                     c("Start typing to search..." = "", topbrands))),
+                     c(topbrands, "Start typing to search..." = ""))),
     conditionalPanel(
       condition = "input.name_type == 'ingredient'",
       selectizeInput("search_ing", 
                      "Active Ingredient",
-                     c("Start typing to search..." = "", topings))),
+                     c(topings, "Start typing to search..." = ""))),
     radioButtons("name_type", "Drug name type:",
                  c("Brand Name" = "brand",
                    "Active Ingredient" = "ingredient"),
@@ -286,13 +287,13 @@ server <- function(input, output, session) {
 
     # so then all data is polled upon search, not just when display corresponding plot
     report_subset <- cv_reports %>%
-      semi_join(selected_ids, by = "REPORT_ID")
+      semi_join(selected_ids, by = "REPORT_ID") %>% as.data.frame()
     drug_subset <- cv_report_drug %>%
       semi_join(selected_ids, by = "REPORT_ID") %>%
-      left_join(cv_report_drug_indication, by = c("REPORT_DRUG_ID", "REPORT_ID", "DRUG_PRODUCT_ID", "DRUGNAME"))
+      left_join(cv_report_drug_indication, by = c("REPORT_DRUG_ID", "REPORT_ID", "DRUG_PRODUCT_ID", "DRUGNAME")) %>% as.data.frame()
     rxn_subset <- cv_reactions %>%
       semi_join(selected_ids, by = "REPORT_ID") %>%
-      left_join(meddra, by = c("PT_NAME_ENG" = "PT_Term", "MEDDRA_VERSION" = "Version"))
+      left_join(meddra, by = c("PT_NAME_ENG" = "PT_Term", "MEDDRA_VERSION" = "Version")) %>% as.data.frame()
 
     list(report = report_subset,
          drug_tbl = drug_subset,
@@ -423,7 +424,7 @@ server <- function(input, output, session) {
 
     time_results <- data %>%
       group_by(DATINTRECEIVED_CLEAN) %>%
-      summarise(n()) %>%
+      summarise(count = n()) %>%
       as.data.frame() %>%
       mutate(month = floor_date(ymd(DATINTRECEIVED_CLEAN), "month")) %>%
       count(month, wt = count) %>%
@@ -431,7 +432,7 @@ server <- function(input, output, session) {
     serious_results <- data %>%
       filter(SERIOUSNESS_ENG == "Yes") %>%
       group_by(DATINTRECEIVED_CLEAN) %>%
-      summarise(n()) %>%
+      summarise(count = n()) %>%
       as.data.frame() %>%
       mutate(month = floor_date(ymd(DATINTRECEIVED_CLEAN), "month")) %>%
       count(month, wt = count) %>%
@@ -439,7 +440,7 @@ server <- function(input, output, session) {
     death_results <- data %>%
       filter(DEATH == 1) %>%
       group_by(DATINTRECEIVED_CLEAN) %>%
-      summarise(n()) %>%
+      summarise(count = n()) %>%
       as.data.frame() %>%
       mutate(month = floor_date(ymd(DATINTRECEIVED_CLEAN), "month")) %>%
       count(month, wt = count) %>%
@@ -572,7 +573,7 @@ server <- function(input, output, session) {
     gvisPieChart_HCSC(age_groups, "age_group", "n")
   })
   output$agehist <- renderPlotly({
-    age_groups <- ages() %>% filter(age_group != "Unknown", AGE_Y <= 130)
+    age_groups <- ages() %>% filter(age_group != "Unknown", AGE_Y <= 130) %>% as.data.frame()
     excluded <- ages() %>% filter(age_group != "Unknown", AGE_Y > 130)
     excluded_count <- sum(excluded$nn)
 
@@ -596,14 +597,12 @@ server <- function(input, output, session) {
     # Data frame used to obtain Top_25_indication bar chart: Indication is only associated with individual drug
     # When brand name is unspecified, chart shows top 25 indications associated with all drugs + date_range
     # When brand name is specified, chart shows top 25 indications associated with specified drug + date_range
-
     indications_sorted <- subset_cv()$drug_tbl %>%
+      count(INDICATION_NAME_ENG) %>%
+      arrange(desc(n)) %>%
+      as.data.frame() %>%
       filter(!is.na(INDICATION_NAME_ENG)) %>%
-      group_by(INDICATION_NAME_ENG) %>%
-      summarise(count = n_distinct(REPORT_ID)) %>%
-      arrange(desc(count)) %>%
-      head(25) %>%
-      as.data.frame()
+      head(25)
 
     # NOTE ABOUT INDICATIONS STRUCTURE:
     # REPORT_ID -> multiple drugs per report
@@ -611,20 +610,19 @@ server <- function(input, output, session) {
     # REPORT_DRUG_ID -> unique for each drug/report combination. count is less than total reports since drugs can have multiple indications
     # so distinct REPORT_DRUG_ID x INDICATION_NAME_ENG includes the entire set of reports
 
-    gvisBarChart_HCSC(indications_sorted, "INDICATION_NAME_ENG", "count", google_colors[1])
+    gvisBarChart_HCSC(indications_sorted, "INDICATION_NAME_ENG", "n", google_colors[1])
   })
   output$drug_plot <- renderGvis({
     # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name
     #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
     data <- subset_cv()$drug_tbl %>%
-      group_by(DRUGNAME) %>%
-      summarise(count = n_distinct(REPORT_ID)) %>%
-      arrange(desc(count)) %>%
+      count(DRUGNAME) %>%
+      arrange(desc(n)) %>%
       head(25) %>%
       as.data.frame()
 
     # the top drugs reported here might be influenced by such drug is originally most reported among all reports
-    gvisBarChart_HCSC(data, "DRUGNAME", "count", google_colors[2])
+    gvisBarChart_HCSC(data, "DRUGNAME", "n", google_colors[2])
   })
 
   #### Data about Reactions
@@ -632,8 +630,8 @@ server <- function(input, output, session) {
     data <- subset_cv()$rxn_tbl %>%
       count(PT_NAME_ENG) %>%
       arrange(desc(n)) %>%
-      as.data.frame() %>%
-      head(25)
+      head(25) %>%
+      as.data.frame()
 
     gvisBarChart_HCSC(data, "PT_NAME_ENG", "n", google_colors[1])
   })
@@ -642,8 +640,8 @@ server <- function(input, output, session) {
       filter(!is.na(HLT_Term)) %>%
       count(HLT_Term) %>%
       arrange(desc(n)) %>%
-      as.data.frame() %>%
-      head(25)
+      head(25) %>%
+      as.data.frame()
 
     gvisBarChart_HCSC(data, "HLT_Term", "n", google_colors[2])
   })
