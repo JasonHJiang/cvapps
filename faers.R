@@ -674,21 +674,21 @@ server <- function(input, output, session) {
     gvisPieChart_HCSC(age_groups, "age_group", "count")
   })
   output$agehist <- renderPlotly({
-    age_groups <- ages() %>% filter(age_group != "Unknown", term <= 130)
-    unknown <- ages() %>% filter(age_group != "Unknown", term > 130)
+    age_groups <- ages() %>% filter(age_group != "Unknown", term <= 100)
+    unknown <- ages() %>% filter(age_group != "Unknown", term > 100)
     unknown_count <- sum(unknown$count)
     
     plottitle <- paste0("Histogram of Patient Ages")
-    if(unknown_count > 0) plottitle <- paste0(plottitle, "<br>(", unknown_count, " reports with age greater than 130 excluded)")
+    if(unknown_count > 0) plottitle <- paste0(plottitle, "<br>(", unknown_count, " reports with age greater than 100 excluded)")
     
     hist <- ggplot(age_groups, aes(x = term, weight = count, fill = age_group)) +
-      geom_histogram() +
+      geom_histogram(breaks = seq(0, 100, by = 2)) +
       ggtitle(plottitle) + 
       xlab("Age at onset (years)") + 
       ylab("Number of Reports") +
       theme_bw() +
       theme(plot.title = element_text(lineheight=.8, face="bold")) +
-      scale_x_continuous(limits = c(0, 120))
+      scale_x_continuous(limits = c(0, 100))
     ggplotly(hist)
   })
   
