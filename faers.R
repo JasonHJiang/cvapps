@@ -23,16 +23,6 @@ source("common_ui.R")
 #< so you understand what are all the high-level functions and outputs in the server fxn
 # https://github.com/FDA/openfda/issues/29
 
-#### Preamble ####
-dbuijs_api_key <- "QPV3z0OxVhzLfp5EGZTLT6QZGcTRrtXpYebmAs4n"
-# how to use
-# topdrugs <- fda_query("/drug/event.json") %>% 
-#   #fda_api_key(dbuijs_api_key) %>%
-#   fda_count("patient.drug.openfda.generic_name.exact") %>% 
-#   fda_limit(1000) %>% 
-#   fda_exec()
-
-
 topdrugs <- fda_query("/drug/event.json") %>%
   fda_count("patient.drug.openfda.generic_name.exact") %>% 
   fda_limit(1000) %>% 
