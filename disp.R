@@ -31,6 +31,8 @@ gc()
 # removing these columns first results in a faster join
 cv_bcpnn <- hcopen %>% tbl("PT_IC_161027") %>%
   select(drug_code, event_effect, count, expected_count, median_IC, LB95_IC, UB95_IC)
+cv_gps <- hcopen %>% tbl("PT_GPS_161121") %>%
+  select(drug_code, event_effect, postH0, postE_lambda, Q0.05_lambda)
 cv_rfet <- hcopen %>% tbl("PT_RFET_161101") %>%
   select(drug_code, event_effect, midRFET, RFET)
 cv_prr <- hcopen %>% tbl("PT_PRR_160927") %>%
@@ -43,15 +45,18 @@ cv_counts <- hcopen %>% tbl("PT_counts_161103") %>%
   select(drug_code, event_effect, drug_margin, event_margin)
 master_table_pt <- cv_bcpnn %>%
   inner_join(cv_counts, by = c("drug_code", "event_effect")) %>%
+  inner_join(cv_gps, by = c("drug_code", "event_effect")) %>%
   inner_join(cv_rfet, by = c("drug_code", "event_effect")) %>%
   inner_join(cv_prr, by = c("drug_code", "event_effect")) %>%
   inner_join(cv_ror, by = c("drug_code", "event_effect")) %>%
   inner_join(cv_rrr, by = c("drug_code", "event_effect")) %>%
-  select(1:4, 8:9, 5:20) %>%
+  select(1:4, 8:9, 5:23) %>%
   as.data.frame() # already pull entire table to display at onset of app, might as well do everything locally (faster)
 
 hlt_bcpnn <- hcopen %>% tbl("HLT_IC_161027") %>%
   select(drug_code, event_effect, count, expected_count, median_IC, LB95_IC, UB95_IC)
+hlt_gps <- hcopen %>% tbl("HLT_GPS_161121") %>%
+  select(drug_code, event_effect, postH0, postE_lambda, Q0.05_lambda)
 hlt_rfet <- hcopen %>% tbl("HLT_RFET_161101") %>%
   select(drug_code, event_effect, midRFET, RFET)
 hlt_prr <- hcopen %>% tbl("HLT_PRR_160927") %>%
@@ -64,11 +69,12 @@ hlt_counts <- hcopen %>% tbl("HLT_counts_161103") %>%
   select(drug_code, event_effect, drug_margin, event_margin)
 master_table_hlt <- hlt_bcpnn %>%
   inner_join(hlt_counts, by = c("drug_code", "event_effect")) %>%
+  inner_join(hlt_gps, by = c("drug_code", "event_effect")) %>%
   inner_join(hlt_rfet, by = c("drug_code", "event_effect")) %>%
   inner_join(hlt_prr, by = c("drug_code", "event_effect")) %>%
   inner_join(hlt_ror, by = c("drug_code", "event_effect")) %>%
   inner_join(hlt_rrr, by = c("drug_code", "event_effect")) %>%
-  select(1:4, 8:9, 5:20) %>%
+  select(1:4, 8:9, 5:23) %>%
   as.data.frame()
 
 cv_drug_rxn_meddra <- hcopen %>% tbl("cv_drug_rxn_meddra")
@@ -361,9 +367,9 @@ server <- function(input, output, session) {
       dom = 'Bfrtip',
       buttons = list(list(extend = 'colvis',
                           text = 'Columns to display',
-                          columns = 5:20)),
+                          columns = 5:23)),
       columnDefs = list(list(visible = FALSE,
-                             targets = c(5, 6, 9, 13, 14, 16, 17, 19, 20)))
+                             targets = c(5:6, 9:10, 16:17, 19:20, 22:23)))
     )))
   
   table_hlt_data <- reactive({
@@ -394,9 +400,9 @@ server <- function(input, output, session) {
       dom = 'Bfrtip',
       buttons = list(list(extend = 'colvis',
                           text = 'Columns to display',
-                          columns = 5:20)),
+                          columns = 5:23)),
       columnDefs = list(list(visible = FALSE,
-                             targets = c(5, 6, 9, 13, 14, 16, 17, 19, 20)))
+                             targets = c(5:6, 9:10, 16:17, 19:20, 22:23)))
     )))
   
   # time-series data
