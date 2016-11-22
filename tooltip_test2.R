@@ -5,19 +5,20 @@ shinyApp(
     fluidPage(
       sidebarLayout(
         sidebarPanel(
-          "adfasf", span(id = "infotest", icon("info-circle")),
+          "adfasf", span(id = "infotest", icon("info")),
           sliderInput("bins",
                       "Number of bins:",
                       min = 1,
                       max = 50,
                       value = 30),
           bsTooltip("infotest", "The wait times will be broken into this many equally spaced bins",
-                    "right"),
+                    "right", trigger = "click"),
           # bsPopover("infotest", "some title", "The wait times will be broken into this many equally spaced bins",
           #           "right")
           "adfasf",
-          tipify(icon("info-circle"), "The wait times will be broken into this many equally spaced bins",
-                    "right")
+          tipify(el = icon("info-circle"),
+                 placement = "right",
+                 title = "The wait times will be broken into this many equally spaced bins")
         ),
         mainPanel(
           plotOutput("distPlot")

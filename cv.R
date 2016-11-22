@@ -115,29 +115,39 @@ ui <- dashboardPage(
     tabItems(
       tabItem(tabName = "reportdata",
               fluidRow(
-                box(h3("Reporter"),
+                box(h3("Reporter",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = "Qualification of the person who filed the report")),
                     htmlOutput("reporterplot"),
-                    "Qualification of the person who filed the report.",
                     width = 3),
-                box(h3("Serious reports"),
+                box(h3("Serious reports",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = "Reports marked as serious")),
                     htmlOutput("seriousplot"),
-                    "Reports marked as serious.",
                     width = 3),
-                box(h3("Reasons for serious reports"),
+                box(h3("Reasons for serious reports",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = "Total sums to more than 100% because reports can be marked serious for multiple reasons")),
                     htmlOutput("seriousreasonsplot"),
-                    "Total sums to more than 100% because reports can be marked serious for multiple reasons.",
                     width = 5)
               )
       ),
       tabItem(tabName = "patientdata",
               fluidRow(
-                box(h3("Gender"),
+                box(h3("Gender",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = "Unknown includes reports explicitly marked unknown and Not Specified includes reports with no gender information.")),
                     htmlOutput("sexplot"),
-                    p("Unknown includes reports explicitly marked unknown and Not Specified includes reports with no gender information."),
                     width = 3),
-                box(h3("Age Groups"),
+                box(h3("Age Groups",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = "Unknown includes reports with no age information.")),
                     htmlOutput("agegroupplot"),
-                    p("Unknown includes reports with no age information."), 
                     width = 3),
                 box(h3("Age Histogram"),
                     plotlyOutput("agehist"),
@@ -146,27 +156,37 @@ ui <- dashboardPage(
       ),
       tabItem(tabName = "drugdata",
               fluidRow(
-                box(h3("Most Frequent Indications"),
+                box(h3("Most Frequent Indications",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = paste(
+                           "This plot includes all indications for all drugs present in the matching reports.",
+                           "The search query filters unique reports, which may have one or more drugs associated with them."))),
                     htmlOutput("indication_plot"),
-                    p("This plot includes all indications for all drugs present in the matching reports.
-                       The search query filters unique reports, which may have one or more drugs associated with them."),
                     width = 6),
-                box(h3("Most Frequently Occurring Drugs (Brand Name)"),
+                box(h3("Most Frequently Occurring Drugs (Brand Name)",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = paste(
+                           "This plot includes all drugs present in the matching reports.",
+                           "The search query filters unique reports, which may have one or more drugs associated with them."))),
                     htmlOutput("drug_plot"),
-                    p("This plot includes all drugs present in the matching reports.
-                       The search query filters unique reports, which may have one or more drugs associated with them."),
                     width = 6)
               )
       ),
       tabItem(tabName = "rxndata",
               fluidRow(
-                box(h3("Most Frequent Adverse Events (Preferred Terms)"),
+                box(h3("Most Frequent Adverse Events (Preferred Terms)",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = "For more rigorous analysis, use disproportionality statistics.")),
                     htmlOutput("top_pt"),
-                    p("For more rigorous analysis, use disproportionality statistics."),
                     width = 6),
-                box(h3("Most Frequent Adverse Events (High-Level Terms)"),
+                box(h3("Most Frequent Adverse Events (High-Level Terms)",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = "For more rigorous analysis, use disproportionality statistics.")),
                     htmlOutput("top_hlt"),
-                    p("For more rigorous analysis, use disproportionality statistics."),
                     width = 6)
               ),
               fluidRow(

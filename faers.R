@@ -127,35 +127,47 @@ ui <- dashboardPage(
     tabItems(
       tabItem(tabName = "reportdata",
               fluidRow(
-                box(h3("Reporter"),
+                box(h3("Reporter",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = "Qualification of the person who filed the report")),
                     htmlOutput("reporterplot"),
-                    "Qualification of the person who filed the report.",
                     width = 3),
-                box(h3("Serious reports"),
+                box(h3("Serious reports",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = "Reports marked as serious")),
                     htmlOutput("seriousplot"),
-                    "Reports marked as serious.",
                     width = 3),
-                box(h3("Reasons for serious reports"),
+                box(h3("Reasons for serious reports",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = "Total sums to more than 100% because reports can be marked serious for multiple reasons")),
                     htmlOutput("seriousreasonsplot"),
-                    "Total sums to more than 100% because reports can be marked serious for multiple reasons.",
                     width = 5)
               ),
               fluidRow(
-                box(h3("Country"),
+                box(h3("Country",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = "Country the reaction(s) occurred in. This is not necessarily the same country the report was received from.")),
                     htmlOutput("countryplot"),
-                    "Country the reaction(s) occurred in. This is not necessarily the same country the report was received from.",
                     width = 6)
               )
       ),
       tabItem(tabName = "patientdata",
               fluidRow(
-                box(h3("Sex"),
+                box(h3("Sex",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = "Includes both reports explicitly marked unknown and reports with no sex information")),
                     htmlOutput("sexplot"),
-                    "Includes both reports explicitly marked unknown and reports with no sex information.",
                     width = 3),
-                box(h3("Age Groups"),
+                box(h3("Age Groups",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = "Includes reports with no age information.")),
                     htmlOutput("agegroupplot"),
-                    "Includes reports with no age information.", 
                     width = 3),
                 box(h3("Age Histogram"),
                     plotlyOutput("agehist"),
@@ -164,43 +176,57 @@ ui <- dashboardPage(
       ),
       tabItem(tabName = "drugdata",
               fluidRow(
-                box(h3("Most Frequent Indications"),
+                box(h3("Most Frequent Indications",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = paste(
+                           "This plot includes all indications for all drugs present in the matching reports.",
+                           "The open.fda.gov search API does not allow searching or filtering within drugs.",
+                           "The search query filters unique reports, which may have one or more drugs associated with them.",
+                           "It is not currently possible to search for only those indications associated with a specific drug."))),
                     htmlOutput("indication_plot"),
-                    "This plot includes all indications for all drugs present in the matching reports.
-                           The open.fda.gov search API does not allow searching or filtering within drugs.
-                           The search query filters unique reports, which may have one or more drugs associated with them.
-                           It is not currently possible to search for only those indications associated with a specific drug.
-                           ",
                     width = 6),
-                box(h3("Most Frequently Occurring Drugs (Generic Name)"),
+                box(h3("Most Frequently Occurring Drugs (Generic Name)",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = paste(
+                           "This plot includes all drugs present in the matching reports.",
+                           "The open.fda.gov search API does not allow searching or filtering within drugs.",
+                           "The search query filters unique reports, which may have one or more drugs associated with them.",
+                           "It is not currently possible to retrieve correlations between drugs."))),
                     htmlOutput("drug_plot"),
-                    "This plot includes all drugs present in the matching reports.
-                       The open.fda.gov search API does not allow searching or filtering within drugs.
-                       The search query filters unique reports, which may have one or more drugs associated with them.
-                       It is not currently possible to retrieve correlations between drugs.",
                     width = 6)
               ),
               fluidRow(
-                box(h3("Most Frequent Established Pharmaceutical Classes"),
+                box(h3("Most Frequent Established Pharmaceutical Classes",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = paste(
+                           "This plot includes all drug classes present in the matching reports, including the search term.",
+                           "The total number of instances for each class will be greater ",
+                           "than the number of reports when reports include more than one drug of the same class.",
+                           "The open.fda.gov search API does not allow searching or filtering within drugs.",
+                           "The search query filters unique reports, which may have one or more drugs associated with them.",
+                           "It is not currently possible to retrieve correlations between drugs."))),
                     htmlOutput("drugclassplot"),
-                    "This plot includes all drug classes present in the matching reports, including the search term.
-                       The total number of instances for each class will be geater 
-                       than the number of reports when reports include more than one drug of the same class.
-                       The open.fda.gov search API does not allow searching or filtering within drugs.
-                       The search query filters unique reports, which may have one or more drugs associated with them.
-                       It is not currently possible to retrieve correlations between drugs.", width = 6)
+                    width = 6)
               )
       ),
       tabItem(tabName = "rxndata",
               fluidRow(
-                box(h3("Most Frequent Adverse Events (Preferred Terms)"),
+                box(h3("Most Frequent Adverse Events (Preferred Terms)",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = "For more rigorous analysis, use disproportionality statistics.")),
                     htmlOutput("top_pt"),
-                    "For more rigorous analysis, use disproportionality statistics.",
                     width = 6),
-                box(h3("Most Frequent Adverse Events (High-Level Terms)"),
+                box(h3("Most Frequent Adverse Events (High-Level Terms)",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = paste0(
+                           "Based on the counts for the top 1000 adverse event preferred terms. ",
+                           "For more rigorous analysis, use disproportionality statistics."))),
                     htmlOutput("top_hlt"),
-                    "Based on the counts for the top 1000 adverse event preferred terms. ",
-                      "For more rigorous analysis, use disproportionality statistics.",
                     width = 6)
               ),
               fluidRow(
