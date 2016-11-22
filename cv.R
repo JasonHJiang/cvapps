@@ -84,9 +84,8 @@ ui <- dashboardPage(
     dateRangeInput("searchDateRange",
                    "Date Range",
                    start = "1965-01-01",
-                   end = Sys.Date(),
-                   startview = "year",
-                   format = "yyyy-mm-dd"),
+                   end = "2016-06-30",
+                   startview = "decade"),
     # hacky way to get borders correct
     tags$div(
       class="form-group shiny-input-container",
@@ -196,13 +195,14 @@ ui <- dashboardPage(
                 "to support Canadians, this interface permits the users to export search results (with no limitation to the number of rows) ", 
                 "in various file formats such as CSV and Excel for further exploration and experimentation.",
                 "</p>",
+                "<br>",
                 "<p>",
+                "<strong>Data last updated: 2016-06-30</strong><br>",
                 "Data provided by the Canada Vigilance Adverse Reaction Online Database. The recency of the data is therefore ",
                 "dependent on when the data source is updated, and is the responsibility of the Canada Vigilance Program. ",
                 "For more information, please refer to ",
                 "<a href = \"http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/index-eng.php\">",
-                "http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/index-eng.php",
-                "</a>.",
+                "http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/index-eng.php</a>.",
                 "</p>")),
               aboutAuthors()
               )

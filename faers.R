@@ -68,7 +68,6 @@ age_code <- data.frame(term = 800:805,
                                  "Hour"),
                        stringsAsFactors = FALSE)
 
-
 ui <- dashboardPage(
   dashboardHeader(title = titleWarning("Shiny FAERS (v0.12)"),
                   titleWidth = 700),
@@ -100,8 +99,9 @@ ui <- dashboardPage(
                    c("Loading..." = "")),
     dateRangeInput("searchDateRange", 
                    "Date Range", 
-                   start = "2000-01-01", 
-                   startview = "year"),
+                   start = "2003-01-01",
+                   end = "2016-06-30",
+                   startview = "decade"),
     # hacky way to get borders correct
     tags$div(class="form-group shiny-input-container",
              actionButton("searchButton",
@@ -227,7 +227,9 @@ ui <- dashboardPage(
           "interactive dashboards. <b>NOTE</b>: This app uses US Trade Name and Generic Name definitions; ",
           "therefore it may not be relevant in Canadian Context.",
           "</p>",
+          "<br>",
           "<p>",
+          "<strong>Data last updated: 2016-11-04</strong> (latest report in this update is 2016-06-30)<br>",
           "Data provided by the U.S. Food and Drug Administration (FDA), retrieved through the openFDA API (",
           "<a href = \"https://open.fda.gov\">",
           "https://open.fda.gov",

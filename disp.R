@@ -200,14 +200,17 @@ ui <- dashboardPage(
           "neither replaces nor is intended to replace or comment on any regulatory decisions made by Health Canada.",
           "</p>",
           "<p>",
+          "Detailed documentation on all disproportionality analyses can be found in Documentation tab.",
+          "</p>",
+          "<br>",
+          "<p>",
+          "<strong>Data last updated: 2016-06-30</strong><br>",
           "Data provided by the Canada Vigilance Adverse Reaction Online Database. The recency of the data is therefore ",
           "dependent on when the data source is updated, and is the responsibility of the Canada Vigilance Program. ",
           "For more information, please refer to ",
           "<a href = \"http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/index-eng.php\">",
-          "http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/index-eng.php",
-          "</a>.",
+          "http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/index-eng.php</a>.",
           "</p>")),
-        tags$p("Detailed documentation on all disproportionality analyses can be found in Documentation tab."),
         aboutAuthors()
       ))
     )
