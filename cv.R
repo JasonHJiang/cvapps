@@ -457,7 +457,7 @@ server <- function(input, output, session) {
                   options = list(
                     height = 350,
                     vAxis = "{title: 'Number of Reports'}",
-                    hAxis = "{title: 'Month'}",
+                    hAxis = "{title: 'Date Received (grouped by month)'}",
                     chartArea = "{top: 10, height: '80%', left: 120, width: '84%'}",
                     colors = colorCodeToString(google_colors[c(18, 13, 2)])
                   ))
