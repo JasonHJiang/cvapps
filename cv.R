@@ -74,10 +74,16 @@ ui <- dashboardPage(
       selectizeInput("search_ing", 
                      "Active Ingredient",
                      c(topings, "Start typing to search..." = ""))),
-    radioButtons("name_type", "Drug name type:",
-                 c("Brand Name" = "brand",
-                   "Active Ingredient" = "ingredient"),
-                 selected = "ingredient"),
+    div(style="display: inline-block; width: 47%;",
+        radioButtons("name_type", "Drug name type:",
+                     c("Brand Name" = "brand",
+                       "Active Ingredient" = "ingredient"),
+                     selected = "ingredient")),
+    div(style="display: inline-block; vertical-align:top; width: 52%",
+        radioButtons("drug_inv", "Drug Involvement:",
+                     c("Suspect",
+                       "Concomitant",
+                       "Any"))),
     selectizeInput("search_rxn", 
                    "Adverse Event Term",
                    c("Loading..." = "")),
@@ -87,12 +93,14 @@ ui <- dashboardPage(
                    end = "2016-06-30",
                    startview = "decade"),
     # hacky way to get borders correct
-    tags$div(
-      class="form-group shiny-input-container",
-      actionButton("searchButton",
-                   "Search",
-                   width = '100%')
-    ),
+    conditionalPanel(
+      condition = "input.search_rxn != 'disable'",
+      tags$div(
+        class="form-group shiny-input-container",
+        actionButton("searchButton",
+                     "Search",
+                     width = '100%')
+      )),
     div(style="display: inline-block; width: 161px;",
         selectInput("search_dataset_type",
                     "Download Type",
@@ -165,14 +173,6 @@ ui <- dashboardPage(
                     htmlOutput("indication_plot"),
                     width = 6),
                 tabBox(
-                  tabPanel("All",
-                           h3("Most Frequently Occurring Drugs (Brand Name)",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste(
-                                  "This plot includes all drugs present in the matching reports.",
-                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
-                           htmlOutput("all_drugs")),
                   tabPanel("Suspect",
                            h3("Most Frequently Occurring Drugs (Brand Name)",
                               tipify(
@@ -189,6 +189,14 @@ ui <- dashboardPage(
                                   "This plot includes all drugs present in the matching reports.",
                                   "The search query filters unique reports, which may have one or more drugs associated with them."))),
                            htmlOutput("concomitant_drugs")),
+                  tabPanel("All",
+                           h3("Most Frequently Occurring Drugs (Brand Name)",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste(
+                                  "This plot includes all drugs present in the matching reports.",
+                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
+                           htmlOutput("all_drugs")),
                   width = 6)
               )
       ),
@@ -258,30 +266,38 @@ server <- function(input, output, session) {
     input$search_brand
     input$search_ing
     input$name_type
+    input$drug_inv
     isolate({
       pt_selected <- input$search_rxn
 
       pt_choices <- cv_reactions
 
+      related_reports <- cv_report_drug
+      if (input$drug_inv != "Any") related_reports %<>% filter(DRUGINVOLV_ENG == input$drug_inv)
       if (input$name_type == "brand" & input$search_brand != "") {
-        related_reports <- cv_report_drug %>% filter(DRUGNAME == input$search_brand)
-        pt_choices %<>% semi_join(related_reports, by = "REPORT_ID")
+        related_reports %<>% filter(DRUGNAME == input$search_brand)
 
       } else if (input$name_type == "ingredient" & input$search_ing != "") {
         related_drugs <- cv_substances %>% filter(ing == input$search_ing) %>% distinct(DRUGNAME)
-        related_reports <- cv_report_drug %>% semi_join(related_drugs, by = "DRUGNAME")
-        pt_choices %<>% semi_join(related_reports, by = "REPORT_ID")
+        related_reports %<>% semi_join(related_drugs, by = "DRUGNAME")
       }
-      pt_choices %<>%
+      
+      pt_choices <- pt_choices %>%
+        semi_join(related_reports, by = "REPORT_ID") %>%
         distinct(PT_NAME_ENG) %>%
-        as.data.frame() %>%
-        `[[`(1) %>%
-        sort()
+        as.data.frame()
+      if (nrow(pt_choices) == 0) {
+        updateSelectizeInput(session, "search_rxn",
+                             choices = c("No reactions for this selection!" = "disable"),
+                             selected = "disable")
+      } else {
+        pt_choices %<>% `[[`(1) %>% sort()
+        if (! pt_selected %in% pt_choices) pt_selected = ""
+        updateSelectizeInput(session, "search_rxn",
+                             choices = c("Start typing to search..." = "", pt_choices),
+                             selected = pt_selected)
+      }
 
-      if (! pt_selected %in% pt_choices) pt_selected = ""
-      updateSelectizeInput(session, "search_rxn",
-                           choices = c("Start typing to search..." = "", pt_choices),
-                           selected = pt_selected)
     })
   })
 
@@ -299,6 +315,7 @@ server <- function(input, output, session) {
       list(
         name_type  = input$name_type,
         name       = name,
+        drug_inv   = input$drug_inv,
         rxn        = input$search_rxn,
         date_range = input$searchDateRange
       )
@@ -316,6 +333,7 @@ server <- function(input, output, session) {
       related_drugs <- cv_substances %>% filter(ing == data$name)
       cv_report_drug_filtered %<>% semi_join(related_drugs, by = "DRUGNAME")
     }
+    if (data$drug_inv != "Any") cv_report_drug_filtered %<>% filter(DRUGINVOLV_ENG == data$drug_inv)
     cv_reactions_filtered <- cv_reactions
     if ("" != data$rxn) cv_reactions_filtered %<>% filter(PT_NAME_ENG == data$rxn)
 
