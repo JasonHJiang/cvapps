@@ -164,14 +164,32 @@ ui <- dashboardPage(
                            "The search query filters unique reports, which may have one or more drugs associated with them."))),
                     htmlOutput("indication_plot"),
                     width = 6),
-                box(h3("Most Frequently Occurring Drugs (Brand Name)",
-                       tipify(
-                         el = icon("info-circle"), trigger = "hover click",
-                         title = paste(
-                           "This plot includes all drugs present in the matching reports.",
-                           "The search query filters unique reports, which may have one or more drugs associated with them."))),
-                    htmlOutput("drug_plot"),
-                    width = 6)
+                tabBox(
+                  tabPanel("All",
+                           h3("Most Frequently Occurring Drugs (Brand Name)",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste(
+                                  "This plot includes all drugs present in the matching reports.",
+                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
+                           htmlOutput("all_drugs")),
+                  tabPanel("Suspect",
+                           h3("Most Frequently Occurring Drugs (Brand Name)",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste(
+                                  "This plot includes all drugs present in the matching reports.",
+                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
+                           htmlOutput("suspect_drugs")),
+                  tabPanel("Concomitant",
+                           h3("Most Frequently Occurring Drugs (Brand Name)",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste(
+                                  "This plot includes all drugs present in the matching reports.",
+                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
+                           htmlOutput("concomitant_drugs")),
+                  width = 6)
               )
       ),
       tabItem(tabName = "rxndata",
@@ -632,7 +650,7 @@ server <- function(input, output, session) {
 
     gvisBarChart_HCSC(indications_sorted, "INDICATION_NAME_ENG", "n", google_colors[1])
   })
-  output$drug_plot <- renderGvis({
+  output$all_drugs <- renderGvis({
     # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name
     #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
     data <- subset_cv()$drug_tbl %>%
@@ -641,6 +659,32 @@ server <- function(input, output, session) {
       head(25) %>%
       as.data.frame()
 
+    # the top drugs reported here might be influenced by such drug is originally most reported among all reports
+    gvisBarChart_HCSC(data, "DRUGNAME", "n", google_colors[2])
+  })
+  output$suspect_drugs <- renderGvis({
+    # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name
+    #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
+    data <- subset_cv()$drug_tbl %>%
+      filter(DRUGINVOLV_ENG == "Suspect") %>%
+      count(DRUGNAME) %>%
+      arrange(desc(n)) %>%
+      head(25) %>%
+      as.data.frame()
+    
+    # the top drugs reported here might be influenced by such drug is originally most reported among all reports
+    gvisBarChart_HCSC(data, "DRUGNAME", "n", google_colors[2])
+  })
+  output$concomitant_drugs <- renderGvis({
+    # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name
+    #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
+    data <- subset_cv()$drug_tbl %>%
+      filter(DRUGINVOLV_ENG == "Concomitant") %>%
+      count(DRUGNAME) %>%
+      arrange(desc(n)) %>%
+      head(25) %>%
+      as.data.frame()
+    
     # the top drugs reported here might be influenced by such drug is originally most reported among all reports
     gvisBarChart_HCSC(data, "DRUGNAME", "n", google_colors[2])
   })

@@ -23,6 +23,9 @@ source("common_ui.R")
 #< so you understand what are all the high-level functions and outputs in the server fxn
 # https://github.com/FDA/openfda/issues/29
 
+# not possible to do searching for only suspect or concomitant drugs in openFDA
+# http://opendata.stackexchange.com/questions/6157
+
 topdrugs <- fda_query("/drug/event.json") %>%
   fda_count("patient.drug.openfda.generic_name.exact") %>% 
   fda_limit(1000) %>% 
@@ -194,7 +197,7 @@ ui <- dashboardPage(
                            "The open.fda.gov search API does not allow searching or filtering within drugs.",
                            "The search query filters unique reports, which may have one or more drugs associated with them.",
                            "It is not currently possible to retrieve correlations between drugs."))),
-                    htmlOutput("drug_plot"),
+                    htmlOutput("all_drugs"),
                     width = 6)
               ),
               fluidRow(
@@ -722,7 +725,7 @@ server <- function(input, output, session) {
     if(is.null(indications)) indications <- data.frame(term = character(), count = numeric())
     gvisBarChart_HCSC(indications, "term", "count", google_colors[4])
   })
-  output$drug_plot <- renderGvis({
+  output$all_drugs <- renderGvis({
     query <- faers_query()
     
     drugs <- query %>%
