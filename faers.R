@@ -173,7 +173,7 @@ ui <- dashboardPage(
                          title = "Includes reports with no age information.")),
                     htmlOutput("agegroupplot"),
                     width = 3),
-                box(h3("Age Histogram"),
+                box(htmlOutput("agehisttitle"),
                     plotlyOutput("agehist"),
                     width = 6)
               )
@@ -705,14 +705,17 @@ server <- function(input, output, session) {
     
     gvisPieChart_HCSC(data, "age_group", "count")
   })
+  output$agehisttitle <- renderUI({
+    excluded_count <- ages() %>%
+      filter(age_group != "Unknown", term > 100) %>%
+      `$`('count') %>% sum()
+    plottitle <- paste0("Histogram of Patient Ages")
+    if(excluded_count > 0) plottitle <- paste0(plottitle, "<br>(", excluded_count, " reports with age greater than 100 excluded)")
+    HTML(paste0("<h3>", plottitle, "</h3>"))
+  })
   output$agehist <- renderPlotly({
     age_groups <- ages() %>% filter(age_group != "Unknown", term <= 100) %>% rename(age = term)
     age_groups$age_group %<>% factor(levels = c("Neonate", "Infant", "Child", "Adolescent", "Adult", "Elderly"))
-    unknown <- ages() %>% filter(age_group != "Unknown", term > 100)
-    unknown_count <- sum(unknown$count)
-    
-    plottitle <- paste0("Histogram of Patient Ages")
-    if(unknown_count > 0) plottitle <- paste0(plottitle, "<br>(", unknown_count, " reports with age greater than 100 excluded)")
     
     # joining by remaining terms so you can assign the right colours to the legend
     colours_df <- data.frame(
