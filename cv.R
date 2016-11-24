@@ -626,26 +626,41 @@ server <- function(input, output, session) {
   output$agegroupplot <- renderGvis({
     age_groups <- ages() %>%
       count(age_group, wt = nn)
+    age_group_order <- data.frame(age_group = c("Neonate",
+                                                "Infant",
+                                                "Child",
+                                                "Adolescent",
+                                                "Adult",
+                                                "Elderly",
+                                                "Not reported"),
+                                  stringsAsFactors = FALSE)
+    data <- left_join(age_group_order, age_groups, by = "age_group")
+    data[is.na(data)] <- 0 # always including empty rows means colour-scheme will be consistent
 
-    gvisPieChart_HCSC(age_groups, "age_group", "n")
+    gvisPieChart_HCSC(data, "age_group", "n")
   })
   output$agehist <- renderPlotly({
     age_groups <- ages() %>% filter(age_group != "Unknown", AGE_Y <= 100)
+    age_groups$age_group %<>% factor(levels = c("Neonate", "Infant", "Child", "Adolescent", "Adult", "Elderly"))
     excluded <- ages() %>% filter(age_group != "Unknown", AGE_Y > 100)
     excluded_count <- sum(excluded$nn)
 
     plottitle <- paste0("Histogram of Patient Ages")
     if(excluded_count > 0) plottitle <- paste0(plottitle, "<br>(", excluded_count, " reports with age greater than 100 excluded)")
-
+    
+    # joining by remaining terms so you can assign the right colours to the legend
+    colours_df <- data.frame(
+      age_group = c("Neonate", "Infant", "Child", "Adolescent", "Adult", "Elderly"),
+      colours = google_colors[1:6],
+      stringsAsFactors = FALSE) %>%
+      semi_join(distinct(age_groups, age_group), by = "age_group")
+    
     hist <- ggplot(age_groups, aes(x = AGE_Y, weight = nn, fill = age_group)) +
       geom_histogram(breaks = seq(0, 100, by = 2)) +
-      ggtitle(plottitle) +
+      scale_fill_manual(values = colours_df$colours) +
       xlab("Age at onset (years)") +
       ylab("Number of Reports") +
-      theme_bw() +
-      theme(plot.title = element_text(lineheight=.8, size = rel(0.85),face="bold")) +
-      scale_x_continuous(limits = c(0, 100))
-    #   theme(axis.title.x = element_text(size = rel(0.8)))
+      theme_bw()
     ggplotly(hist)
   })
 
