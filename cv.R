@@ -14,6 +14,7 @@ library(googleVis)
 # Shiny libraries
 library(shiny)
 library(shinydashboard)
+library(shinyBS)
 library(DT)
 
 source("common_ui.R")
