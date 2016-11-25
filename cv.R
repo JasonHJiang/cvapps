@@ -34,6 +34,12 @@ cv_report_drug <- tbl(hcopen, "cv_report_drug")
 cv_reactions <- tbl(hcopen, "cv_reactions")
 cv_report_drug_indication <- tbl(hcopen, "cv_report_drug_indication")
 cv_substances <- tbl(hcopen, "cv_substances")
+# cv_reports <- tbl(hcopen, "cv_reports_20160630")
+# cv_drug_product_ingredients <-  tbl(hcopen, "cv_drug_product_ingredients_20160630")
+# cv_report_drug <- tbl(hcopen, "cv_report_drug_20160630")
+# cv_reactions <- tbl(hcopen, "cv_reactions_20160630")
+# cv_report_drug_indication <- tbl(hcopen, "cv_report_drug_indication_20160630")
+# cv_substances <- tbl(hcopen, "cv_substances")
 meddra <- tbl(hcopen, "meddra") %>%
   filter(Primary_SOC_flag == "Y") %>%
   select(PT_Term, HLT_Term, Version = MEDDRA_VERSION)
@@ -632,7 +638,7 @@ server <- function(input, output, session) {
                                                 "Adolescent",
                                                 "Adult",
                                                 "Elderly",
-                                                "Not reported"),
+                                                "Unknown"),
                                   stringsAsFactors = FALSE)
     data <- left_join(age_group_order, age_groups, by = "age_group")
     data[is.na(data)] <- 0 # always including empty rows means colour-scheme will be consistent
