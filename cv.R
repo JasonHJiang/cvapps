@@ -676,7 +676,7 @@ server <- function(input, output, session) {
     HTML(paste0("<h3>Histogram of Patient Ages ",
                 tipify(
                   el = icon("info-circle"), trigger = "hover click",
-                  title = "Distribution of number of reports per age, colour-coded by age group. Bins contain 2 years each."),
+                  title = "Distribution of number of reports per age, colour-coded by age group. Each bin groups 2 years."),
                 "<br>(", excluded_count, " reports with age greater than 100 excluded)", "</h3>"))
   })
   output$agehist <- renderPlotly({
