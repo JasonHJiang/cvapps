@@ -693,18 +693,6 @@ server <- function(input, output, session) {
 
     gvisBarChart_HCSC(indications_sorted, "INDICATION_NAME_ENG", "n", google_colors[1])
   })
-  output$all_drugs <- renderGvis({
-    # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name
-    #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
-    data <- subset_cv()$drug_tbl %>%
-      count(DRUGNAME) %>%
-      arrange(desc(n)) %>%
-      head(25) %>%
-      as.data.frame()
-
-    # the top drugs reported here might be influenced by such drug is originally most reported among all reports
-    gvisBarChart_HCSC(data, "DRUGNAME", "n", google_colors[2])
-  })
   output$suspect_drugs <- renderGvis({
     # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name
     #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
@@ -723,6 +711,18 @@ server <- function(input, output, session) {
     #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
     data <- subset_cv()$drug_tbl %>%
       filter(DRUGINVOLV_ENG == "Concomitant") %>%
+      count(DRUGNAME) %>%
+      arrange(desc(n)) %>%
+      head(25) %>%
+      as.data.frame()
+    
+    # the top drugs reported here might be influenced by such drug is originally most reported among all reports
+    gvisBarChart_HCSC(data, "DRUGNAME", "n", google_colors[2])
+  })
+  output$all_drugs <- renderGvis({
+    # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name
+    #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
+    data <- subset_cv()$drug_tbl %>%
       count(DRUGNAME) %>%
       arrange(desc(n)) %>%
       head(25) %>%
