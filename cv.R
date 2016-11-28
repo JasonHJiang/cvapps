@@ -222,6 +222,11 @@ ui <- dashboardPage(
                                   "The search query filters unique reports, which may have one or more drugs associated with them."))),
                            htmlOutput("all_drugs")),
                   width = 6)
+              ),
+              fluidRow(
+                box(htmlOutput("drugcounttitle"),
+                    htmlOutput("drugcount_plot"),
+                    width = 8)
               )
       ),
       tabItem(tabName = "rxndata",
@@ -756,6 +761,36 @@ server <- function(input, output, session) {
     
     # the top drugs reported here might be influenced by such drug is originally most reported among all reports
     gvisBarChart_HCSC(data, "DRUGNAME", "n", google_colors[2])
+  })
+  output$drugcounttitle <- renderUI({
+    excluded_count <- subset_cv()$drug_tbl %>%
+      count(REPORT_ID) %>%
+      filter(n > 20) %>%
+      count() %>%
+      `$`('nn')
+    HTML(paste0("<h3>Number of Drugs per Report ",
+                tipify(
+                  el = icon("info-circle"), trigger = "hover click",
+                  title = paste0(
+                    "This plot indicates how many reports include how many drugs. ",
+                    "The search query filters unique reports, which may have one or more drugs associated with them.")),
+                "<br>(", excluded_count, " reports with more than 20 drugs excluded)", "</h3>"))
+  })
+  output$drugcount_plot <- renderGvis({
+    data <- subset_cv()$drug_tbl %>%
+      count(REPORT_ID) %>%
+      filter(n <= 20) %>%
+      select(n) %>%
+      as.data.frame()
+    
+    # the top drugs reported here might be influenced by such drug is originally most reported among all reports
+    gvisHistogram(data, options = list(
+      legend = "{ position: 'none' }",
+      height = 300,
+      vAxis = "{title: 'Number of Reports'}",
+      hAxis = "{title: 'Number of Drugs in Report'}",
+      chartArea = "{top: 20, height: '75%', left: 80, width: '90%'}",
+      histogram = "{ hideBucketItems: true, bucketSize: 1 }"))
   })
 
   #### Data about Reactions
