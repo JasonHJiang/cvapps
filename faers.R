@@ -50,19 +50,6 @@ meddra <- tbl(hcopen, "meddra") %>%
   mutate(term = toupper(PT_Term)) %>%
   as.data.frame()
 
-outcome_code <- data.frame(term = 1:6,
-                           label = c("Recovered/resolved",
-                                     "Recovering/resolving",
-                                     "Not recovered/not resolved",
-                                     "Recovered/resolved with sequelae (consequent health issues)",
-                                     "Fatal",
-                                     "Unknown"),
-                           stringsAsFactors = FALSE)
-sex_code <- data.frame(term = 0:2,
-                       label = c("Unknown",
-                                 "Male",
-                                 "Female"),
-                       stringsAsFactors = FALSE)
 age_code <- data.frame(term = 800:805,
                        label = c("Decade",
                                  "Year",
@@ -134,19 +121,22 @@ ui <- dashboardPage(
                 box(h3("Reporter",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
-                         title = "Qualification of the person who filed the report")),
+                         title = "Category of individual who submitted the report.")),
                     htmlOutput("reporterplot"),
                     width = 3),
                 box(h3("Serious reports",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
-                         title = "Reports marked as serious")),
+                         title = paste0("Seriousness of the adverse event. An adverse event is marked serious if it ",
+                                        "resulted in death, a life threatening condition, hospitalization, disability, ",
+                                        "congenital anomaly, or other serious condition."))),
                     htmlOutput("seriousplot"),
                     width = 3),
                 box(h3("Reasons for serious reports",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
-                         title = "Total sums to more than 100% because reports can be marked serious for multiple reasons")),
+                         title = paste0("The serious condition which the adverse event resulted in. Total sums to",
+                                        " more than 100% because reports can be marked serious for multiple reasons"))),
                     htmlOutput("seriousreasonsplot"),
                     width = 5)
               ),
@@ -154,7 +144,7 @@ ui <- dashboardPage(
                 box(h3("Country",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
-                         title = "Country the reaction(s) occurred in. This is not necessarily the same country the report was received from.")),
+                         title = "The name of the country where the event occurred. This is not necessarily the same country the report was received from.")),
                     htmlOutput("countryplot"),
                     width = 6)
               )
@@ -164,13 +154,20 @@ ui <- dashboardPage(
                 box(h3("Sex",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
-                         title = "Includes both reports explicitly marked unknown and reports with no sex information")),
+                         title = "The sex of the patient.")),
                     htmlOutput("sexplot"),
                     width = 3),
                 box(h3("Age Groups",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
-                         title = "Includes reports with no age information.")),
+                         title = HTML(paste0(
+                           "Using the definitions from the Canada Vigilance Adverse Reaction Online Database.<br>",
+                           "<br>Neonate: <= 25 days",
+                           "<br>Infant: > 25 days to < 1 yr",
+                           "<br>Child: >= 1 yr to < 13 yrs",
+                           "<br>Adolescent: >= 13 yrs to < 18 yrs",
+                           "<br>Adult: >= 18 yrs to <= 65 yrs",
+                           "<br>Elderly: > 65 yrs")))),
                     htmlOutput("agegroupplot"),
                     width = 3),
                 box(htmlOutput("agehisttitle"),
@@ -185,9 +182,9 @@ ui <- dashboardPage(
                          el = icon("info-circle"), trigger = "hover click",
                          title = paste(
                            "This plot includes all indications for all drugs present in the matching reports.",
-                           "The open.fda.gov search API does not allow searching or filtering within drugs.",
-                           "The search query filters unique reports, which may have one or more drugs associated with them.",
-                           "It is not currently possible to search for only those indications associated with a specific drug."))),
+                           "It is not currently possible to search for only those indications associated with a specific drug",
+                           "since the openFDA search API does not allow filtering of drug data.",
+                           "The search query filters unique reports, which may have one or more drugs associated with them."))),
                     htmlOutput("indication_plot"),
                     width = 6),
                 box(h3("Most Frequently Occurring Drugs (Generic Name)",
@@ -195,9 +192,8 @@ ui <- dashboardPage(
                          el = icon("info-circle"), trigger = "hover click",
                          title = paste(
                            "This plot includes all drugs present in the matching reports.",
-                           "The open.fda.gov search API does not allow searching or filtering within drugs.",
-                           "The search query filters unique reports, which may have one or more drugs associated with them.",
-                           "It is not currently possible to retrieve correlations between drugs."))),
+                           "The openFDA search API does not allow filtering of drug data.",
+                           "The search query filters unique reports, which may have one or more drugs associated with them."))),
                     htmlOutput("all_drugs"),
                     width = 6)
               ),
@@ -206,12 +202,10 @@ ui <- dashboardPage(
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
                          title = paste(
-                           "This plot includes all drug classes present in the matching reports, including the search term.",
+                           "This plot includes established pharmacologic classes for all drugs present in the matching reports",
                            "The total number of instances for each class will be greater ",
                            "than the number of reports when reports include more than one drug of the same class.",
-                           "The open.fda.gov search API does not allow searching or filtering within drugs.",
-                           "The search query filters unique reports, which may have one or more drugs associated with them.",
-                           "It is not currently possible to retrieve correlations between drugs."))),
+                           "The openFDA search API does not allow filtering of drug data."))),
                     htmlOutput("drugclassplot"),
                     width = 6)
               )
@@ -221,20 +215,26 @@ ui <- dashboardPage(
                 box(h3("Most Frequent Adverse Events (Preferred Terms)",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
-                         title = "For more rigorous analysis, use disproportionality statistics.")),
+                         title = paste0(
+                           "Patient reactions, as MedDRA preferred terms, for all reactions present in ",
+                           "the reports. For more rigorous analysis, use disproportionality statistics."))),
                     htmlOutput("top_pt"),
                     width = 6),
                 box(h3("Most Frequent Adverse Events (High-Level Terms)",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
                          title = paste0(
-                           "Based on the counts for the top 1000 adverse event preferred terms. ",
+                           "Patient reactions, as MedDRA high-level terms. Based on the counts ",
+                           "for the top 1000 MedDRA preferred terms present in reports. ",
                            "For more rigorous analysis, use disproportionality statistics."))),
                     htmlOutput("top_hlt"),
                     width = 6)
               ),
               fluidRow(
-                box(h3("Outcomes of Adverse Events"),
+                box(h3("Outcomes of Adverse Events",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = "Outcome of the reaction at the time of last observation.")),
                     htmlOutput("outcomeplot"),
                     width = 4)
               )
@@ -532,7 +532,7 @@ server <- function(input, output, session) {
                                           "Consumer or non-health professional"),
                                 stringsAsFactors = FALSE)
     reporter_results <- reporter_results %>%
-      left_join(reporter_code) %>%
+      left_join(reporter_code, by = "term") %>%
       select(label, count)
     
     unknown <- query %>%
@@ -614,11 +614,11 @@ server <- function(input, output, session) {
                                  "Death" = death_results,
                                  "Disabling" = disabling_results,
                                  "Hospitalization" = hospital_results,
-                                 "Life-threatening" = lifethreaten_results,
+                                 "Life-threatening condition" = lifethreaten_results,
                                  .id = "label") %>%
       mutate(percentage = count/total_serious * 100) %>%
       arrange(desc(percentage)) %>%
-      rbind(list("Other", 1, serother_results$count, serother_results$count/total_serious * 100))
+      rbind(list("Other serious condition", 1, serother_results$count, serother_results$count/total_serious * 100))
     serious_reasons$percentage %<>% round(digits = 2)
     
     gvisBarChart(serious_reasons,
@@ -670,6 +670,12 @@ server <- function(input, output, session) {
   output$sexplot <- renderGvis({
     query <- faers_query()
     
+    sex_code <- data.frame(term = 0:2,
+                           label = c("Unknown",
+                                     "Male",
+                                     "Female"),
+                           stringsAsFactors = FALSE)
+    
     sex_results <- query %>% 
       fda_count("patient.patientsex") %>% 
       fda_exec() %>%
@@ -709,9 +715,11 @@ server <- function(input, output, session) {
     excluded_count <- ages() %>%
       filter(age_group != "Unknown", term > 100) %>%
       `$`('count') %>% sum()
-    plottitle <- paste0("Histogram of Patient Ages")
-    if(excluded_count > 0) plottitle <- paste0(plottitle, "<br>(", excluded_count, " reports with age greater than 100 excluded)")
-    HTML(paste0("<h3>", plottitle, "</h3>"))
+    HTML(paste0("<h3>Histogram of Patient Ages ",
+                tipify(
+                  el = icon("info-circle"), trigger = "hover click",
+                  title = "Distribution of number of reports per age, colour-coded by age group."),
+                "<br>(", excluded_count, " reports with age greater than 100 excluded)", "</h3>"))
   })
   output$agehist <- renderPlotly({
     age_groups <- ages() %>% filter(age_group != "Unknown", term <= 100) %>% rename(age = term)
@@ -802,6 +810,16 @@ server <- function(input, output, session) {
       fda_count("patient.reaction.reactionoutcome") %>% 
       fda_exec()
     if(is.null(outcome_results)) outcome_results <- data.frame(term = numeric(), count = numeric())
+    
+    outcome_code <- data.frame(term = 1:6,
+                               label = c("Recovered/resolved",
+                                         "Recovering/resolving",
+                                         "Not recovered/not resolved",
+                                         "Recovered/resolved with sequelae (consequent health issues)",
+                                         "Fatal",
+                                         "Unknown"),
+                               stringsAsFactors = FALSE)
+    
     outcome_results <- outcome_results %>%  
       left_join(outcome_code) %>%
       select(label, count)
