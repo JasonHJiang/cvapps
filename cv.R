@@ -130,22 +130,26 @@ ui <- dashboardPage(
     tabItems(
       tabItem(tabName = "reportdata",
               fluidRow(
-                box(h3("Reporter",
+                box(h3("Reporter Type",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
-                         title = "Qualification of the person who filed the report")),
+                         title = "Indicates who reported the adverse reaction and their relationship to the patient.")),
                     htmlOutput("reporterplot"),
                     width = 3),
-                box(h3("Serious reports",
+                box(h3("Seriousness",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
-                         title = "Reports marked as serious")),
+                         title = paste0(
+                           "A serious report contains a serious adverse reaction, determined by the reporter ",
+                           "of the report at the time of reporting.")
+                         )),
                     htmlOutput("seriousplot"),
                     width = 3),
-                box(h3("Reasons for serious reports",
+                box(h3("Reason for Seriousness",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
-                         title = "Total sums to more than 100% because reports can be marked serious for multiple reasons")),
+                         title = paste0("The serious condition which the adverse event resulted in. Total sums to",
+                                        " more than 100% because reports can be marked serious for multiple reasons"))),
                     htmlOutput("seriousreasonsplot"),
                     width = 5)
               )
@@ -155,13 +159,23 @@ ui <- dashboardPage(
                 box(h3("Gender",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
-                         title = "Unknown includes reports explicitly marked unknown and Not Specified includes reports with no gender information.")),
+                         title = paste0(
+                           "Gender of the patient as it was provided by the reporter. ",
+                           "Where the gender is unknown, the reporter is unaware of the gender. ",
+                           "Where the gender is not specified, the reporter did not specify the gender of the patient."))),
                     htmlOutput("sexplot"),
                     width = 3),
-                box(h3("Age Groups",
+                box(h3("Age Group",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
-                         title = "Unknown includes reports with no age information.")),
+                         title =  HTML(paste0(
+                           "Age group of the patient when the adverse effect occurred.<br>",
+                           "<br>Neonate: <= 25 days",
+                           "<br>Infant: > 25 days to < 1 yr",
+                           "<br>Child: >= 1 yr to < 13 yrs",
+                           "<br>Adolescent: >= 13 yrs to < 18 yrs",
+                           "<br>Adult: >= 18 yrs to <= 65 yrs",
+                           "<br>Elderly: > 65 yrs")))),
                     htmlOutput("agegroupplot"),
                     width = 3),
                 box(htmlOutput("agehisttitle"),
@@ -175,7 +189,8 @@ ui <- dashboardPage(
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
                          title = paste(
-                           "This plot includes all indications for all drugs present in the matching reports.",
+                           "Indication refers to the particular condition for which a health product was taken. ",
+                           "This plot includes all indications for all drugs present in the matching reports. ",
                            "The search query filters unique reports, which may have one or more drugs associated with them."))),
                     htmlOutput("indication_plot"),
                     width = 6),
@@ -184,24 +199,26 @@ ui <- dashboardPage(
                            h3("Most Frequently Occurring Drugs (Brand Name)",
                               tipify(
                                 el = icon("info-circle"), trigger = "hover click",
-                                title = paste(
-                                  "This plot includes all drugs present in the matching reports.",
-                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
+                                title = paste0(
+                                  "This plot includes all drugs present in the matching reports. ",
+                                  "The search query filters unique reports, which may have one or more drugs associated with them. ",
+                                  "The reporter suspects that the health product caused the adverse reaction."))),
                            htmlOutput("suspect_drugs")),
                   tabPanel("Concomitant",
                            h3("Most Frequently Occurring Drugs (Brand Name)",
                               tipify(
                                 el = icon("info-circle"), trigger = "hover click",
-                                title = paste(
-                                  "This plot includes all drugs present in the matching reports.",
-                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
+                                title = paste0(
+                                  "This plot includes all drugs present in the matching reports. ",
+                                  "The search query filters unique reports, which may have one or more drugs associated with them. ",
+                                  "The health product is not suspected, but the patient was taking it at the time of the adverse reaction."))),
                            htmlOutput("concomitant_drugs")),
                   tabPanel("All",
                            h3("Most Frequently Occurring Drugs (Brand Name)",
                               tipify(
                                 el = icon("info-circle"), trigger = "hover click",
-                                title = paste(
-                                  "This plot includes all drugs present in the matching reports.",
+                                title = paste0(
+                                  "This plot includes all drugs present in the matching reports. ",
                                   "The search query filters unique reports, which may have one or more drugs associated with them."))),
                            htmlOutput("all_drugs")),
                   width = 6)
@@ -212,7 +229,11 @@ ui <- dashboardPage(
                 box(h3("Most Frequent Adverse Events (Preferred Terms)",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
-                         title = "For more rigorous analysis, use disproportionality statistics.")),
+                         title = paste0(
+                           "MedDRA Preferred Term is a distinct descriptor (single medical concept) for a symptom, ",
+                           "sign, disease, diagnosis, therapeutic indication, investigation, surgical, or medical ",
+                           "procedure, and medical, social, or family history characteristic. For more rigorous analysis, ",
+                           "use disproportionality statistics."))),
                     htmlOutput("top_pt"),
                     width = 6),
                 box(h3("Most Frequent Adverse Events (High-Level Terms)",
@@ -223,7 +244,13 @@ ui <- dashboardPage(
                     width = 6)
               ),
               fluidRow(
-                box(h3("Outcomes of Adverse Events"),
+                box(h3("Report Outcome",
+                       tipify(
+                         el = icon("info-circle"), trigger = "hover click",
+                         title = paste0(
+                           "The report outcome represents the outcome of the reported case as described by the reporter ",
+                           "at the time of reporting and does not infer a causal relationship. The report outcome is not ",
+                           "based on a scientific evaluation by Health Canada."))),
                     htmlOutput("outcomeplot"),
                     width = 4)
               )
@@ -261,10 +288,8 @@ ui <- dashboardPage(
               )
       )
     )
-  ),
-  skin = "blue"
+  )
 )
-
 
 ############### Server Functions ###################
 server <- function(input, output, session) {
@@ -624,7 +649,6 @@ server <- function(input, output, session) {
       as.data.frame()
     # replace blank in GENDER_ENG with character "Unknown"
     data$GENDER_ENG[data$GENDER_ENG == ""] <- "Not specified"
-    data$GENDER_ENG[data$GENDER_ENG == "Not specified"] <- "Not reported"
     sex_results <- count(data, GENDER_ENG, wt = n)
 
     gvisPieChart_HCSC(sex_results, "GENDER_ENG", "n")
@@ -649,9 +673,11 @@ server <- function(input, output, session) {
     excluded_count <- ages() %>%
       filter(age_group != "Unknown", AGE_Y > 100) %>%
       `$`('nn') %>% sum()
-    plottitle <- paste0("Histogram of Patient Ages")
-    if(excluded_count > 0) plottitle <- paste0(plottitle, "<br>(", excluded_count, " reports with age greater than 100 excluded)")
-    HTML(paste0("<h3>", plottitle, "</h3>"))
+    HTML(paste0("<h3>Histogram of Patient Ages ",
+                tipify(
+                  el = icon("info-circle"), trigger = "hover click",
+                  title = "Distribution of number of reports per age, colour-coded by age group."),
+                "<br>(", excluded_count, " reports with age greater than 100 excluded)", "</h3>"))
   })
   output$agehist <- renderPlotly({
     age_groups <- ages() %>% filter(age_group != "Unknown", AGE_Y <= 100)

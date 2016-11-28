@@ -118,13 +118,13 @@ ui <- dashboardPage(
     tabItems(
       tabItem(tabName = "reportdata",
               fluidRow(
-                box(h3("Reporter",
+                box(h3("Reporter Type",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
                          title = "Category of individual who submitted the report.")),
                     htmlOutput("reporterplot"),
                     width = 3),
-                box(h3("Serious reports",
+                box(h3("Seriousness",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
                          title = paste0("Seriousness of the adverse event. An adverse event is marked serious if it ",
@@ -132,7 +132,7 @@ ui <- dashboardPage(
                                         "congenital anomaly, or other serious condition."))),
                     htmlOutput("seriousplot"),
                     width = 3),
-                box(h3("Reasons for serious reports",
+                box(h3("Reason for Seriousness",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
                          title = paste0("The serious condition which the adverse event resulted in. Total sums to",
@@ -141,7 +141,7 @@ ui <- dashboardPage(
                     width = 5)
               ),
               fluidRow(
-                box(h3("Country",
+                box(h3("Country of Occurrence",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
                          title = "The name of the country where the event occurred. This is not necessarily the same country the report was received from.")),
@@ -157,10 +157,11 @@ ui <- dashboardPage(
                          title = "The sex of the patient.")),
                     htmlOutput("sexplot"),
                     width = 3),
-                box(h3("Age Groups",
+                box(h3("Age Group",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
                          title = HTML(paste0(
+                           "Age group of the patient when the adverse effect occurred. ",
                            "Using the definitions from the Canada Vigilance Adverse Reaction Online Database.<br>",
                            "<br>Neonate: <= 25 days",
                            "<br>Infant: > 25 days to < 1 yr",
@@ -231,7 +232,7 @@ ui <- dashboardPage(
                     width = 6)
               ),
               fluidRow(
-                box(h3("Outcomes of Adverse Events",
+                box(h3("Report Outcome",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
                          title = "Outcome of the reaction at the time of last observation.")),
@@ -276,8 +277,7 @@ ui <- dashboardPage(
         aboutAuthors()
       ))
     )
-  ),
-  skin = "blue"
+  )
 )
 
 
