@@ -254,8 +254,7 @@ ui <- dashboardPage(
           "This app is a prototype experiment that utilizes publically available data (openFDA) ",
           "and presents it in an interactive way for enhanced visualizations. This app allows users to ",
           "effortlessly interact with the reports database, conduct searches and view results in highly ",
-          "interactive dashboards. <b>NOTE</b>: This app uses US Trade Name and Generic Name definitions; ",
-          "therefore it may not be relevant in Canadian Context.",
+          "interactive dashboards.",
           "</p>",
           "<br>",
           "<p>",
@@ -265,7 +264,9 @@ ui <- dashboardPage(
           "https://open.fda.gov",
           "</a>",
           "). The recency of the data is therefore dependent on when the API data source is updated, ",
-          "and Health Canada claims no responsibility for out-of-date information. For more information, please refer to ",
+          "and Health Canada claims no responsibility for out-of-date information. This app uses US Trade Name ",
+          "and Generic Name definitions, and therefore may not be relevant in a Canadian Context. The descriptions used in this ",
+          "app are those defined in the openFDA reference, and are subject to change. For more information, please refer to ",
           "<a href = \"https://open.fda.gov/drug/event/reference/\">",
           "https://open.fda.gov/drug/event/reference/",
           "</a>. Due to ongoing issues with the openFDA API (",
@@ -821,7 +822,7 @@ server <- function(input, output, session) {
                                stringsAsFactors = FALSE)
     
     outcome_results <- outcome_results %>%  
-      left_join(outcome_code) %>%
+      left_join(outcome_code, by = "term") %>%
       select(label, count)
     
     gvisPieChart_HCSC(outcome_results, "label", "count")
