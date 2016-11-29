@@ -59,7 +59,7 @@ topings <- cv_substances %>%
   sort()
 
 ui <- dashboardPage(
-  dashboardHeader(title = titleWarning("CV Shiny (v0.12)"),
+  dashboardHeader(title = titleWarning("CV Shiny (v0.13)"),
                   titleWidth = 700),
   
   dashboardSidebar(
