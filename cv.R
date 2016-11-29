@@ -97,7 +97,7 @@ ui <- dashboardPage(
     dateRangeInput("searchDateRange",
                    "Date Range",
                    start = "1965-01-01",
-                   end = "2015-03-31",
+                   end = "2016-06-30",
                    startview = "decade"),
     # hacky way to get borders correct
     conditionalPanel(
@@ -282,7 +282,7 @@ ui <- dashboardPage(
                 "</p>",
                 "<br>",
                 "<p>",
-                "<strong>Data last updated: 2015-03-31</strong><br>",
+                "<strong>Data last updated: 2016-06-30</strong><br>",
                 "Data provided by the Canada Vigilance Adverse Reaction Online Database. The recency of the data is therefore ",
                 "dependent on when the data source is updated, and is the responsibility of the Canada Vigilance Program. ",
                 "For more information, please refer to ",
