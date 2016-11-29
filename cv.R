@@ -148,8 +148,8 @@ ui <- dashboardPage(
                 box(h3("Reason(s) for Seriousness",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
-                         title = paste0("The serious condition which the adverse event resulted in. Total sums to",
-                                        " more than the total because reports can be marked serious for multiple reasons"))),
+                         title = paste0("The serious condition which the adverse event resulted in. Total may sum to",
+                                        " more than the total number of reports because reports can be marked serious for multiple reasons"))),
                     htmlOutput("seriousreasonsplot"),
                     width = 5)
               )
