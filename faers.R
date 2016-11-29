@@ -580,32 +580,32 @@ server <- function(input, output, session) {
     congenital_results <- query %>%
       fda_count("seriousnesscongenitalanomali") %>%
       fda_exec()
-    if (is.null(congenital_results)) congenital_results <- data.frame(term = character(), count = numeric())
+    if (is.null(congenital_results)) congenital_results <- data.frame(term = 1, count = 0)
     
     death_results <-  query %>% 
       fda_count("seriousnessdeath") %>% 
       fda_exec()
-    if (is.null(death_results)) death_results <- data.frame(term = character(), count = numeric())
+    if (is.null(death_results)) death_results <- data.frame(term = 1, count = 0)
     
     disabling_results <-  query %>%
       fda_count("seriousnessdisabling") %>%
       fda_exec()
-    if (is.null(disabling_results)) disabling_results <- data.frame(term = character(), count = numeric())
+    if (is.null(disabling_results)) disabling_results <- data.frame(term = 1, count = 0)
     
     hospital_results <-  query %>%
       fda_count("seriousnesshospitalization") %>%
       fda_exec()
-    if (is.null(hospital_results)) hospital_results <- data.frame(term = character(), count = numeric())
+    if (is.null(hospital_results)) hospital_results <- data.frame(term = 1, count = 0)
     
     lifethreaten_results <-  query %>%
       fda_count("seriousnesslifethreatening") %>%
       fda_exec()
-    if (is.null(lifethreaten_results)) lifethreaten_results <- data.frame(term = character(), count = numeric())
+    if (is.null(lifethreaten_results)) lifethreaten_results <- data.frame(term = 1, count = 0)
     
     serother_results <-  query %>%
       fda_count("seriousnessother") %>%
       fda_exec()
-    if (is.null(serother_results)) serother_results <- data.frame(term = character(), count = numeric())
+    if (is.null(serother_results)) serother_results <- data.frame(term = 1, count = 0)
     
     total_serious <- query %>%
       fda_count("serious") %>%
