@@ -461,9 +461,11 @@ server <- function(input, output, session) {
       .$results %>%
       .$total
     drug_name <- current_search()$name
+    rxn_name <- current_search()$rxn
     
-    title <- ifelse("" == drug_name, "All Drugs", drug_name)
-    plottitle <- paste0("Drug Adverse Event Reports for ", title, " (", nreports, " reports)")
+    if ("" == drug_name) drug_name <- "All Drugs"
+    if ("" == rxn_name) rxn_name <- "All Reactions"
+    plottitle <- paste0("Drug Adverse Event Reports for ", drug_name, " and ", rxn_name, " (", nreports, " reports)")
     h3(strong(plottitle))
   })
   output$timeplot <- renderGvis({

@@ -28,18 +28,18 @@ hcopen_pool <- dbPool(drv = "PostgreSQL",
                       user = "hcreader",
                       password = "canada1")
 hcopen <- src_pool(hcopen_pool)
-cv_reports <- tbl(hcopen, "cv_reports")
-cv_drug_product_ingredients <-  tbl(hcopen, "cv_drug_product_ingredients")
-cv_report_drug <- tbl(hcopen, "cv_report_drug")
-cv_reactions <- tbl(hcopen, "cv_reactions")
-cv_report_drug_indication <- tbl(hcopen, "cv_report_drug_indication")
-cv_substances <- tbl(hcopen, "cv_substances")
-# cv_reports <- tbl(hcopen, "cv_reports_20160630")
-# cv_drug_product_ingredients <-  tbl(hcopen, "cv_drug_product_ingredients_20160630")
-# cv_report_drug <- tbl(hcopen, "cv_report_drug_20160630")
-# cv_reactions <- tbl(hcopen, "cv_reactions_20160630")
-# cv_report_drug_indication <- tbl(hcopen, "cv_report_drug_indication_20160630")
+# cv_reports <- tbl(hcopen, "cv_reports")
+# cv_drug_product_ingredients <-  tbl(hcopen, "cv_drug_product_ingredients")
+# cv_report_drug <- tbl(hcopen, "cv_report_drug")
+# cv_reactions <- tbl(hcopen, "cv_reactions")
+# cv_report_drug_indication <- tbl(hcopen, "cv_report_drug_indication")
 # cv_substances <- tbl(hcopen, "cv_substances")
+cv_reports <- tbl(hcopen, "cv_reports_20160630")
+cv_drug_product_ingredients <-  tbl(hcopen, "cv_drug_product_ingredients_20160630")
+cv_report_drug <- tbl(hcopen, "cv_report_drug_20160630")
+cv_reactions <- tbl(hcopen, "cv_reactions_20160630")
+cv_report_drug_indication <- tbl(hcopen, "cv_report_drug_indication_20160630")
+cv_substances <- tbl(hcopen, "cv_substances")
 meddra <- tbl(hcopen, "meddra") %>%
   filter(Primary_SOC_flag == "Y") %>%
   select(PT_Term, HLT_Term, Version = MEDDRA_VERSION)
@@ -506,9 +506,11 @@ server <- function(input, output, session) {
       tally() %>%
       as.data.frame()
     drug_name <- current_search()$name
+    rxn_name <- current_search()$rxn
 
-    title <- ifelse("" == drug_name, "All Drugs", drug_name)
-    plottitle <- paste0("Drug Adverse Event Reports for ", title, " (", nreports, " reports)")
+    if ("" == drug_name) drug_name <- "All Drugs"
+    if ("" == rxn_name) rxn_name <- "All Reactions"
+    plottitle <- paste0("Drug Adverse Event Reports for ", drug_name, " and ", rxn_name, " (", nreports, " reports)")
     h3(strong(plottitle))
   })
   output$timeplot <- renderGvis({
