@@ -145,11 +145,11 @@ ui <- dashboardPage(
                          )),
                     htmlOutput("seriousplot"),
                     width = 3),
-                box(h3("Reason for Seriousness",
+                box(h3("Reason(s) for Seriousness",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
                          title = paste0("The serious condition which the adverse event resulted in. Total sums to",
-                                        " more than 100% because reports can be marked serious for multiple reasons"))),
+                                        " more than the total because reports can be marked serious for multiple reasons"))),
                     htmlOutput("seriousreasonsplot"),
                     width = 5)
               )
@@ -588,9 +588,6 @@ server <- function(input, output, session) {
     data <- subset_cv()$report %>%
       filter(SERIOUSNESS_ENG == "Yes")
     
-    total_serious <- data %>%
-      tally() %>% as.data.frame() %>% `$`(n)
-    
     n_congen <- data %>%
       filter(CONGENITAL_ANOMALY == 1) %>%
       tally() %>% as.data.frame() %>% `$`(n)
@@ -619,29 +616,28 @@ server <- function(input, output, session) {
       filter(OTHER_MEDICALLY_IMP_COND != 1 | is.na(OTHER_MEDICALLY_IMP_COND)) %>%
       tally() %>% as.data.frame() %>% `$`(n)
 
-    serious_reasons <- data.frame(label = c("Congenital anomaly",
-                                            "Death",
-                                            "Disability",
+    serious_reasons <- data.frame(label = c("Death",
+                                            "Life-threatening",
                                             "Hospitalization",
-                                            "Life-threatening"),
-                                  count = c(n_congen,
-                                            n_death,
-                                            n_disab,
+                                            "Disability",
+                                            "Congenital anomaly",
+                                            "Other medically important condition",
+                                            "Not specified"),
+                                  count = c(n_death,
                                             n_lifethreat,
-                                            n_hosp),
-                                  stringsAsFactors = FALSE) %>%
-      mutate(percentage = count/total_serious * 100) %>%
-      arrange(desc(percentage)) %>%
-      rbind(list("Other medically important condition", n_other, n_other/total_serious * 100)) %>%
-      rbind(list("Not specified", n_notspec, n_notspec/total_serious * 100))
-    serious_reasons$percentage %<>% round(digits = 2)
+                                            n_hosp,
+                                            n_disab,
+                                            n_congen,
+                                            n_other,
+                                            n_notspec),
+                                  stringsAsFactors = FALSE)
 
     gvisBarChart(serious_reasons,
                  xvar = "label",
-                 yvar = "percentage",
+                 yvar = "count",
                  options = list(
                    legend = "{position: 'none'}",
-                   hAxis = "{title: 'Percentage'}",
+                   hAxis = "{title: 'Number of Reports'}",
                    chartArea = "{top: 0, height: '80%', left: 150, width: '60%'}",
                    bar = "{groupWidth: '90%'}",
                    colors = colorCodeToString(google_colors[5])

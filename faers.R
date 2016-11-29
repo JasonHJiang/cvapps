@@ -132,7 +132,7 @@ ui <- dashboardPage(
                                         "congenital anomaly, or other serious condition."))),
                     htmlOutput("seriousplot"),
                     width = 3),
-                box(h3("Reason for Seriousness",
+                box(h3("Reason(s) for Seriousness",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
                          title = paste0("The serious condition which the adverse event resulted in. Total sums to",
@@ -607,26 +607,17 @@ server <- function(input, output, session) {
       fda_exec()
     if (is.null(serother_results)) serother_results <- data.frame(term = 1, count = 0)
     
-    total_serious <- query %>%
-      fda_count("serious") %>%
-      fda_exec() %>%
-      filter(term == "1") %>%
-      .$count
-    
-    serious_reasons <- bind_rows("Congenital anomaly" = congenital_results,
-                                 "Death" = death_results,
-                                 "Disabling" = disabling_results,
-                                 "Hospitalization" = hospital_results,
+    serious_reasons <- bind_rows("Death" = death_results,
                                  "Life-threatening condition" = lifethreaten_results,
-                                 .id = "label") %>%
-      mutate(percentage = count/total_serious * 100) %>%
-      arrange(desc(percentage)) %>%
-      rbind(list("Other serious condition", 1, serother_results$count, serother_results$count/total_serious * 100))
-    serious_reasons$percentage %<>% round(digits = 2)
+                                 "Hospitalization" = hospital_results,
+                                 "Disabling" = disabling_results,
+                                 "Congenital anomaly" = congenital_results,
+                                 "Other serious condition" = serother_results,
+                                 .id = "label")
     
     gvisBarChart(serious_reasons,
                  xvar = "label",
-                 yvar = "percentage",
+                 yvar = "count",
                  options = list(
                    legend = "{position: 'none'}",
                    hAxis = "{title: 'Percentage'}",
