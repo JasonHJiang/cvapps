@@ -371,7 +371,7 @@ server <- function(input, output, session) {
       cv_report_drug_filtered %<>% semi_join(related_drugs, by = "DRUGNAME")
     }
     if (data$drug_inv != "Any") cv_report_drug_filtered %<>% filter(DRUGINVOLV_ENG == data$drug_inv)
-    cv_reactions_filtered <- cv_reactions
+    cv_reactions_filtered <- cv_reactions %>% filter(PT_NAME_ENG != "")
     if ("" != data$rxn) cv_reactions_filtered %<>% filter(PT_NAME_ENG == data$rxn)
 
     selected_ids <-  cv_reports_filtered %>%
@@ -729,6 +729,7 @@ server <- function(input, output, session) {
     #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
     data <- subset_cv()$drug_tbl %>%
       filter(DRUGINVOLV_ENG == "Suspect") %>%
+      distinct(REPORT_ID, DRUGNAME) %>%
       count(DRUGNAME) %>%
       arrange(desc(n)) %>%
       head(25) %>%
@@ -742,6 +743,7 @@ server <- function(input, output, session) {
     #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
     data <- subset_cv()$drug_tbl %>%
       filter(DRUGINVOLV_ENG == "Concomitant") %>%
+      distinct(REPORT_ID, DRUGNAME) %>%
       count(DRUGNAME) %>%
       arrange(desc(n)) %>%
       head(25) %>%
@@ -754,6 +756,7 @@ server <- function(input, output, session) {
     # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name
     #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
     data <- subset_cv()$drug_tbl %>%
+      distinct(REPORT_ID, DRUGNAME) %>%
       count(DRUGNAME) %>%
       arrange(desc(n)) %>%
       head(25) %>%
