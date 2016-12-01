@@ -85,7 +85,7 @@ ui <- dashboardPage(
     radioButtons("name_type", "Drug name type:",
                  c("Generic" = "generic",
                    "Brand Name" = "brand")),
-    selectizeInput("search_rxn", 
+    selectizeInput("search_rxn",
                    "Preferred Term (PT)",
                    c("Loading..." = "")),
     dateRangeInput("searchDateRange", 

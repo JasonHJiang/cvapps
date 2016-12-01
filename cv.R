@@ -74,7 +74,7 @@ ui <- dashboardPage(
     conditionalPanel(
       condition = "input.name_type == 'brand'",
       selectizeInput("search_brand", 
-                     "Brand Name",
+                     "Brand Name (Canadian Trade Name)",
                      c(topbrands, "Start typing to search..." = ""))),
     conditionalPanel(
       condition = "input.name_type == 'ingredient'",
