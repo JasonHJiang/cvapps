@@ -86,7 +86,7 @@ ui <- dashboardPage(
                  c("Generic" = "generic",
                    "Brand Name" = "brand")),
     selectizeInput("search_rxn", 
-                   "Adverse Event Term",
+                   "Preferred Term (PT)",
                    c("Loading..." = "")),
     dateRangeInput("searchDateRange", 
                    "Date Range", 
