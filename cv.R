@@ -133,7 +133,10 @@ ui <- dashboardPage(
                 box(h3("Reporter Type",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
-                         title = "Indicates who reported the adverse reaction and their relationship to the patient.")),
+                         title = paste0(
+                           "Indicates who reported the adverse reaction and their relationship to the patient. ",
+                           "Slices may not be visible if they are too small.")
+                       )),
                     htmlOutput("reporterplot"),
                     width = 3),
                 box(h3("Seriousness",
@@ -141,8 +144,8 @@ ui <- dashboardPage(
                          el = icon("info-circle"), trigger = "hover click",
                          title = paste0(
                            "A serious report contains a serious adverse reaction, determined by the reporter ",
-                           "of the report at the time of reporting.")
-                         )),
+                           "of the report at the time of reporting. Slices may not be visible if they are too small.")
+                       )),
                     htmlOutput("seriousplot"),
                     width = 3),
                 box(h3("Reason(s) for Seriousness",

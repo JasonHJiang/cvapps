@@ -50,7 +50,8 @@ gvisPieChart_HCSC <- function(data, labelvar, numvar, colors = google_colors) {
                  colors = colorCodeToString(colors),
                  chartArea = "{top: 15, height: '80%', width: '90%'}",
                  pieHole = 0.4,
-                 fontSize = 11
+                 fontSize = 11,
+                 sliceVisibilityThreshold = 1e-7
                )
   )
 }
