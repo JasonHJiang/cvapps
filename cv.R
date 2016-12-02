@@ -520,7 +520,7 @@ server <- function(input, output, session) {
     # adrplot_test <- reports_tab(current_generic="ampicillin",current_brand="PENBRITIN",current_rxn="Urticaria"))
     data <- subset_cv()$report
 
-    time_results <- data %>%
+    total_results <- data %>%
       group_by(DATINTRECEIVED_CLEAN) %>%
       summarise(count = n()) %>%
       as.data.frame() %>%
@@ -543,11 +543,16 @@ server <- function(input, output, session) {
       mutate(month = floor_date(ymd(DATINTRECEIVED_CLEAN), "month")) %>%
       count(month, wt = count) %>%
       rename(death = n)
-    results <- time_results %>%
+    
+    nmonths <- interval(min(total_results$month), max(total_results$month)) %/% months(1)
+    time_list <- min(total_results$month) + months(0:nmonths)
+    
+    results <- data.frame(month = time_list) %>%
+      left_join(total_results, by = "month") %>%
       left_join(serious_results, by = "month") %>%
       left_join(death_results, by = "month")
-    results$serious[is.na(results$serious)] <- 0
-    results$death[is.na(results$death)] <- 0
+    results[is.na(results)] <- 0
+    
 
     gvisLineChart(results,
                   xvar = "month",
