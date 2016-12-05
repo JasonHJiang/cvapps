@@ -178,7 +178,7 @@ ui <- dashboardPage(
       ),
       tabItem(tabName = "drugdata",
               fluidRow(
-                box(h3("Most Frequent Indications",
+                box(h3("Most Frequent Indications (all drugs in reports)",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
                          title = paste(
