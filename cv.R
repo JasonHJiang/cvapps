@@ -80,7 +80,9 @@ ui <- dashboardPage(
       condition = "input.name_type == 'brand'",
       selectizeInput("search_brand", 
                      "Brand Name (Canadian Trade Name)",
-                     c(topbrands, "Start typing to search..." = ""))),
+                     c(topbrands, "Start typing to search..." = ""),
+                     multiple = TRUE,
+                     selected = topbrands[1])),
     conditionalPanel(
       condition = "input.name_type == 'ingredient'",
       selectizeInput("search_ing", 
@@ -324,8 +326,13 @@ server <- function(input, output, session) {
 
       related_reports <- cv_report_drug
       if (input$drug_inv != "Any") related_reports %<>% filter(DRUGINVOLV_ENG == input$drug_inv)
-      if (input$name_type == "brand" & input$search_brand != "") {
-        related_reports %<>% filter(DRUGNAME == input$search_brand)
+      if (input$name_type == "brand" && !is.null(input$search_brand) && input$search_brand != "") {
+        temp <- input$search_brand
+        if (length(temp) == 1) {
+          related_reports %<>% filter(DRUGNAME == input$search_brand)
+        } else {
+          related_reports %<>% filter(DRUGNAME %in% input$search_brand)
+        }
 
       } else if (input$name_type == "ingredient" & input$search_ing != "") {
         related_drugs <- cv_substances %>% filter(ing == input$search_ing) %>% distinct(DRUGNAME)
@@ -363,6 +370,7 @@ server <- function(input, output, session) {
     isolate({
       if (input$name_type == "brand") {
         name <- input$search_brand
+        if (is.null(name)) name <- ""
       } else if (input$name_type == "ingredient") {
         name <- input$search_ing
       } else {
@@ -383,8 +391,13 @@ server <- function(input, output, session) {
       filter(DATINTRECEIVED_CLEAN >= data$date_range[1], DATINTRECEIVED_CLEAN <= data$date_range[2]) %>%
       select(REPORT_ID)
     cv_report_drug_filtered <- cv_report_drug
-    if (data$name_type == "brand" & data$name != "") {
-      cv_report_drug_filtered %<>% filter(DRUGNAME == data$name)
+    if (data$name_type == "brand" && !is.null(data$name) && data$name != "") {
+      temp <- data$name
+      if (length(temp) > 1) {
+        cv_report_drug_filtered %<>% filter(DRUGNAME %in% data$name)
+      } else {
+        cv_report_drug_filtered %<>% filter(DRUGNAME == data$name)
+      }
     } else if (data$name_type == "ingredient" & data$name != "") {
       related_drugs <- cv_substances %>% filter(ing == data$name)
       cv_report_drug_filtered %<>% semi_join(related_drugs, by = "DRUGNAME")
@@ -395,7 +408,7 @@ server <- function(input, output, session) {
     if (data$drug_inv != "Any") cv_report_drug_filtered %<>% filter(DRUGINVOLV_ENG == data$drug_inv)
     cv_reactions_filtered <- cv_reactions %>% filter(PT_NAME_ENG != "")
     if ("" != data$rxn) cv_reactions_filtered %<>% filter(PT_NAME_ENG == data$rxn)
-
+    
     selected_ids <-  cv_reports_filtered %>%
       semi_join(cv_report_drug_filtered, by = "REPORT_ID") %>%
       semi_join(cv_reactions_filtered, by = "REPORT_ID")
@@ -511,7 +524,7 @@ server <- function(input, output, session) {
                                    "Adverse Reaction Term:",
                                    "Date Range:"),
                          values = c(data$name_type %>% toupper(),
-                                    data$name,
+                                    paste0(data$name, collapse = ", "),
                                     data$rxn,
                                     paste(data$date_range, collapse = " to ")),
                          stringsAsFactors = FALSE)
@@ -527,7 +540,7 @@ server <- function(input, output, session) {
       distinct(REPORT_ID) %>%
       tally() %>%
       as.data.frame()
-    drug_name <- current_search()$name
+    drug_name <- paste0(current_search()$name, collapse = ", ")
     rxn_name <- current_search()$rxn
 
     if ("" == drug_name) drug_name <- "All Drugs"
