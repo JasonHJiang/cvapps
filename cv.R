@@ -56,6 +56,11 @@ topings_cv <- cv_drug_product_ingredients %>%
   as.data.frame() %>%
   `[[`(1) %>%
   sort()
+pt_choices <- cv_reactions %>%
+  distinct(PT_NAME_ENG) %>%
+  as.data.frame() %>%
+  `[[`(1) %>%
+  sort()
 
 ui <- dashboardPage(
   dashboardHeader(title = titleWarning("CV Shiny (v0.13)"),
@@ -99,7 +104,7 @@ ui <- dashboardPage(
                        "Any"))),
     selectizeInput("search_rxn", 
                    "Preferred Term (PT)",
-                   c("Loading..." = "")),
+                   c("Start typing to search..." = "", pt_choices)),
     dateRangeInput("searchDateRange",
                    "Date Range",
                    start = "1965-01-01",
@@ -307,56 +312,6 @@ ui <- dashboardPage(
 
 ############### Server Functions ###################
 server <- function(input, output, session) {
-  # Relabel PT dropdown menu based on selected name
-  observe({
-    input$search_brand
-    input$search_ing
-    input$name_type
-    input$drug_inv
-    isolate({
-      pt_selected <- input$search_rxn
-
-      pt_choices <- cv_reactions
-
-      related_reports <- cv_report_drug
-      if (input$drug_inv != "Any") related_reports %<>% filter(DRUGINVOLV_ENG == input$drug_inv)
-      if (input$name_type == "brand" && !is.null(input$search_brand) && input$search_brand != "") {
-        temp <- input$search_brand
-        if (length(temp) == 1) {
-          related_reports %<>% filter(DRUGNAME == input$search_brand)
-        } else {
-          related_reports %<>% filter(DRUGNAME %in% input$search_brand)
-        }
-
-      } else if (input$name_type == "ingredient2" & input$search_ing2 != "") {
-        related_drugs <- cv_substances %>% filter(ing == input$search_ing2) %>% distinct(DRUGNAME)
-        related_reports %<>% semi_join(related_drugs, by = "DRUGNAME")
-        
-      } else if (input$name_type == "ingredient" & input$search_ing != "") {
-        related_drugs <- cv_drug_product_ingredients %>% filter(ACTIVE_INGREDIENT_NAME == input$search_ing) %>% distinct(DRUGNAME)
-        related_reports %<>% semi_join(related_drugs, by = "DRUGNAME")
-      }
-      
-      pt_choices <- pt_choices %>%
-        semi_join(related_reports, by = "REPORT_ID") %>%
-        distinct(PT_NAME_ENG) %>%
-        as.data.frame()
-      if (nrow(pt_choices) == 0) {
-        updateSelectizeInput(session, "search_rxn",
-                             choices = c("No reactions for this selection!" = "disable"),
-                             selected = "disable")
-      } else {
-        pt_choices %<>% `[[`(1) %>% sort()
-        if (! pt_selected %in% pt_choices) pt_selected = ""
-        updateSelectizeInput(session, "search_rxn",
-                             choices = c("Start typing to search..." = "", pt_choices),
-                             selected = pt_selected)
-      }
-
-    })
-  })
-
-
   ##### Reactive data processing
   # Data structure to store current query info
   current_search <- reactive({
@@ -406,6 +361,11 @@ server <- function(input, output, session) {
     selected_ids <-  cv_reports_filtered_ids %>%
       semi_join(cv_report_drug_filtered, by = "REPORT_ID") %>%
       semi_join(cv_reactions_filtered, by = "REPORT_ID")
+    n_ids <- selected_ids %>% tally() %>% as.data.frame() %>% `$`('n')
+    if (n_ids == 0) {
+      # fill in error-handling here
+      selected_ids <- cv_reports %>% filter(REPORT_ID == 140) %>% select(REPORT_ID)
+    }
     
     # so then all data is polled upon search, not just when display corresponding plot
     report_subset <- cv_reports %>%
