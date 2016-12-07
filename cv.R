@@ -334,8 +334,8 @@ server <- function(input, output, session) {
       )
     })})
   
-  subset_cv <- reactiveValues()
   current_search <- reactiveValues()
+  subset_cv <- reactiveValues()
   observe({
     data <- input_query()
     
@@ -365,13 +365,25 @@ server <- function(input, output, session) {
       semi_join(cv_report_drug_filtered, by = "REPORT_ID") %>%
       semi_join(cv_reactions_filtered, by = "REPORT_ID")
     n_ids <- selected_ids %>% tally() %>% as.data.frame() %>% `$`('n')
-    if (n_ids == 0) return()
+    if (n_ids == 0) {
+      showModal(modalDialog(
+        title = "No results found!",
+        "There were no reports matching your query.",
+        size = "s",
+        easyClose = TRUE))
+      return()
+    }
     
     current_search$name_type <- data$name_type
     current_search$name <- data$name
     current_search$drug_inv <- data$drug_inv
     current_search$rxn <- data$rxn
     current_search$date_range <- data$date_range
+    showModal(modalDialog(
+      title = "Results loading...",
+      "Please wait while reports are being retrieved.",
+      footer = NULL,
+      size = "s"))
     
     # so then all data is polled upon search, not just when display corresponding plot
     subset_cv$report <- cv_reports %>%
@@ -382,6 +394,7 @@ server <- function(input, output, session) {
     subset_cv$rxn <- cv_reactions %>%
       semi_join(selected_ids, by = "REPORT_ID") %>%
       left_join(meddra, by = c("PT_NAME_ENG" = "PT_Term", "MEDDRA_VERSION" = "Version")) %>% as.data.frame()
+    removeModal()
   })
   
   cv_download_reports <- reactive({
