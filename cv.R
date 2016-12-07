@@ -314,76 +314,67 @@ ui <- dashboardPage(
 server <- function(input, output, session) {
   ##### Reactive data processing
   # Data structure to store current query info
-  input_query <- reactive({
-    input$searchButton
-    isolate({
-      if (input$name_type == "brand") {
-        name <- input$search_brand
-        if (is.null(name)) name <- ""
-      } else if (input$name_type == "ingredient") {
-        name <- input$search_ing
-      } else {
-        name <- input$search_ing2
-      }
-      list(
-        name_type  = input$name_type,
-        name       = name,
-        drug_inv   = input$drug_inv,
-        rxn        = input$search_rxn,
-        date_range = input$searchDateRange
-      )
-    })})
-  
   current_search <- reactiveValues()
   subset_cv <- reactiveValues()
-  observe({
-    data <- input_query()
+  
+  # We need to have a reactive structure here so that it activates upon loading
+  reactiveSearchButton <- reactive(as.vector(input$searchButton))
+  observeEvent(reactiveSearchButton(), {
+    showModal(modalDialog(
+      title = list(icon("spinner", class = "fa-pulse"), "Results loading..."),
+      "Please wait while reports are being retrieved.",
+      footer = NULL,
+      size = "s"))
+    
+    if (input$name_type == "brand") {
+      name <- input$search_brand
+      if (is.null(name)) name <- ""
+    } else if (input$name_type == "ingredient") {
+      name <- input$search_ing
+    } else {
+      name <- input$search_ing2
+    }
     
     cv_reports_filtered_ids <- cv_reports %>%
-      filter(DATINTRECEIVED_CLEAN >= data$date_range[1], DATINTRECEIVED_CLEAN <= data$date_range[2]) %>%
+      filter(DATINTRECEIVED_CLEAN >= input$searchDateRange[1], DATINTRECEIVED_CLEAN <= input$searchDateRange[2]) %>%
       select(REPORT_ID)
     cv_report_drug_filtered <- cv_report_drug
-    if (data$name_type == "brand" & data$name != "") {
-      temp <- data$name
-      if (length(temp) > 1) {
-        cv_report_drug_filtered %<>% filter(DRUGNAME %in% data$name)
+    if (input$name_type == "brand" & name != "") {
+      if (length(name) > 1) {
+        cv_report_drug_filtered %<>% filter(DRUGNAME %in% name)
       } else {
-        cv_report_drug_filtered %<>% filter(DRUGNAME == data$name)
+        cv_report_drug_filtered %<>% filter(DRUGNAME == name)
       }
-    } else if (data$name_type == "ingredient2" & data$name != "") {
-      related_drugs <- cv_substances %>% filter(ing == data$name)
+    } else if (input$name_type == "ingredient2" & name != "") {
+      related_drugs <- cv_substances %>% filter(ing == name)
       cv_report_drug_filtered %<>% semi_join(related_drugs, by = "DRUGNAME")
-    } else if (data$name_type == "ingredient" & data$name != "") {
-      related_drugs <- cv_drug_product_ingredients %>% filter(ACTIVE_INGREDIENT_NAME == data$name)
+    } else if (input$name_type == "ingredient" & name != "") {
+      related_drugs <- cv_drug_product_ingredients %>% filter(ACTIVE_INGREDIENT_NAME == name)
       cv_report_drug_filtered %<>% semi_join(related_drugs, by = "DRUGNAME")
     }
-    if (data$drug_inv != "Any") cv_report_drug_filtered %<>% filter(DRUGINVOLV_ENG == data$drug_inv)
+    if (input$drug_inv != "Any") cv_report_drug_filtered %<>% filter(DRUGINVOLV_ENG == input$drug_inv)
     cv_reactions_filtered <- cv_reactions %>% filter(PT_NAME_ENG != "")
-    if ("" != data$rxn) cv_reactions_filtered %<>% filter(PT_NAME_ENG == data$rxn)
+    if ("" != input$search_rxn) cv_reactions_filtered %<>% filter(PT_NAME_ENG == input$search_rxn)
     
     selected_ids <-  cv_reports_filtered_ids %>%
       semi_join(cv_report_drug_filtered, by = "REPORT_ID") %>%
       semi_join(cv_reactions_filtered, by = "REPORT_ID")
     n_ids <- selected_ids %>% tally() %>% as.data.frame() %>% `$`('n')
     if (n_ids == 0) {
+      removeModal()
       showModal(modalDialog(
-        title = "No results found!",
+        title = list(icon("exclamation-triangle"), "No results found!"),
         "There were no reports matching your query.",
         size = "s",
         easyClose = TRUE))
       return()
     }
     
-    current_search$name_type <- data$name_type
-    current_search$name <- data$name
-    current_search$drug_inv <- data$drug_inv
-    current_search$rxn <- data$rxn
-    current_search$date_range <- data$date_range
-    showModal(modalDialog(
-      title = "Results loading...",
-      "Please wait while reports are being retrieved.",
-      footer = NULL,
-      size = "s"))
+    current_search$name_type <- input$name_type
+    current_search$name <- name
+    current_search$drug_inv <- input$drug_inv
+    current_search$rxn <- input$search_rxn
+    current_search$date_range <- input$searchDateRange
     
     # so then all data is polled upon search, not just when display corresponding plot
     subset_cv$report <- cv_reports %>%
