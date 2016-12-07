@@ -381,7 +381,7 @@ server <- function(input, output, session) {
   subset_cv <- reactive({
     data <- current_search()
 
-    cv_reports_filtered <- cv_reports %>%
+    cv_reports_filtered_ids <- cv_reports %>%
       filter(DATINTRECEIVED_CLEAN >= data$date_range[1], DATINTRECEIVED_CLEAN <= data$date_range[2]) %>%
       select(REPORT_ID)
     cv_report_drug_filtered <- cv_report_drug
@@ -403,10 +403,10 @@ server <- function(input, output, session) {
     cv_reactions_filtered <- cv_reactions %>% filter(PT_NAME_ENG != "")
     if ("" != data$rxn) cv_reactions_filtered %<>% filter(PT_NAME_ENG == data$rxn)
     
-    selected_ids <-  cv_reports_filtered %>%
+    selected_ids <-  cv_reports_filtered_ids %>%
       semi_join(cv_report_drug_filtered, by = "REPORT_ID") %>%
       semi_join(cv_reactions_filtered, by = "REPORT_ID")
-
+    
     # so then all data is polled upon search, not just when display corresponding plot
     report_subset <- cv_reports %>%
       semi_join(selected_ids, by = "REPORT_ID") %>% as.data.frame()
