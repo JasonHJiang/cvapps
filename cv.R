@@ -412,69 +412,6 @@ server <- function(input, output, session) {
       data_type = data_type
     ))
   })
-  ages <- reactive({
-    data <- subset_cv$report %>%
-      filter(AGE_UNIT_ENG != "", !is.na(AGE_Y))
-
-    # Age groups frequency table
-    age_decade <- data %>%
-      filter(AGE_UNIT_ENG == "Decade") %>%
-      mutate(AGE_Y = AGE_Y * 10) %>%
-      count(AGE_Y) %>%
-      as.data.frame()
-    age_years <- data %>%
-      filter(AGE_UNIT_ENG == "Years") %>%
-      count(AGE_Y) %>%
-      as.data.frame()
-    age_months <- data %>%
-      filter(AGE_UNIT_ENG == "Months") %>%
-      mutate(AGE_Y = AGE_Y / 12) %>%
-      count(AGE_Y) %>%
-      as.data.frame()
-    age_weeks <- data %>%
-      filter(AGE_UNIT_ENG == "Weeks") %>%
-      mutate(AGE_Y = AGE_Y / 52) %>%
-      count(AGE_Y) %>%
-      as.data.frame()
-    age_days <- data %>%
-      filter(AGE_UNIT_ENG == "Days") %>%
-      mutate(AGE_Y = AGE_Y / 365) %>%
-      count(AGE_Y) %>%
-      as.data.frame()
-    age_hours <- data %>%
-      filter(AGE_UNIT_ENG == "Hours") %>%
-      mutate(AGE_Y = AGE_Y / (365*24)) %>%
-      count(AGE_Y) %>%
-      as.data.frame()
-    age_minutes <- data %>%
-      filter(AGE_UNIT_ENG == "Minutes") %>%
-      mutate(AGE_Y = AGE_Y / (365*24*60)) %>%
-      count(AGE_Y) %>%
-      as.data.frame()
-    age_unknown <- subset_cv$report %>%
-      filter(AGE_UNIT_ENG == "" | is.na(AGE_Y)) %>%
-      tally() %>%
-      as.data.frame() %>%
-      cbind("AGE_Y" = NA, .)
-    ages <- bind_rows(age_decade,
-                      age_years,
-                      age_months,
-                      age_weeks,
-                      age_days,
-                      age_hours,
-                      age_minutes,
-                      age_unknown) %>%
-      count(AGE_Y, wt = n) %>%
-      mutate(age_group = NA,
-             age_group = ifelse(AGE_Y <= 25/365, "Neonate", age_group),
-             age_group = ifelse(AGE_Y > 25/365 & AGE_Y < 1, "Infant", age_group),
-             age_group = ifelse(AGE_Y >= 1 & AGE_Y < 13, "Child", age_group),
-             age_group = ifelse(AGE_Y >= 13 & AGE_Y < 18, "Adolescent", age_group),
-             age_group = ifelse(AGE_Y >= 18 & AGE_Y <= 65, "Adult", age_group),
-             age_group = ifelse(AGE_Y > 65, "Elderly", age_group),
-             age_group = ifelse(is.na(AGE_Y), "Unknown", age_group))
-  })
-
   
   ##### Output ####
   ##### Construct Current_Query_Table for generic name, brand name, adverse reaction term & date range searched
@@ -658,25 +595,26 @@ server <- function(input, output, session) {
     gvisPieChart_HCSC(sex_results, "GENDER_ENG", "n")
   })
   output$agegroupplot <- renderGvis({
-    age_groups <- ages() %>%
-      count(age_group, wt = nn)
-    age_group_order <- data.frame(age_group = c("Neonate",
-                                                "Infant",
-                                                "Child",
-                                                "Adolescent",
-                                                "Adult",
-                                                "Elderly",
-                                                "Unknown"),
+    age_groups <- subset_cv$report %>%
+      count(AGE_GROUP_CLEAN) %>%
+      as.data.frame()
+    age_group_order <- data.frame(AGE_GROUP_CLEAN = c("Neonate",
+                                                      "Infant",
+                                                      "Child",
+                                                      "Adolescent",
+                                                      "Adult",
+                                                      "Elderly",
+                                                      "Unknown"),
                                   stringsAsFactors = FALSE)
-    data <- left_join(age_group_order, age_groups, by = "age_group")
+    data <- left_join(age_group_order, age_groups, by = "AGE_GROUP_CLEAN")
     data[is.na(data)] <- 0 # always including empty rows means colour-scheme will be consistent
 
-    gvisPieChart_HCSC(data, "age_group", "n")
+    gvisPieChart_HCSC(data, "AGE_GROUP_CLEAN", "n")
   })
   output$agehisttitle <- renderUI({
-    excluded_count <- ages() %>%
-      filter(age_group != "Unknown", AGE_Y > 100) %>%
-      `$`('nn') %>% sum()
+    excluded_count <- subset_cv$report %>%
+      filter(AGE_GROUP_CLEAN != "Unknown", AGE_Y > 100) %>%
+      tally() %>% `$`('n')
     HTML(paste0("<h3>Histogram of Patient Ages ",
                 tipify(
                   el = icon("info-circle"), trigger = "hover click",
@@ -684,17 +622,17 @@ server <- function(input, output, session) {
                 "<br>(", excluded_count, " reports with age greater than 100 excluded)", "</h3>"))
   })
   output$agehist <- renderPlotly({
-    age_groups <- ages() %>% filter(age_group != "Unknown", AGE_Y <= 100)
-    age_groups$age_group %<>% factor(levels = c("Neonate", "Infant", "Child", "Adolescent", "Adult", "Elderly"))
+    age_groups <- subset_cv$report %>% filter(AGE_GROUP_CLEAN != "Unknown", AGE_Y <= 100) %>% arrange(AGE_Y)
+    age_groups$AGE_GROUP_CLEAN %<>% factor(levels = c("Neonate", "Infant", "Child", "Adolescent", "Adult", "Elderly"))
     
     # joining by remaining terms so you can assign the right colours to the legend
     colours_df <- data.frame(
-      age_group = c("Neonate", "Infant", "Child", "Adolescent", "Adult", "Elderly"),
+      AGE_GROUP_CLEAN = c("Neonate", "Infant", "Child", "Adolescent", "Adult", "Elderly"),
       colours = google_colors[1:6],
       stringsAsFactors = FALSE) %>%
-      semi_join(distinct(age_groups, age_group), by = "age_group")
+      semi_join(age_groups, by = "AGE_GROUP_CLEAN")
     
-    hist <- ggplot(age_groups, aes(x = AGE_Y, weight = nn, fill = age_group)) +
+    hist <- ggplot(age_groups, aes(x = AGE_Y, fill = AGE_GROUP_CLEAN)) +
       geom_histogram(breaks = seq(0, 100, by = 2)) +
       scale_fill_manual(values = colours_df$colours) +
       xlab("Age at onset (years)") +
