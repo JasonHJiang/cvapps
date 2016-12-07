@@ -28,12 +28,6 @@ hcopen_pool <- dbPool(drv = "PostgreSQL",
                       user = "hcreader",
                       password = "canada1")
 hcopen <- src_pool(hcopen_pool)
-# cv_reports <- tbl(hcopen, "cv_reports")
-# cv_drug_product_ingredients <-  tbl(hcopen, "cv_drug_product_ingredients")
-# cv_report_drug <- tbl(hcopen, "cv_report_drug")
-# cv_reactions <- tbl(hcopen, "cv_reactions")
-# cv_report_drug_indication <- tbl(hcopen, "cv_report_drug_indication")
-# cv_substances <- tbl(hcopen, "cv_substances")
 cv_reports <- tbl(hcopen, "cv_reports_20160630")
 cv_drug_product_ingredients <-  tbl(hcopen, "cv_drug_product_ingredients_20160630")
 cv_report_drug <- tbl(hcopen, "cv_report_drug_20160630")
@@ -52,12 +46,12 @@ topbrands <- cv_report_drug %>%
   `[[`(1) %>%
   sort() %>%
   `[`(-c(1,2)) # dropping +ARTHRI-PLUS\u0099 which is problematic
-topings <- cv_substances %>%
+topings_dpd <- cv_substances %>%
   distinct(ing) %>%
   as.data.frame() %>%
   `[[`(1) %>%
   sort()
-topings2 <- cv_drug_product_ingredients %>%
+topings_cv <- cv_drug_product_ingredients %>%
   distinct(ACTIVE_INGREDIENT_NAME) %>%
   as.data.frame() %>%
   `[[`(1) %>%
@@ -84,20 +78,20 @@ ui <- dashboardPage(
                      multiple = TRUE,
                      selected = topbrands[1])),
     conditionalPanel(
+      condition = "input.name_type == 'ingredient2'",
+      selectizeInput("search_ing2", 
+                     "Active Ingredient",
+                     c(topings_dpd, "Start typing to search..." = ""))),
+    conditionalPanel(
       condition = "input.name_type == 'ingredient'",
       selectizeInput("search_ing", 
                      "Active Ingredient",
-                     c(topings, "Start typing to search..." = ""))),
-    conditionalPanel(
-      condition = "input.name_type == 'ingredient2'",
-      selectizeInput("search_ing2", 
-                     "Active Ingredient2",
-                     c(topings2, "Start typing to search..." = ""))),
+                     c(topings_cv, "Start typing to search..." = ""))),
     div(style="display: inline-block; width: 47%;",
         radioButtons("name_type", "Drug name type:",
                      c("Brand Name" = "brand",
-                       "Active Ingredient" = "ingredient",
-                       "Active Ingredient2" = "ingredient2"))),
+                       # "DPD ing" = "ingredient2",
+                       "Active Ingredient" = "ingredient"))),
     div(style="display: inline-block; vertical-align:top; width: 52%",
         radioButtons("drug_inv", "Drug Involvement:",
                      c("Suspect",
@@ -334,12 +328,12 @@ server <- function(input, output, session) {
           related_reports %<>% filter(DRUGNAME %in% input$search_brand)
         }
 
-      } else if (input$name_type == "ingredient" & input$search_ing != "") {
-        related_drugs <- cv_substances %>% filter(ing == input$search_ing) %>% distinct(DRUGNAME)
+      } else if (input$name_type == "ingredient2" & input$search_ing2 != "") {
+        related_drugs <- cv_substances %>% filter(ing == input$search_ing2) %>% distinct(DRUGNAME)
         related_reports %<>% semi_join(related_drugs, by = "DRUGNAME")
         
-      } else if (input$name_type == "ingredient2" & input$search_ing2 != "") {
-        related_drugs <- cv_drug_product_ingredients %>% filter(ACTIVE_INGREDIENT_NAME == input$search_ing2) %>% distinct(DRUGNAME)
+      } else if (input$name_type == "ingredient" & input$search_ing != "") {
+        related_drugs <- cv_drug_product_ingredients %>% filter(ACTIVE_INGREDIENT_NAME == input$search_ing) %>% distinct(DRUGNAME)
         related_reports %<>% semi_join(related_drugs, by = "DRUGNAME")
       }
       
@@ -398,10 +392,10 @@ server <- function(input, output, session) {
       } else {
         cv_report_drug_filtered %<>% filter(DRUGNAME == data$name)
       }
-    } else if (data$name_type == "ingredient" & data$name != "") {
+    } else if (data$name_type == "ingredient2" & data$name != "") {
       related_drugs <- cv_substances %>% filter(ing == data$name)
       cv_report_drug_filtered %<>% semi_join(related_drugs, by = "DRUGNAME")
-    } else if (data$name_type == "ingredient2" & data$name != "") {
+    } else if (data$name_type == "ingredient" & data$name != "") {
       related_drugs <- cv_drug_product_ingredients %>% filter(ACTIVE_INGREDIENT_NAME == data$name)
       cv_report_drug_filtered %<>% semi_join(related_drugs, by = "DRUGNAME")
     }
