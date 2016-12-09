@@ -87,7 +87,8 @@ ui <- dashboardPage(
                    "Brand Name" = "brand")),
     selectizeInput("search_rxn",
                    "Preferred Term (PT)",
-                   c("Loading..." = "")),
+                   c("Loading..." = ""),
+                   options = list(create = TRUE)),
     dateRangeInput("searchDateRange", 
                    "Date Range", 
                    start = "2003-01-01",
@@ -318,45 +319,60 @@ server <- function(input, output, session) {
   
   ########## Reactive data processing
   # Data structure to store current query info
-  current_search <- reactive({
-    input$searchButton
-    isolate({
-      if (input$name_type == "generic") {
-        name <- input$search_generic
-      } else {
-        name <- input$search_brand
-      }
-      
-      list(
-        name_type  = input$name_type,
-        name       = name,
-        rxn        = input$search_rxn,
-        date_range = input$searchDateRange
-      )
-    })})
-  faers_query <- reactive({
-    search <- current_search()
+  current_search <- reactiveValues()
+  faers_query <- reactiveValues()
+  
+  # We need to have a reactive structure here so that it activates upon loading
+  reactiveSearchButton <- reactive(as.vector(input$searchButton))
+  observeEvent(reactiveSearchButton(), {
+    showModal(modalDialog(
+      title = list(icon("spinner", class = "fa-pulse"), "Results loading..."),
+      "Please wait while reports are being retrieved.",
+      footer = NULL,
+      size = "s"))
+    
+    if (input$name_type == "generic") {
+      name <- input$search_generic
+    } else {
+      name <- input$search_brand
+    }
     
     openfda_query <- fda_query("/drug/event.json")
-    query_str <- paste0("[", search$date_range[1], "+TO+", search$date_range[2], "]")
+    query_str <- paste0("[", input$searchDateRange[1], "+TO+", input$searchDateRange[2], "]")
     openfda_query %<>% fda_filter("receivedate", query_str)
-    if("" != search$name) {
-      query_str <- paste0('"', gsub(" ", "+", search$name), '"')
-      if (search$name_type == "generic") {
+    if("" != name) {
+      query_str <- paste0('"', gsub(" ", "+", name), '"')
+      if (input$name_type == "generic") {
         openfda_query %<>% fda_filter("patient.drug.openfda.generic_name.exact", query_str)
       } else {
         openfda_query %<>% fda_filter("patient.drug.openfda.brand_name.exact", query_str)
       }
     }
-    if("" != search$rxn) {
-      query_str <- paste0('"', gsub(" ", "+", search$rxn), '"')
+    if("" != input$search_rxn) {
+      query_str <- paste0('"', gsub(" ", "+", input$search_rxn), '"')
       openfda_query %<>% fda_filter("patient.reaction.reactionmeddrapt.exact", query_str)
     }
+    result <- openfda_query %>% fda_search() %>% fda_limit(1) %>% fda_exec()
+    if (is.null(result)) {
+      removeModal()
+      showModal(modalDialog(
+        title = list(icon("exclamation-triangle"), "No results found!"),
+        "There were no reports matching your query.",
+        size = "s",
+        easyClose = TRUE))
+      return()
+    }
     
-    openfda_query
+    current_search$name_type<- input$name_type
+    current_search$name<- name
+    current_search$rxn <- input$search_rxn
+    current_search$date_range <- input$searchDateRange
+    faers_query$query <- openfda_query
+    
+    removeModal()
   })
   ages <- reactive({
-    query <- faers_query()
+    query <- faers_query$query
     
     age_decades <- query %>% 
       fda_filter("patient.patientonsetageunit", "800") %>%
@@ -436,7 +452,7 @@ server <- function(input, output, session) {
   
   ########## Output
   output$current_search <- renderTable({
-    data <- current_search()
+    data <- current_search
     result <- data.frame(names = c("Name Type:", 
                                    "Name:", 
                                    "Adverse Reaction Term:",
@@ -452,7 +468,7 @@ server <- function(input, output, session) {
   
   ### Create time plot
   output$timeplot_title <- renderUI({
-    query <- faers_query()
+    query <- faers_query$query
     nreports <- query %>%
       fda_search() %>%
       fda_url() %>%
@@ -460,8 +476,8 @@ server <- function(input, output, session) {
       .$meta %>%
       .$results %>%
       .$total
-    drug_name <- current_search()$name
-    rxn_name <- current_search()$rxn
+    drug_name <- current_search$name
+    rxn_name <- current_search$rxn
     
     if ("" == drug_name) drug_name <- "All Drugs"
     if ("" == rxn_name) rxn_name <- "All Reactions"
@@ -469,7 +485,7 @@ server <- function(input, output, session) {
     h3(strong(plottitle))
   })
   output$timeplot <- renderGvis({
-    query <- faers_query()
+    query <- faers_query$query
     
     total_results <- query %>%
       fda_count("receivedate") %>%
@@ -516,7 +532,7 @@ server <- function(input, output, session) {
                   ))
   })
   output$search_url <- renderUI({
-    url <- faers_query() %>%
+    url <- faers_query$query %>%
       fda_search() %>%
       fda_limit(100) %>%
       fda_url()
@@ -525,7 +541,7 @@ server <- function(input, output, session) {
   
   ### Data about Reports
   output$reporterplot <- renderGvis({
-    query <- faers_query()
+    query <- faers_query$query
     
     reporter_results <- query %>%
       fda_count("primarysource.qualification") %>%
@@ -555,7 +571,7 @@ server <- function(input, output, session) {
     gvisPieChart_HCSC(reporter_results, "label", "count")
   })
   output$seriousplot <- renderGvis({
-    query <- faers_query()
+    query <- faers_query$query
     serious_results <- query %>%
       fda_count("serious") %>%
       fda_exec()
@@ -579,7 +595,7 @@ server <- function(input, output, session) {
     gvisPieChart_HCSC(serious_results, "label", "count")
   })
   output$seriousreasonsplot <- renderGvis({
-    query <- faers_query()
+    query <- faers_query$query
     
     congenital_results <- query %>%
       fda_count("seriousnesscongenitalanomali") %>%
@@ -632,7 +648,7 @@ server <- function(input, output, session) {
     )
   })
   output$countryplot <- renderGvis({
-    query <- faers_query()
+    query <- faers_query$query
     
     country_results <- query %>%
       fda_count("occurcountry") %>%
@@ -666,7 +682,7 @@ server <- function(input, output, session) {
   
   ### Data about Patients
   output$sexplot <- renderGvis({
-    query <- faers_query()
+    query <- faers_query$query
     
     sex_code <- data.frame(term = 0:2,
                            label = c("Unknown",
@@ -741,7 +757,7 @@ server <- function(input, output, session) {
   
   ### Data about Drugs
   output$indication_plot <- renderGvis({
-    query <- faers_query()
+    query <- faers_query$query
     
     indications <- query %>%
       fda_count("patient.drug.drugindication.exact") %>%
@@ -752,7 +768,7 @@ server <- function(input, output, session) {
     gvisBarChart_HCSC(indications, "term", "count", google_colors[4])
   })
   output$all_drugs <- renderGvis({
-    query <- faers_query()
+    query <- faers_query$query
     
     drugs <- query %>%
       fda_count("patient.drug.openfda.generic_name.exact") %>%
@@ -763,7 +779,7 @@ server <- function(input, output, session) {
     gvisBarChart_HCSC(drugs, "term", "count", google_colors[5])
   })
   output$drugclassplot <- renderGvis({
-    query <- faers_query()
+    query <- faers_query$query
     
     drugclass <- query %>%
       fda_count("patient.drug.openfda.pharm_class_epc.exact") %>%
@@ -776,7 +792,7 @@ server <- function(input, output, session) {
   
   ### Data about Reactions
   output$top_pt <- renderGvis({
-    query <- faers_query()
+    query <- faers_query$query
     
     data <- query %>%
       fda_count("patient.reaction.reactionmeddrapt.exact") %>%
@@ -786,7 +802,7 @@ server <- function(input, output, session) {
     gvisBarChart_HCSC(data, "term", "count", google_colors[4])
     })
   output$top_hlt <- renderGvis({
-    query <- faers_query()
+    query <- faers_query$query
     
     data <- query %>%
       fda_count("patient.reaction.reactionmeddrapt.exact") %>%
@@ -802,7 +818,7 @@ server <- function(input, output, session) {
     gvisBarChart_HCSC(data, "HLT_Term", "count", google_colors[5])
     })
   output$outcomeplot <- renderGvis({
-    query <- faers_query()
+    query <- faers_query$query
     
     outcome_results <- query %>% 
       fda_count("patient.reaction.reactionoutcome") %>% 
