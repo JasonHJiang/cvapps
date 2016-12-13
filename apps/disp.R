@@ -142,7 +142,7 @@ ui <- dashboardPage(
       downloadButton(outputId = "hlt_data_dl",
                      label = "Export HLT data"),
       menuItem("Documentation", tabName = "Documentation", icon = icon("flag")),
-    menuItem("About", tabName = "aboutinfo", icon = icon("info"))
+    menuItem("About", tabName = "aboutinfo", icon = icon("info"), selected = TRUE)
     )
   ), 
   

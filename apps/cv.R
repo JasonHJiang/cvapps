@@ -73,7 +73,7 @@ ui <- dashboardPage(
       menuItem("Patients", tabName = "patientdata", icon = icon("user-md")),
       menuItem("Drugs", tabName = "drugdata", icon = icon("flask")),
       menuItem("Reactions", tabName = "rxndata", icon = icon("heart-o")),
-      menuItem("About", tabName = "aboutinfo", icon = icon("info"))
+      menuItem("About", tabName = "aboutinfo", icon = icon("info"), selected = TRUE)
     ),
     conditionalPanel(
       condition = "input.name_type == 'brand'",
