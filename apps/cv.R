@@ -106,7 +106,9 @@ ui <- dashboardPage(
                        "Any"))),
     selectizeInput("search_rxn", 
                    "Preferred Term (PT)",
-                   c("Start typing to search..." = "", pt_choices)),
+                   c("Start typing to search..." = "", pt_choices),
+                   multiple = TRUE,
+                   selected = pt_choices[1]),
     dateRangeInput("searchDateRange",
                    "Date Range",
                    start = "1965-01-01",
@@ -356,7 +358,10 @@ server <- function(input, output, session) {
     }
     if (input$drug_inv != "Any") cv_report_drug_filtered %<>% filter(DRUGINVOLV_ENG == input$drug_inv)
     cv_reactions_filtered <- cv_reactions %>% filter(PT_NAME_ENG != "")
-    if ("" != input$search_rxn) cv_reactions_filtered %<>% filter(PT_NAME_ENG == input$search_rxn)
+    if (!is.null(input$search_rxn)) {
+      if (length(input$search_rxn) == 1) cv_reactions_filtered %<>% filter(PT_NAME_ENG == input$search_rxn)
+      else cv_reactions_filtered %<>% filter(PT_NAME_ENG %in% input$search_rxn)
+    }
     
     selected_ids <-  cv_reports_filtered_ids %>%
       semi_join(cv_report_drug_filtered, by = "REPORT_ID") %>%
@@ -425,7 +430,7 @@ server <- function(input, output, session) {
                                    "Date Range:"),
                          values = c(data$name_type %>% toupper(),
                                     paste0(data$name, collapse = ", "),
-                                    data$rxn,
+                                    paste0(data$rxn, collapse = ", "),
                                     paste(data$date_range, collapse = " to ")),
                          stringsAsFactors = FALSE)
     result$values["" == result$values] <- "Not Specified"
@@ -441,7 +446,7 @@ server <- function(input, output, session) {
       tally() %>%
       as.data.frame()
     drug_name <- paste0(current_search$name, collapse = ", ")
-    rxn_name <- current_search$rxn
+    rxn_name <- paste0(current_search$rxn, collapse = ", ")
 
     if ("" == drug_name) drug_name <- "All Drugs"
     if ("" == rxn_name) rxn_name <- "All Reactions"
@@ -766,9 +771,9 @@ server <- function(input, output, session) {
   ############# Download Tab
   output$download_reports <- downloadHandler(
     filename = function() {
-      current_rxn <- current_search$rxn
+      current_rxn <- paste0(current_search$rxn, collapse = "+")
       if (current_rxn == "") current_rxn <- "all"
-      current_drug <- current_search$name
+      current_drug <- paste0(current_search$name, collapse = "+")
       if (current_drug == "") current_drug <- "all"
       current_drug <- gsub(" ", "_", current_drug)
       paste0(cv_download_reports()$data_type, '_', current_drug, '_', current_rxn, '.csv')
