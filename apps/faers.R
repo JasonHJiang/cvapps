@@ -179,7 +179,7 @@ ui <- dashboardPage(
       ),
       tabItem(tabName = "drugdata",
               fluidRow(
-                box(h3("Most Frequent Indications (all drugs in reports)",
+                box(h3("Reports per Indication (all reported drugs)",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
                          title = paste(
@@ -189,7 +189,7 @@ ui <- dashboardPage(
                            "The search query filters unique reports, which may have one or more drugs associated with them."))),
                     htmlOutput("indication_plot"),
                     width = 6),
-                box(h3("Most Frequently Occurring Drugs (Generic Name)",
+                box(h3("Most Frequently Reported Drugs (Generic Name)",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
                          title = paste(

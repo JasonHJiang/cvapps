@@ -199,7 +199,7 @@ ui <- dashboardPage(
       ),
       tabItem(tabName = "drugdata",
               fluidRow(
-                box(h3("Most Frequent Indications (all drugs in reports)",
+                box(h3("Reports per Indication (all reported drugs)",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
                          title = paste(
@@ -210,7 +210,7 @@ ui <- dashboardPage(
                     width = 6),
                 tabBox(
                   tabPanel("Suspect",
-                           h3("Most Frequently Occurring Drugs (Brand Name)",
+                           h3("Most Frequently Reported Drugs (Brand Name)",
                               tipify(
                                 el = icon("info-circle"), trigger = "hover click",
                                 title = paste0(
@@ -219,7 +219,7 @@ ui <- dashboardPage(
                                   "The reporter suspects that the health product caused the adverse reaction."))),
                            htmlOutput("suspect_drugs")),
                   tabPanel("Concomitant",
-                           h3("Most Frequently Occurring Drugs (Brand Name)",
+                           h3("Most Frequently Reported Drugs (Brand Name)",
                               tipify(
                                 el = icon("info-circle"), trigger = "hover click",
                                 title = paste0(
@@ -228,7 +228,7 @@ ui <- dashboardPage(
                                   "The health product is not suspected, but the patient was taking it at the time of the adverse reaction."))),
                            htmlOutput("concomitant_drugs")),
                   tabPanel("All",
-                           h3("Most Frequently Occurring Drugs (Brand Name)",
+                           h3("Most Frequently Reported Drugs (Brand Name)",
                               tipify(
                                 el = icon("info-circle"), trigger = "hover click",
                                 title = paste0(
