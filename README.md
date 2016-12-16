@@ -7,6 +7,8 @@ Todo:
 - [ ] ensure all reads made using hcreader, and the `pool` library?
 
 ## Fetching the data ([data_import](data_import))
+> (data source) -> Postgres DB
+
 Input to these scripts are a data source, the output is data tables being uploaded to the Postgres database. These could be automated in the future for automatic updating of data sources.
 
 - [data_import/meddra_import.R](data_import/meddra_import.R) needs to be run in order to collect the different versions of MedDRA hierarchies (from zip files) and have them in a searchable table. This table is currently uploaded to the PostGRES database.
@@ -15,6 +17,8 @@ Input to these scripts are a data source, the output is data tables being upload
 - [data_import/cv_import.R](data_import/cv_import.R) scrapes the CV extract landing page for the link to the extracts zip file, downloads it locally, and parses through the text files, constructs the `AGE_GROUP, DATRECEIVED_CLEAN, DATRECEIVED_CHAR, DATINTRECEIVED_CLEAN, DATINTRECEIVED_CHAR` columns, and uploads all the tables to the Postgres database with the date suffix
 
 ## Fetching the data ([data_processing](data_processing))
+> Postgres DB -> Postgres DB
+
 These scripts read tables from Postgres, do processing and calculations, some table joins, and uploads tables back to Postgres. These tables are the tables which AREN'T straight from the raw data.
 
 - [data_processing/main_calcs.R](data_processing/main_calcs.R) The main script for calculations of disproportionality statistics. Some may be directly from formulas, some may be based on the `PhViD` library. Currently uses only reports after 2006 to calculate PRR, ROR, RRR, RFET, BCPNN, and GPS for both preferred terms (PT) and high-level terms (HLT)
@@ -26,4 +30,6 @@ These scripts read tables from Postgres, do processing and calculations, some ta
 - [data_processing/asdf.R](data_processing/asdf.R) Random code scrap containing code which potentially makes something like the cv_drugs_rxn table? Also comments on fixes made to the stats calculations code, useful for coders to read and keep in mind when working with data...
 
 ## Apps ([apps](apps))
+> Postgres DB -> R Shiny
+
 These are used for exploring and analyzing the data.
