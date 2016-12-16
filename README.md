@@ -23,5 +23,7 @@ These scripts read tables from Postgres, do processing and calculations, some ta
 
 - [data_processing/quarterly_script.R](data_processing/quarterly_script.R) A lot of commented out code that should work to calculate cumulative quarterly count tables. Results not currently used.
 
+- [data_processing/asdf.R](data_processing/asdf.R) Random code scrap containing code which potentially makes something like the cv_drugs_rxn table? Also comments on fixes made to the stats calculations code, useful for coders to read and keep in mind when working with data...
+
 ## Apps ([apps](apps))
 These are used for exploring and analyzing the data.
