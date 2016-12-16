@@ -60,7 +60,7 @@ age_code <- data.frame(term = 800:805,
                        stringsAsFactors = FALSE)
 
 ui <- dashboardPage(
-  dashboardHeader(title = titleWarning("Shiny FAERS (v0.13)"),
+  dashboardHeader(title = titleWarning("Shiny FAERS (v0.14)"),
                   titleWidth = 700),
   
   dashboardSidebar(

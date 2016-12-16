@@ -96,7 +96,7 @@ drug_choices <- drug_PT_HLT %>% distinct(ing) %>% as.data.frame() %>% `$`("ing")
 
 ################################## UI component ####
 ui <- dashboardPage(
-  dashboardHeader(title = titleWarning("Shiny DISP (v0.13)"),
+  dashboardHeader(title = titleWarning("Shiny DISP (v0.14)"),
                   titleWidth = 700),
   
   dashboardSidebar(
