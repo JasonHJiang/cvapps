@@ -62,7 +62,8 @@ pt_choices <- cv_reactions %>%
   `[[`(1) %>%
   sort()
 
-header <- dashboardHeader()
+header <- dashboardHeader(title = titleWarning("CV Shiny (v0.15)"),
+                          titleWidth = 700)
 
 sidebar <- dashboardSidebar(
   sidebarMenu(
