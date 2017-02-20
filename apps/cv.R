@@ -31,7 +31,7 @@ hcopen <- src_pool(hcopen_pool)
 cv_reports <- tbl(hcopen, "cv_reports_20160630")
 cv_drug_product_ingredients <-  tbl(hcopen, "cv_drug_product_ingredients_20160630")
 cv_report_drug <- tbl(hcopen, "cv_report_drug_20160630")
-cv_reactions <- tbl(hcopen, "cv_reactions_20160630")
+cv_reactions <- tbl(hcopen, "cv_reactions_20160630") # SOC is HERE
 cv_report_drug_indication <- tbl(hcopen, "cv_report_drug_indication_20160630")
 cv_substances <- tbl(hcopen, "cv_substances")
 meddra <- tbl(hcopen, "meddra") %>%
@@ -58,6 +58,11 @@ topings_cv <- cv_drug_product_ingredients %>%
   sort()
 pt_choices <- cv_reactions %>%
   distinct(PT_NAME_ENG) %>%
+  as.data.frame() %>%
+  `[[`(1) %>%
+  sort()
+soc_choices <- cv_reactions %>%
+  distinct(SOC_NAME_ENG) %>%
   as.data.frame() %>%
   `[[`(1) %>%
   sort()
@@ -118,6 +123,11 @@ ui <- dashboardPage(
                    c("Start typing to search..." = "", pt_choices),
                    multiple = TRUE,
                    selected = pt_choices[1]),
+    selectizeInput("search_soc",
+                   "System Organ Class (SOC)",
+                   c("Start typing to search..." = "", soc_choices),
+                   multiple = TRUE,
+                   selected = soc_choices[1]), 
     dateRangeInput("searchDateRange",
                    "Date Range",
                    start = "1965-01-01",
@@ -539,6 +549,10 @@ server <- function(input, output, session) {
     if (!is.null(input$search_rxn)) {
       if (length(input$search_rxn) == 1) cv_reactions_filtered %<>% filter(PT_NAME_ENG == input$search_rxn)
       else cv_reactions_filtered %<>% filter(PT_NAME_ENG %in% input$search_rxn)
+    }
+    if (!is.null(input$search_soc)) {
+      if (length(input$search_soc) == 1) cv_reactions_filtered %<>% filter(SOC_NAME_ENG == input$search_soc)
+      else cv_reactions_filtered %<>% filter(SOC_NAME_ENG %in% input$search_soc)
     }
     
     selected_ids <-  cv_reports_filtered_ids %>%
