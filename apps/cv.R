@@ -31,7 +31,7 @@ hcopen <- src_pool(hcopen_pool)
 cv_reports <- tbl(hcopen, "cv_reports_20160630")
 cv_drug_product_ingredients <-  tbl(hcopen, "cv_drug_product_ingredients_20160630")
 cv_report_drug <- tbl(hcopen, "cv_report_drug_20160630")
-cv_reactions <- tbl(hcopen, "cv_reactions_20160630")
+cv_reactions <- tbl(hcopen, "cv_reactions_20160630") # SOC is HERE
 cv_report_drug_indication <- tbl(hcopen, "cv_report_drug_indication_20160630")
 cv_substances <- tbl(hcopen, "cv_substances")
 meddra <- tbl(hcopen, "meddra") %>%
@@ -61,6 +61,11 @@ pt_choices <- cv_reactions %>%
   as.data.frame() %>%
   `[[`(1) %>%
   sort()
+soc_choices <- cv_reactions %>%
+  distinct(SOC_NAME_ENG) %>%
+  as.data.frame() %>%
+  `[[`(1) %>%
+  sort()
 
 ui <- dashboardPage(
   dashboardHeader(title = titleWarning("CV Shiny (v0.14)"),
@@ -71,7 +76,11 @@ ui <- dashboardPage(
     sidebarMenu(
       menuItem("Reports", tabName = "reportdata", icon = icon("hospital-o")),
       menuItem("Patients", tabName = "patientdata", icon = icon("user-md")),
-      menuItem("Drugs", tabName = "drugdata", icon = icon("flask")),
+      menuItem("Drugs", tabName = "drugdata", icon = icon("flask"),
+               menuSubItem('All', tabName = 'drugdata_all'),
+               menuSubItem('Concomitant', tabName = 'drugdata_con'),
+               menuSubItem('Suspect', tabName = 'drugdata_sus'),
+               menuSubItem('Drugs per Report', tabName = 'drugdata_number')),
       menuItem("Reactions", tabName = "rxndata", icon = icon("heart-o")),
       menuItem("About", tabName = "aboutinfo", icon = icon("info"), selected = TRUE)
     ),
@@ -104,11 +113,21 @@ ui <- dashboardPage(
                      c("Suspect",
                        "Concomitant",
                        "Any"))),
+    selectInput("search_gender",
+                "Select Gender",
+                c("All",
+                  "Male",
+                  "Female")),
     selectizeInput("search_rxn", 
                    "Preferred Term (PT)",
                    c("Start typing to search..." = "", pt_choices),
                    multiple = TRUE,
                    selected = pt_choices[1]),
+    selectizeInput("search_soc",
+                   "System Organ Class (SOC)",
+                   c("Start typing to search..." = "", soc_choices),
+                   multiple = TRUE,
+                   selected = soc_choices[1]), 
     dateRangeInput("searchDateRange",
                    "Date Range",
                    start = "1965-01-01",
@@ -145,24 +164,50 @@ ui <- dashboardPage(
     tabItems(
       tabItem(tabName = "reportdata",
               fluidRow(
-                box(h3("Reporter Type",
-                       tipify(
-                         el = icon("info-circle"), trigger = "hover click",
-                         title = paste0(
-                           "Indicates who reported the adverse reaction and their relationship to the patient. ",
-                           "Slices may not be visible if they are too small.")
-                       )),
-                    htmlOutput("reporterplot"),
-                    width = 3),
-                box(h3("Seriousness",
-                       tipify(
-                         el = icon("info-circle"), trigger = "hover click",
-                         title = paste0(
-                           "A serious report contains a serious adverse reaction, determined by the reporter ",
-                           "of the report at the time of reporting. Slices may not be visible if they are too small.")
-                       )),
-                    htmlOutput("seriousplot"),
-                    width = 3),
+                tabBox(
+                  tabPanel("Pie Chart",
+                           h3("Reporter Type",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste0(
+                                  "Indicates who reported the adverse reaction and their relationship to the patient. ",
+                                  "Slices may not be visible if they are too small.")
+                                )),
+                           htmlOutput("reporterplot"),
+                           width = 3),
+                  tabPanel("Table",
+                           h3("Reporter Type",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste0(
+                                  "Indicates who reported the adverse reaction and their relationship to the patient. ",
+                                  "Slices may not be visible if they are too small.")
+                                )),
+                           htmlOutput("reporterplot.table"),
+                           width = 3),
+                width = 3),
+                tabBox(
+                  tabPanel("Pie Chart",
+                           h3("Seriousness",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste0(
+                                  "A serious report contains a serious adverse reaction, determined by the reporter ",
+                                  "of the report at the time of reporting. Slices may not be visible if they are too small.")
+                                )),
+                           htmlOutput("seriousplot"),
+                           width = 3),
+                  tabPanel("Table",
+                           h3("Seriousness",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste0(
+                                  "A serious report contains a serious adverse reaction, determined by the reporter ",
+                                  "of the report at the time of reporting. Slices may not be visible if they are too small.")
+                              )),
+                           htmlOutput("seriousplot.table"),
+                           width = 3),
+                width = 3),
                 box(h3("Reason(s) for Seriousness",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
@@ -174,55 +219,107 @@ ui <- dashboardPage(
       ),
       tabItem(tabName = "patientdata",
               fluidRow(
-                box(h3("Gender",
-                       tipify(
-                         el = icon("info-circle"), trigger = "hover click",
-                         title = paste0(
-                           "Gender of the patient as it was provided by the reporter. ",
-                           "Where the gender is unknown, the reporter is unaware of the gender. ",
-                           "Where the gender is not specified, the reporter did not specify the gender of the patient."))),
-                    htmlOutput("sexplot"),
-                    width = 3),
-                box(h3("Age Group",
-                       tipify(
-                         el = icon("info-circle"), trigger = "hover click",
-                         title =  HTML(paste0(
-                           "Age group of the patient when the adverse effect occurred.<br>",
-                           "<br>Neonate: <= 25 days",
-                           "<br>Infant: > 25 days to < 1 yr",
-                           "<br>Child: >= 1 yr to < 13 yrs",
-                           "<br>Adolescent: >= 13 yrs to < 18 yrs",
-                           "<br>Adult: >= 18 yrs to <= 65 yrs",
-                           "<br>Elderly: > 65 yrs")))),
-                    htmlOutput("agegroupplot"),
-                    width = 3),
+                tabBox(
+                  tabPanel("Pie Chart",
+                           h3("Gender",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste0(
+                                  "Gender of the patient as it was provided by the reporter. ",
+                                  "Where the gender is unknown, the reporter is unaware of the gender. ",
+                                  "Where the gender is not specified, the reporter did not specify the gender of the patient."))),
+                           htmlOutput("sexplot"),
+                           width = 3),
+                  tabPanel("Table",
+                           h3("Gender",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste0(
+                                  "Gender of the patient as it was provided by the reporter. ",
+                                  "Where the gender is unknown, the reporter is unaware of the gender. ",
+                                  "Where the gender is not specified, the reporter did not specify the gender of the patient."))),
+                           htmlOutput("sexplot.table"),
+                           width = 3)
+                  ),
+                tabBox(
+                  tabPanel("Pie Chart",
+                           h3("Age Group",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title =  HTML(paste0(
+                                  "Age group of the patient when the adverse effect occurred.<br>",
+                                  "<br>Neonate: <= 25 days",
+                                  "<br>Infant: > 25 days to < 1 yr",
+                                  "<br>Child: >= 1 yr to < 13 yrs",
+                                  "<br>Adolescent: >= 13 yrs to < 18 yrs",
+                                  "<br>Adult: >= 18 yrs to <= 65 yrs",
+                                  "<br>Elderly: > 65 yrs")))),
+                           htmlOutput("agegroupplot"),
+                           width = 3),
+                  tabPanel("Table",
+                           h3("Age Group",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title =  HTML(paste0(
+                                  "Age group of the patient when the adverse effect occurred.<br>",
+                                  "<br>Neonate: <= 25 days",
+                                  "<br>Infant: > 25 days to < 1 yr",
+                                  "<br>Child: >= 1 yr to < 13 yrs",
+                                  "<br>Adolescent: >= 13 yrs to < 18 yrs",
+                                  "<br>Adult: >= 18 yrs to <= 65 yrs",
+                                  "<br>Elderly: > 65 yrs")))),
+                           htmlOutput("agegroupplot.table"),
+                           width = 3)
+                  ),
                 box(htmlOutput("agehisttitle"),
                     plotlyOutput("agehist"),
                     width = 6)
               )
       ),
-      tabItem(tabName = "drugdata",
+      tabItem(tabName = "drugdata_all",
               fluidRow(
-                box(h3("Reports per Indication (all reported drugs)",
-                       tipify(
-                         el = icon("info-circle"), trigger = "hover click",
-                         title = paste(
-                           "Indication refers to the particular condition for which a health product was taken. ",
-                           "This plot includes all indications for all drugs present in the matching reports. ",
-                           "The search query filters unique reports, which may have one or more drugs associated with them."))),
-                    htmlOutput("indication_plot"),
-                    width = 6),
                 tabBox(
-                  tabPanel("Suspect",
+                  tabPanel("All: Bar Graph",
                            h3("Most Frequently Reported Drugs (Brand Name)",
                               tipify(
                                 el = icon("info-circle"), trigger = "hover click",
                                 title = paste0(
                                   "This plot includes all drugs present in the matching reports. ",
-                                  "The search query filters unique reports, which may have one or more drugs associated with them. ",
-                                  "The reporter suspects that the health product caused the adverse reaction."))),
-                           htmlOutput("suspect_drugs")),
-                  tabPanel("Concomitant",
+                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
+                           htmlOutput("all_drugs")),
+                  tabPanel("All: Data Table",
+                           h3("Most Frequently Reported Drugs (Brand Name)",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste0(
+                                  "This plot includes all drugs present in the matching reports. ",
+                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
+                           htmlOutput("all_drugs.table")),
+                  width = 6),
+                tabBox(
+                  tabPanel("Bar Chart",
+                           h3("Reports per Indication (all reported drugs)",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste(
+                                  "Indication refers to the particular condition for which a health product was taken. ",
+                                  "This plot includes all indications for all drugs present in the matching reports. ",
+                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
+                           htmlOutput("indication_plot")),
+                  tabPanel("Table",
+                           h3("Reports per Indication (all reported drugs)",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste(
+                                  "Indication refers to the particular condition for which a health product was taken. ",
+                                  "This plot includes all indications for all drugs present in the matching reports. ",
+                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
+                           htmlOutput("indication_plot.table")),
+                  width = 6))),
+      tabItem(tabName = 'drugdata_con',
+              fluidRow(
+                tabBox(
+                  tabPanel("Concomitant: Bar Graph",
                            h3("Most Frequently Reported Drugs (Brand Name)",
                               tipify(
                                 el = icon("info-circle"), trigger = "hover click",
@@ -231,53 +328,140 @@ ui <- dashboardPage(
                                   "The search query filters unique reports, which may have one or more drugs associated with them. ",
                                   "The health product is not suspected, but the patient was taking it at the time of the adverse reaction."))),
                            htmlOutput("concomitant_drugs")),
-                  tabPanel("All",
+                  tabPanel("Concomitant: Data Table",
                            h3("Most Frequently Reported Drugs (Brand Name)",
                               tipify(
                                 el = icon("info-circle"), trigger = "hover click",
                                 title = paste0(
                                   "This plot includes all drugs present in the matching reports. ",
+                                  "The search query filters unique reports, which may have one or more drugs associated with them. ",
+                                  "The health product is not suspected, but the patient was taking it at the time of the adverse reaction."))),
+                           htmlOutput("concomitant_drugs.table"))),
+                tabBox(
+                  tabPanel("Bar Chart",
+                           h3("Reports per Indication (all reported drugs)",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste(
+                                  "Indication refers to the particular condition for which a health product was taken. ",
+                                  "This plot includes all indications for all drugs present in the matching reports. ",
                                   "The search query filters unique reports, which may have one or more drugs associated with them."))),
-                           htmlOutput("all_drugs")),
-                  width = 6)
-              ),
+                           htmlOutput("indication_plot.con")),
+                  tabPanel("Table",
+                           h3("Reports per Indication (all reported drugs)",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste(
+                                  "Indication refers to the particular condition for which a health product was taken. ",
+                                  "This plot includes all indications for all drugs present in the matching reports. ",
+                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
+                           htmlOutput("indication_plot.table.con")),
+                  width = 6))),
+      tabItem(tabName = 'drugdata_sus',
+              fluidRow(
+                tabBox(
+                  tabPanel("Suspect: Bar Graph",
+                           h3("Most Frequently Reported Drugs (Brand Name)",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste0(
+                                  "This plot includes all drugs present in the matching reports. ",
+                                  "The search query filters unique reports, which may have one or more drugs associated with them. ",
+                                  "The reporter suspects that the health product caused the adverse reaction."))),
+                           htmlOutput("suspect_drugs")),
+                  tabPanel("Suspect: Data Table",
+                           h3("Most Frequently Reported Drugs (Brand Name)",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste0(
+                                  "This plot includes all drugs present in the matching reports. ",
+                                  "The search query filters unique reports, which may have one or more drugs associated with them. ",
+                                  "The reporter suspects that the health product caused the adverse reaction."))),
+                           htmlOutput("suspect_drugs.table"))),
+                tabBox(
+                  tabPanel("Bar Chart",
+                           h3("Reports per Indication (all reported drugs)",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste(
+                                  "Indication refers to the particular condition for which a health product was taken. ",
+                                  "This plot includes all indications for all drugs present in the matching reports. ",
+                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
+                           htmlOutput("indication_plot.sus")),
+                  tabPanel("Table",
+                           h3("Reports per Indication (all reported drugs)",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste(
+                                  "Indication refers to the particular condition for which a health product was taken. ",
+                                  "This plot includes all indications for all drugs present in the matching reports. ",
+                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
+                           htmlOutput("indication_plot.table.sus")),
+                  width = 6))),
+      tabItem(tabName = 'drugdata_number',
               fluidRow(
                 box(htmlOutput("drugcounttitle"),
                     htmlOutput("drugcount_plot"),
-                    width = 8)
-              )
-      ),
+                    width = 12))),
       tabItem(tabName = "rxndata",
               fluidRow(
-                box(h3("Most Frequent Adverse Events (Preferred Terms)",
-                       tipify(
-                         el = icon("info-circle"), trigger = "hover click",
-                         title = paste0(
-                           "MedDRA Preferred Term is a distinct descriptor (single medical concept) for a symptom, ",
-                           "sign, disease, diagnosis, therapeutic indication, investigation, surgical, or medical ",
-                           "procedure, and medical, social, or family history characteristic. For more rigorous analysis, ",
-                           "use disproportionality statistics."))),
-                    htmlOutput("top_pt"),
-                    width = 6),
-                box(h3("Most Frequent Adverse Events (High-Level Terms)",
-                       tipify(
-                         el = icon("info-circle"), trigger = "hover click",
-                         title = "For more rigorous analysis, use disproportionality statistics.")),
-                    htmlOutput("top_hlt"),
-                    width = 6)
-              ),
+                tabBox(
+                  tabPanel("Bar Chart",
+                           h3("Most Frequent Adverse Events (Preferred Terms)",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste0(
+                                  "MedDRA Preferred Term is a distinct descriptor (single medical concept) for a symptom, ",
+                                  "sign, disease, diagnosis, therapeutic indication, investigation, surgical, or medical ",
+                                  "procedure, and medical, social, or family history characteristic. For more rigorous analysis, ",
+                                  "use disproportionality statistics."))),
+                           htmlOutput("top_pt")),
+                  tabPanel("Data Table",
+                           h3("Most Frequent Adverse Events (Preferred Terms)",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste0(
+                                  "MedDRA Preferred Term is a distinct descriptor (single medical concept) for a symptom, ",
+                                  "sign, disease, diagnosis, therapeutic indication, investigation, surgical, or medical ",
+                                  "procedure, and medical, social, or family history characteristic. For more rigorous analysis, ",
+                                  "use disproportionality statistics."))),
+                           htmlOutput("top_pt.table")),
+                  width = 6),
+                tabBox(
+                  tabPanel("Bar Chart",
+                           h3("Most Frequent Adverse Events (High-Level Terms)",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = "For more rigorous analysis, use disproportionality statistics.")),
+                           htmlOutput("top_hlt")),
+                  tabPanel("Data Table",
+                           h3("Most Frequent Adverse Events (High-Level Terms)",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = "For more rigorous analysis, use disproportionality statistics.")),
+                           htmlOutput("top_hlt.table")),
+                  width = 6)),
               fluidRow(
-                box(h3("Report Outcome",
-                       tipify(
-                         el = icon("info-circle"), trigger = "hover click",
-                         title = paste0(
-                           "The report outcome represents the outcome of the reported case as described by the reporter ",
-                           "at the time of reporting and does not infer a causal relationship. The report outcome is not ",
-                           "based on a scientific evaluation by Health Canada."))),
-                    htmlOutput("outcomeplot"),
-                    width = 4)
-              )
-      ),
+                tabBox(
+                  tabPanel("Pie Chart",
+                           h3("Report Outcome",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste0(
+                                  "The report outcome represents the outcome of the reported case as described by the reporter ",
+                                  "at the time of reporting and does not infer a causal relationship. The report outcome is not ",
+                                  "based on a scientific evaluation by Health Canada."))),
+                           htmlOutput("outcomeplot")),
+                  tabPanel("Data Table",
+                           h3("Report Outcome",
+                              tipify(
+                                el = icon("info-circle"), trigger = "hover click",
+                                title = paste0(
+                                  "The report outcome represents the outcome of the reported case as described by the reporter ",
+                                  "at the time of reporting and does not infer a causal relationship. The report outcome is not ",
+                                  "based on a scientific evaluation by Health Canada."))),
+                           htmlOutput("outcomeplot.table")),
+                  width = 4))),
       
       tabItem(tabName = "aboutinfo",
               box(
@@ -339,8 +523,12 @@ server <- function(input, output, session) {
     }
     
     cv_reports_filtered_ids <- cv_reports %>%
-      filter(DATINTRECEIVED_CLEAN >= input$searchDateRange[1], DATINTRECEIVED_CLEAN <= input$searchDateRange[2]) %>%
-      select(REPORT_ID)
+      filter(DATINTRECEIVED_CLEAN >= input$searchDateRange[1], DATINTRECEIVED_CLEAN <= input$searchDateRange[2])
+    if (input$search_gender == 'Male' | input$search_gender == 'Female') {
+      cv_reports_filtered_ids %<>% filter(GENDER_ENG == input$search_gender)
+    }
+    cv_reports_filtered_ids %<>% select(REPORT_ID)
+    
     cv_report_drug_filtered <- cv_report_drug
     if (input$name_type == "brand" & !is.null(name)) {
       if (length(name) == 1) cv_report_drug_filtered %<>% filter(DRUGNAME == name)
@@ -361,6 +549,10 @@ server <- function(input, output, session) {
     if (!is.null(input$search_rxn)) {
       if (length(input$search_rxn) == 1) cv_reactions_filtered %<>% filter(PT_NAME_ENG == input$search_rxn)
       else cv_reactions_filtered %<>% filter(PT_NAME_ENG %in% input$search_rxn)
+    }
+    if (!is.null(input$search_soc)) {
+      if (length(input$search_soc) == 1) cv_reactions_filtered %<>% filter(SOC_NAME_ENG == input$search_soc)
+      else cv_reactions_filtered %<>% filter(SOC_NAME_ENG %in% input$search_soc)
     }
     
     selected_ids <-  cv_reports_filtered_ids %>%
@@ -512,8 +704,20 @@ server <- function(input, output, session) {
     reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == "Consumer Or Other Non Health Professional"] <- "Consumer or non-health professional"
     reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == "Other Health Professional"] <- "Other health professional"
     # data <- reports_tab(current_generic="ampicillin",current_brand="PENBRITIN",current_rxn="Urticaria",date_ini=ymd("19650101"),date_end=ymd("20151231"))
-
+    
+    
     gvisPieChart_HCSC(reporter_results, "REPORTER_TYPE_ENG", "count")
+  })
+  output$reporterplot.table <- renderGvis({
+    reporter_results <- subset_cv$report %>%
+      count(REPORTER_TYPE_ENG) %>%
+      as.data.frame()
+    reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == ""] <- "Not reported"
+    reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == "Consumer Or Other Non Health Professional"] <- "Consumer or non-health professional"
+    reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == "Other Health Professional"] <- "Other health professional"
+    # data <- reports_tab(current_generic="ampicillin",current_brand="PENBRITIN",current_rxn="Urticaria",date_ini=ymd("19650101"),date_end=ymd("20151231"))
+    
+    gvisTable(reporter_results)
   })
   output$seriousplot <- renderGvis({
     serious_results <- subset_cv$report %>%
@@ -528,6 +732,20 @@ server <- function(input, output, session) {
       slice(match(c("Serious", "Non-serious", "Not reported"), label))
     
     gvisPieChart_HCSC(serious_results, "label", "count")
+  })
+  output$seriousplot.table <- renderGvis({
+    serious_results <- subset_cv$report %>%
+      count(SERIOUSNESS_ENG) %>%
+      select(SERIOUSNESS_ENG, n) %>%
+      as.data.frame() %>%
+      mutate(label = NA,
+             label = ifelse(SERIOUSNESS_ENG == "Yes", "Serious", label),
+             label = ifelse(SERIOUSNESS_ENG == "No", "Non-serious", label),
+             label = ifelse(SERIOUSNESS_ENG == "", "Not reported", label)) %>%
+      select(label, n) %>%
+      slice(match(c("Serious", "Non-serious", "Not reported"), label))
+    
+    gvisTable(serious_results)
   })
   output$seriousreasonsplot <- renderGvis({
     data <- subset_cv$report %>%
@@ -601,6 +819,16 @@ server <- function(input, output, session) {
 
     gvisPieChart_HCSC(sex_results, "GENDER_ENG", "n")
   })
+  output$sexplot.table <- renderGvis({
+    data <- subset_cv$report %>%
+      count(GENDER_ENG) %>%
+      as.data.frame()
+    # replace blank in GENDER_ENG with character "Unknown"
+    data$GENDER_ENG[data$GENDER_ENG == ""] <- "Not specified"
+    sex_results <- count(data, GENDER_ENG, wt = n)
+    
+    gvisTable(sex_results)
+  })
   output$agegroupplot <- renderGvis({
     age_groups <- subset_cv$report %>%
       count(AGE_GROUP_CLEAN) %>%
@@ -617,6 +845,23 @@ server <- function(input, output, session) {
     data[is.na(data)] <- 0 # always including empty rows means colour-scheme will be consistent
 
     gvisPieChart_HCSC(data, "AGE_GROUP_CLEAN", "n")
+  })
+  output$agegroupplot.table <- renderGvis({
+    age_groups <- subset_cv$report %>%
+      count(AGE_GROUP_CLEAN) %>%
+      as.data.frame()
+    age_group_order <- data.frame(AGE_GROUP_CLEAN = c("Neonate",
+                                                      "Infant",
+                                                      "Child",
+                                                      "Adolescent",
+                                                      "Adult",
+                                                      "Elderly",
+                                                      "Unknown"),
+                                  stringsAsFactors = FALSE)
+    data <- left_join(age_group_order, age_groups, by = "AGE_GROUP_CLEAN")
+    data[is.na(data)] <- 0 # always including empty rows means colour-scheme will be consistent
+    
+    gvisTable(data)
   })
   output$agehisttitle <- renderUI({
     excluded_count <- subset_cv$report %>%
@@ -649,28 +894,45 @@ server <- function(input, output, session) {
   })
 
   #### Data about Drugs
-  output$indication_plot <- renderGvis({
+  indication_data <- reactive({
     # Data frame used to obtain Top_25_indication bar chart: Indication is only associated with individual drug
     # When brand name is unspecified, chart shows top 25 indications associated with all drugs + date_range
     # When brand name is specified, chart shows top 25 indications associated with specified drug + date_range
+    
+    
+    # NOTE ABOUT INDICATIONS STRUCTURE:
+    # REPORT_ID -> multiple drugs per report
+    # DRUG_ID -> multiple reports may use the same drugs
+    # REPORT_DRUG_ID -> unique for each drug/report combination. count is less than total reports since drugs can have multiple indications
+    # so distinct REPORT_DRUG_ID x INDICATION_NAME_ENG includes the entire set of reports
     indications_sorted <- subset_cv$drug %>%
       count(INDICATION_NAME_ENG) %>%
       arrange(desc(n)) %>%
       as.data.frame() %>%
       filter(!is.na(INDICATION_NAME_ENG)) %>%
       head(25)
-
-    # NOTE ABOUT INDICATIONS STRUCTURE:
-    # REPORT_ID -> multiple drugs per report
-    # DRUG_ID -> multiple reports may use the same drugs
-    # REPORT_DRUG_ID -> unique for each drug/report combination. count is less than total reports since drugs can have multiple indications
-    # so distinct REPORT_DRUG_ID x INDICATION_NAME_ENG includes the entire set of reports
-
-    gvisBarChart_HCSC(indications_sorted, "INDICATION_NAME_ENG", "n", google_colors[1])
   })
-  output$suspect_drugs <- renderGvis({
-    # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name
-    #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
+  
+  output$indication_plot <- renderGvis({
+    gvisBarChart_HCSC(indication_data(), "INDICATION_NAME_ENG", "n", google_colors[1])
+  })
+  output$indication_plot.table <- renderGvis({
+    gvisTable(indication_data())
+    })
+  output$indication_plot.sus <- renderGvis({
+    gvisBarChart_HCSC(indication_data(), "INDICATION_NAME_ENG", "n", google_colors[1])
+  })
+  output$indication_plot.table.sus <- renderGvis({
+    gvisTable(indication_data())
+    })
+  output$indication_plot.con <- renderGvis({
+    gvisBarChart_HCSC(indication_data(), "INDICATION_NAME_ENG", "n", google_colors[1])
+  })
+  output$indication_plot.table.con <- renderGvis({
+    gvisTable(indication_data())
+  })
+  
+  suspect_data <- reactive({
     data <- subset_cv$drug %>%
       filter(DRUGINVOLV_ENG == "Suspect") %>%
       distinct(REPORT_ID, DRUGNAME) %>%
@@ -678,13 +940,21 @@ server <- function(input, output, session) {
       arrange(desc(n)) %>%
       head(25) %>%
       as.data.frame()
-    
-    # the top drugs reported here might be influenced by such drug is originally most reported among all reports
-    gvisBarChart_HCSC(data, "DRUGNAME", "n", google_colors[2])
   })
-  output$concomitant_drugs <- renderGvis({
+  
+  output$suspect_drugs <- renderGvis({
     # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name
     #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
+    # the top drugs reported here might be influenced by such drug is originally most reported among all reports
+    gvisBarChart_HCSC(suspect_data(), "DRUGNAME", "n", google_colors[2])
+  })
+  
+  output$suspect_drugs.table <- renderGvis({
+    gvisTable(suspect_data())
+  })
+  
+  
+  concomitant_data <- reactive({
     data <- subset_cv$drug %>%
       filter(DRUGINVOLV_ENG == "Concomitant") %>%
       distinct(REPORT_ID, DRUGNAME) %>%
@@ -692,23 +962,45 @@ server <- function(input, output, session) {
       arrange(desc(n)) %>%
       head(25) %>%
       as.data.frame()
-    
-    # the top drugs reported here might be influenced by such drug is originally most reported among all reports
-    gvisBarChart_HCSC(data, "DRUGNAME", "n", google_colors[2])
   })
-  output$all_drugs <- renderGvis({
+  
+  output$concomitant_drugs <- renderGvis({
     # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name
     #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
+    # the top drugs reported here might be influenced by such drug is originally most reported among all reports
+    gvisBarChart_HCSC(concomitant_data(), "DRUGNAME", "n", google_colors[2])
+  })
+  
+  output$concomitant_drugs.table <- renderGvis({
+    data <- concomitant_data()
+    gvisTable(data)
+  })
+  
+  
+  all_data <- reactive({
     data <- subset_cv$drug %>%
       distinct(REPORT_ID, DRUGNAME) %>%
       count(DRUGNAME) %>%
       arrange(desc(n)) %>%
       head(25) %>%
       as.data.frame()
-    
+  })
+  
+  output$all_drugs <- renderGvis({
+    # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name
+    #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
+    data <- all_data()
     # the top drugs reported here might be influenced by such drug is originally most reported among all reports
     gvisBarChart_HCSC(data, "DRUGNAME", "n", google_colors[2])
   })
+  
+  output$all_drugs.table <- renderGvis({
+    data <- all_data()
+    gvisTable(data)
+  })
+  
+  
+
   output$drugcounttitle <- renderUI({
     excluded_count <- subset_cv$drug %>%
       count(REPORT_ID) %>%
@@ -723,15 +1015,18 @@ server <- function(input, output, session) {
                     "The search query filters unique reports, which may have one or more drugs associated with them.")),
                 "<br>(", excluded_count, " reports with more than 20 drugs excluded)", "</h3>"))
   })
-  output$drugcount_plot <- renderGvis({
+
+  drugcount_data <- reactive({
     data <- subset_cv$drug %>%
       count(REPORT_ID) %>%
       filter(n <= 20) %>%
       select(n) %>%
       as.data.frame()
-    
+  })
+
+  output$drugcount_plot <- renderGvis({
     # the top drugs reported here might be influenced by such drug is originally most reported among all reports
-    gvisHistogram(data, options = list(
+    gvisHistogram(drugcount_data(), options = list(
       legend = "{ position: 'none' }",
       height = 300,
       vAxis = "{title: 'Number of Reports'}",
@@ -740,32 +1035,49 @@ server <- function(input, output, session) {
       histogram = "{ hideBucketItems: true, bucketSize: 1 }"))
   })
 
+
   #### Data about Reactions
-  output$top_pt <- renderGvis({
+  
+  top_pt_data <- reactive({
     data <- subset_cv$rxn %>%
       count(PT_NAME_ENG) %>%
       arrange(desc(n)) %>%
       head(25) %>%
       as.data.frame()
-
-    gvisBarChart_HCSC(data, "PT_NAME_ENG", "n", google_colors[1])
   })
-  output$top_hlt <- renderGvis({
+  
+  output$top_pt <- renderGvis({
+    gvisBarChart_HCSC(top_pt_data(), "PT_NAME_ENG", "n", google_colors[1])
+  })
+  output$top_pt.table <- renderGvis({
+    gvisTable(top_pt_data())
+  })
+  
+  top_hlt_data <- reactive({
     data <- subset_cv$rxn %>%
       filter(!is.na(HLT_Term)) %>%
       count(HLT_Term) %>%
       arrange(desc(n)) %>%
       head(25) %>%
       as.data.frame()
-
-    gvisBarChart_HCSC(data, "HLT_Term", "n", google_colors[2])
   })
-  output$outcomeplot <- renderGvis({
+  output$top_hlt <- renderGvis({
+    gvisBarChart_HCSC(top_hlt_data(), "HLT_Term", "n", google_colors[2])
+  })
+  output$top_hlt.table <- renderGvis({
+    gvisTable(top_hlt_data())
+  })
+  
+  outcomeplot_data <- reactive({
     data <- subset_cv$report %>%
       count(OUTCOME_ENG) %>%
       as.data.frame()
-
-    gvisPieChart_HCSC(data, "OUTCOME_ENG", "n")
+  })
+  output$outcomeplot <- renderGvis({
+    gvisPieChart_HCSC(outcomeplot_data(), "OUTCOME_ENG", "n")
+  })
+  output$outcomeplot.table <- renderGvis({
+    gvisTable(outcomeplot_data())
   })
 
   ############# Download Tab
