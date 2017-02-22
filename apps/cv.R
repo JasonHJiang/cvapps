@@ -28,12 +28,15 @@ hcopen_pool <- dbPool(drv = "PostgreSQL",
                       user = "hcreader",
                       password = "canada1")
 hcopen <- src_pool(hcopen_pool)
+cv_meddra_pt_map <- tbl(hcopen, "cv_meddra_pt_map")
 cv_reports <- tbl(hcopen, "cv_reports_20160630")
 cv_drug_product_ingredients <-  tbl(hcopen, "cv_drug_product_ingredients_20160630")
 cv_report_drug <- tbl(hcopen, "cv_report_drug_20160630")
-cv_reactions <- tbl(hcopen, "cv_reactions_20160630") # SOC is HERE
+cv_reactions <- tbl(hcopen, "cv_reactions_20160630") %>% # SOC is HERE
+  left_join(cv_meddra_pt_map, by=c('PT_NAME_ENG' = 'PT'))
 cv_report_drug_indication <- tbl(hcopen, "cv_report_drug_indication_20160630")
 cv_substances <- tbl(hcopen, "cv_substances")
+
 meddra <- tbl(hcopen, "meddra") %>%
   filter(Primary_SOC_flag == "Y") %>%
   select(PT_Term, HLT_Term, Version = MEDDRA_VERSION)
@@ -56,16 +59,26 @@ topings_cv <- cv_drug_product_ingredients %>%
   as.data.frame() %>%
   `[[`(1) %>%
   sort()
+smq_choices <- cv_reactions %>%
+  distinct(SMQ) %>%
+  as.data.frame() %>%
+  filter(!is.na(SMQ)) %>%
+  `[[`(1) %>%
+  sort()
 pt_choices <- cv_reactions %>%
-  distinct(PT_NAME_ENG) %>%
+  distinct(PT_NAME_ENG) %>% 
   as.data.frame() %>%
   `[[`(1) %>%
+  c(smq_choices) %>%
   sort()
 soc_choices <- cv_reactions %>%
   distinct(SOC_NAME_ENG) %>%
   as.data.frame() %>%
   `[[`(1) %>%
   sort()
+
+
+  
 
 ui <- dashboardPage(
   dashboardHeader(title = titleWarning("CV Shiny (v0.14)"),
@@ -547,8 +560,11 @@ server <- function(input, output, session) {
     if (input$drug_inv != "Any") cv_report_drug_filtered %<>% filter(DRUGINVOLV_ENG == input$drug_inv)
     cv_reactions_filtered <- cv_reactions %>% filter(PT_NAME_ENG != "")
     if (!is.null(input$search_rxn)) {
-      if (length(input$search_rxn) == 1) cv_reactions_filtered %<>% filter(PT_NAME_ENG == input$search_rxn)
-      else cv_reactions_filtered %<>% filter(PT_NAME_ENG %in% input$search_rxn)
+      if (length(input$search_rxn) == 1) {
+        cv_reactions_filtered %<>% filter(PT_NAME_ENG == input$search_rxn | SMQ == input$search_rxn) %>% distinct()
+      } else {
+        cv_reactions_filtered %<>% filter(PT_NAME_ENG %in% input$search_rxn | SMQ %in% input$search_rxn) %>% distinct()
+      }
     }
     if (!is.null(input$search_soc)) {
       if (length(input$search_soc) == 1) cv_reactions_filtered %<>% filter(SOC_NAME_ENG == input$search_soc)
