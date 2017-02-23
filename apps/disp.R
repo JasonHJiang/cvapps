@@ -17,6 +17,7 @@ library(shiny)
 library(shinydashboard)
 library(shinyBS)
 library(DT)
+library(markdown)
 
 source("common_ui.R")
 
@@ -105,7 +106,9 @@ ui <- dashboardPage(
       menuItem("Disproportionality Analysis", tabName = "data", icon = icon("database")),
       selectizeInput(inputId ="search_drug",
                      label = "Generic Name/Ingredient",
-                     choices = c(drug_choices, "Start typing to search..." = "")),
+                     choices = c(drug_choices, "Start typing to search..." = ""),
+                     multiple = TRUE,
+                     selected = drug_choices[1]),
       selectizeInput(inputId = "search_hlt",
                      label = "Adverse Event High-Level Term",
                      choices = c("Loading..." = "")),
@@ -152,9 +155,10 @@ ui <- dashboardPage(
       tabItem(tabName = "data",
               fluidRow(
                 tabBox(
+                  
                   tabPanel(
                     "Preferred Terms",
-                    plotOutput(outputId = "timeplot_pt", height = "285px"),
+                    plotOutput(outputId = "timeplot_pt", height = "285px", click = "plot_click"),
                     tags$br(),
                     DT::dataTableOutput("table_pt"),
                     tags$p("NOTE: The above table is ranked decreasingly by PRR value. All drug*reactions pairs that have PRR value of infinity are added at the end of the table."),
@@ -206,6 +210,7 @@ ui <- dashboardPage(
           "<br>",
           "<p>",
           "<strong>Data last updated: 2015-03-31</strong><br>",
+          "<strong>MedDRA Veresion: 19.0</strong><br>",
           "Data provided by the Canada Vigilance Adverse Reaction Online Database. The recency of the data is therefore ",
           "dependent on when the data source is updated, and is the responsibility of the Canada Vigilance Program. ",
           "For more information, please refer to ",
@@ -309,9 +314,9 @@ server <- function(input, output, session) {
     result <- data.frame(names = c("Generic Name:",
                                    "High-Level Term:",
                                    "Preferred Term:"),
-                         terms = c(data$drug,
-                                   data$hlt,
-                                   data$pt),
+                         terms = c(paste0(data$drug, collapse = ", "),
+                                   paste0(data$hlt, collapse = ", "),
+                                   paste0(data$pt, collapse = ", ")),
                          stringsAsFactors=FALSE)
     result["" == result] <- "Not Specified"
     result
@@ -347,6 +352,7 @@ server <- function(input, output, session) {
     input$search_button # hacky way to get eventReactive but also initial load
     isolate({
       data <- current_search()
+      print(data)
       # PRR and ROR values of Inf means there are no other drugs associated with that specific adverse reaction, so denomimator is zero!
       # prr_tab_df is simply the table displayed at the bottom
       table <- master_table_pt
@@ -465,7 +471,7 @@ server <- function(input, output, session) {
       #                 chartArea = "{top: 10, height: '80%', left: 120, width: '84%'}")
       # )
       mutate(qtr = as.yearqtr(quarter %>% as.character(), '%Y.%q'))
-    p <- ggplot(df, aes(x = qtr, y = n)) +
+    p <- ggplot(df, aes(x = qtr, y = n, label = label)) +
       scale_x_yearqtr(breaks = seq(min(df$qtr), max(df$qtr), 0.25),
                       format = "%Y Q%q") +
       geom_line(aes(colour=label)) + geom_point()  +
@@ -473,7 +479,15 @@ server <- function(input, output, session) {
       xlab("Quarter") +
       ylab("Report Count") +
       theme_bw() +
-      theme(plot.title = element_text(lineheight=.8, face="bold"), axis.text.x = element_text(angle=30, vjust=0.9, hjust=1))
+      theme(plot.title = element_text(face="bold", hjust=0.1, size = rel(0.75)), 
+            axis.text.x = element_text(angle=30, vjust=0.9, hjust=1, size=rel(0.75)),
+            axis.title = element_text(size = rel(0.75)),
+            axis.title.x = element_text(vjust = 0))
+    # p <- plot_ly(df, x = ~qtr, y = ~n, mode = 'lines+markers') %>%
+    #      layout(title = plottitle,
+    #             font = list(size = 8))
+    
+    
     print(p)
     
   })
