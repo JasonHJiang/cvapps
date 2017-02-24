@@ -74,17 +74,6 @@ sidebar <- dashboardSidebar(
     menuItem("Reactions", tabName = "rxndata", icon = icon("heart-o")),
     menuItem("About", tabName = "aboutinfo", icon = icon("info"), selected = TRUE)
   ),
-  fluidRow(
-    column(12,
-           selectInput("search_dataset_type",
-                       h5("Download Type"),
-                       c("Report Data", "Drug Data", "Reaction Data")),
-           div(
-             class="form-group shiny-input-container",
-             downloadButton(outputId = 'download_reports',
-                            label = 'Download'),
-             style="align: center")),
-    width = 12),
   #div(
   #  style="display: inline-block; vertical-align: bottom; height: 54px;",
   #  ,
@@ -99,12 +88,23 @@ body <- dashboardBody(
     box(
       useShinyjs(),
       id = "search_form",
-      column(2,
+      column(4,
              selectInput(
                "name_type", h5("Drug Name Type"),
                c("Brand Name" = "brand",
-                 "Active Ingredient" = "ingredient"))),
-      column(3,
+                 "Active Ingredient" = "ingredient")),
+             selectInput(
+               "drug_inv", h5("Drug Involvement"),
+               c("Any",
+                 "Suspect",
+                 "Concomitant"))),
+      column(4,
+             dateRangeInput(
+               "searchDateRange",
+               h5("Date Range"),
+               start = "1965-01-01",
+               end = "2016-06-30",
+               startview = "decade"),
              conditionalPanel(
                condition = "input.name_type == 'brand'",
                selectizeInput("search_brand", 
@@ -138,27 +138,22 @@ body <- dashboardBody(
                               multiple = TRUE,
                               options = list(dropdownParent = 'body',
                                              selected = topings_cv[1])))),
-      column(2,
+      column(4,
              selectInput(
-               "drug_inv", h5("Drug Involvement"),
-               c("Suspect",
-                 "Concomitant",
-                 "Any"))),
-      column(2,
+               "search_gender",
+               h5("Select Gender"),
+               c("All",
+                 "Male",
+                 "Female")),
              selectizeInput(
                "search_rxn", 
                h5("Preferred Term (PT)"),
                c("Start typing to search..." = "", pt_choices),
                multiple = TRUE,
                selected = pt_choices[1])),
-      column(2,
-             dateRangeInput(
-               "searchDateRange",
-               h5("Date Range"),
-               start = "1965-01-01",
-               end = "2016-06-30",
-               startview = "decade")),
-      column(1,
+      width = 9),
+    box(
+      column(4,
              div(
                class="form-group shiny-input-container",
                actionButton("searchButton",
@@ -171,7 +166,14 @@ body <- dashboardBody(
                             "",
                             icon = icon("close"),
                             width = '100%'))),
-      width = 12)),
+      column(8,
+             selectInput("search_dataset_type",
+                         h5("Download Type"),
+                         c("Report Data", "Drug Data", "Reaction Data")),
+             downloadButton(outputId = 'download_reports',
+                            label = 'Download')),
+      width = 3)
+    ),
   
   tabItems(
     # Time Plot Tab -----------------------------------------------------------
@@ -493,8 +495,12 @@ server <- function(input, output) {
     }
     
     cv_reports_filtered_ids <- cv_reports %>%
-      filter(DATINTRECEIVED_CLEAN >= input$searchDateRange[1], DATINTRECEIVED_CLEAN <= input$searchDateRange[2]) %>%
-      select(REPORT_ID)
+      filter(DATINTRECEIVED_CLEAN >= input$searchDateRange[1], DATINTRECEIVED_CLEAN <= input$searchDateRange[2])
+    if (input$search_gender == 'Male' | input$search_gender == 'Female') {
+      cv_reports_filtered_ids %<>% filter(GENDER_ENG == input$search_gender)
+    }
+    cv_reports_filtered_ids %<>% select(REPORT_ID)
+    
     cv_report_drug_filtered <- cv_report_drug
     if (input$name_type == "brand" & !is.null(name)) {
       if (length(name) == 1) cv_report_drug_filtered %<>% filter(DRUGNAME == name)
@@ -651,18 +657,23 @@ server <- function(input, output) {
                   ))
   })
 # Reporter Tab Plots --------------------------------------------------------
+  
+  serious_results <- reactive({
+    subset_cv$report %>%
+    count(SERIOUSNESS_ENG) %>%
+    select(SERIOUSNESS_ENG, n) %>%
+    as.data.frame() %>%
+    mutate(label = NA,
+           label = ifelse(SERIOUSNESS_ENG == "Yes", "Serious", label),
+           label = ifelse(SERIOUSNESS_ENG == "No", "Non-serious", label),
+           label = ifelse(SERIOUSNESS_ENG == "", "Not reported", label)) %>%
+    select(label, n) %>%
+    slice(match(c("Serious", "Non-serious", "Not reported"), label))
+  })
+  
+  
   output$seriousplot <- renderGvis({
-    serious_results <- subset_cv$report %>%
-      count(SERIOUSNESS_ENG) %>%
-      select(SERIOUSNESS_ENG, n) %>%
-      as.data.frame() %>%
-      mutate(label = NA,
-             label = ifelse(SERIOUSNESS_ENG == "Yes", "Serious", label),
-             label = ifelse(SERIOUSNESS_ENG == "No", "Non-serious", label),
-             label = ifelse(SERIOUSNESS_ENG == "", "Not reported", label)) %>%
-      select(label, n) %>%
-      slice(match(c("Serious", "Non-serious", "Not reported"), label))
-    
+    serious_results <- serious_results()
     if (input$report.serious.format == "serious.pie") {
       gvisPieChart_HCSC(serious_results, "label", "count")
     } else {
@@ -670,14 +681,19 @@ server <- function(input, output) {
     }
   })
   
-  output$reporterplot <- renderGvis({
-    reporter_results <- subset_cv$report %>%
+  
+  
+  reporter_results <- reactive({
+    reporter <- subset_cv$report %>%
       count(REPORTER_TYPE_ENG) %>%
       as.data.frame()
-    reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == ""] <- "Not reported"
-    reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == "Consumer Or Other Non Health Professional"] <- "Consumer or non-health professional"
-    reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == "Other Health Professional"] <- "Other health professional"
-
+    reporter$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == ""] <- "Not reported"
+    reporter$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == "Consumer Or Other Non Health Professional"] <- "Consumer or non-health professional"
+    reporter$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == "Other Health Professional"] <- "Other health professional"
+  })
+  
+  output$reporterplot <- renderGvis({
+    reporter_results <- reporter_results()
     if (input$report.reporter.format == "reporter.pie") {
       gvisPieChart_HCSC(reporter_results, "REPORTER_TYPE_ENG", "count")
     } else {
@@ -685,9 +701,9 @@ server <- function(input, output) {
     }
   })
   
-  output$seriousreasonsplot <- renderGvis({
-    data <- subset_cv$report %>%
-      filter(SERIOUSNESS_ENG == "Yes")
+  serious_reasons <- reactive({
+    subset_cv$report %>%
+    filter(SERIOUSNESS_ENG == "Yes")
     
     n_congen <- data %>%
       filter(CONGENITAL_ANOMALY == 1) %>%
@@ -717,23 +733,24 @@ server <- function(input, output) {
       filter(OTHER_MEDICALLY_IMP_COND != 1 | is.na(OTHER_MEDICALLY_IMP_COND)) %>%
       tally() %>% as.data.frame() %>% `$`(n)
     
-    serious_reasons <- data.frame(label = c("Death",
-                                            "Life-threatening",
-                                            "Hospitalization",
-                                            "Disability",
-                                            "Congenital anomaly",
-                                            "Other medically important condition",
-                                            "Not specified"),
-                                  count = c(n_death,
-                                            n_lifethreat,
-                                            n_hosp,
-                                            n_disab,
-                                            n_congen,
-                                            n_other,
-                                            n_notspec),
-                                  stringsAsFactors = FALSE)
-    
-    
+      serious_reasons <- data.frame(label = c("Death",
+                                              "Life-threatening",
+                                              "Hospitalization",
+                                              "Disability",
+                                              "Congenital anomaly",
+                                              "Other medically important condition",
+                                              "Not specified"),
+                                    count = c(n_death,
+                                              n_lifethreat,
+                                              n_hosp,
+                                              n_disab,
+                                              n_congen,
+                                              n_other,
+                                              n_notspec),
+                                    stringsAsFactors = FALSE)})
+  
+  output$seriousreasonsplot <- renderGvis({
+    serious_reasons <- serious_reasons()
     if (input$report.seriousreasons.format == "reporter.bar") {
       gvisBarChart(serious_reasons,
                    xvar = "label",
