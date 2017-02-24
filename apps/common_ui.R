@@ -115,6 +115,13 @@ aboutAuthors <- function() {list(
       "Health Canada / Government of Canada", br(),
       "kevin.thai@canada.ca or kthai@uwaterloo.ca",
       width = 3
+    ),
+    box(
+      "Bryce Claughton, BMath (in progress)", br(),
+      "Jr. Data Scientist Co-op, Health Products and Food Branch", br(),
+      "Health Canada / Government of Canada", br(),
+      "bryce.claughton2@canada.ca or bclaught@uwaterloo.ca",
+      width = 3
     )
   )
 )}
