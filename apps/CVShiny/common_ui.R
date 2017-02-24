@@ -1,4 +1,5 @@
 library(googleVis)
+library(jsonlite)
 # list of default google chart colours for plotting, http://there4.io/2012/05/02/google-chart-color-list/
 google_colors = c(
   "#3366CC",
