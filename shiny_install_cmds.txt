@@ -1,0 +1,18 @@
+# Commands to update Shiny Server. Need to turn this into a script.
+
+ver = version number (i.e. 0.16)
+
+sudo -u shiny mkdir /srv/shiny-server/CVShiny[ver]/
+sudo -u shiny mkdir /srv/shiny-server/shinyfaers[ver]/
+sudo -u shiny mkdir /srv/shiny-server/shinydisp2[ver]/
+
+sudo -u shiny cp -a apps/CVShiny/. /srv/shiny-server/CVShiny[ver]/
+sudo -u shiny cp apps/common_ui.R /srv/shiny-server/shinyfaers[ver]/
+sudo -u shiny cp apps/common_ui.R /srv/shiny-server/shinydisp2[ver]/
+
+sudo -u shiny cp apps/faers.R /srv/shiny-server/shinyfaers[ver]/app.R
+sudo -u shiny cp apps/disp.R /srv/shiny-server/shinydisp2[ver]/app.R
+
+sudo ln -s -T -f /srv/shiny-server/CVShiny[ver] /srv/shiny-server/CVShiny
+sudo ln -s -T -f /srv/shiny-server/shinyfaers[ver] /srv/shiny-server/shinyfaers
+sudo ln -s -T -f /srv/shiny-server/shinydisp2[ver] /srv/shiny-server/shinydisp2
