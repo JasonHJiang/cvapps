@@ -180,7 +180,7 @@ ui <- dashboardPage(
                 box(
                   tabPanel(
                     "Documentation",
-                    includeMarkdown("/home/shared/DISP data/CopyOfDISP about/DISP_about.md"),
+                    withMathJax(includeMarkdown("/home/shared/DISP data/CopyOfDISP about/DISP_about.md")),
                     tags$br(),
                     width = 12),
                   width=12
