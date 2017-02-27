@@ -38,7 +38,7 @@ binding.renderValue = function(el, data) {
       
     chart.xAxis     //Chart x-axis settings
       .axisLabel('Time')
-      .tickFormat(function(d) { return d3.time.format('%b %Y')(new Date(d * 1000)); });
+      .tickFormat(function(d) { return d3.time.format('%b %Y')(new Date((d + 18000) * 1000)); });
       
 
 
