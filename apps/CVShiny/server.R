@@ -26,6 +26,12 @@ shinyServer(function(input, output, session) {
     if (input$search_gender == 'Male' | input$search_gender == 'Female') {
       cv_reports_filtered_ids %<>% filter(GENDER_ENG == input$search_gender)
     }
+    
+    if (input$filter_over_100) {
+      cv_reports_filtered_ids %<>% filter(AGE_Y >= input$search_age[1])
+    } else {
+      cv_reports_filtered_ids %<>% filter(AGE_Y >= input$search_age[1] & AGE_Y <= input$search_age[2])
+    }
     cv_reports_filtered_ids %<>% select(REPORT_ID)
     
     cv_report_drug_filtered <- cv_report_drug
@@ -44,6 +50,9 @@ shinyServer(function(input, output, session) {
       
     }
     if (input$drug_inv != "Any") cv_report_drug_filtered %<>% filter(DRUGINVOLV_ENG == input$drug_inv)
+    
+
+    
     cv_reactions_filtered <- cv_reactions %>% filter(PT_NAME_ENG != "")
     if (!is.null(input$search_rxn)) {
       if (length(input$search_rxn) == 1) {
