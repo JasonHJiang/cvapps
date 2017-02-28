@@ -38,14 +38,14 @@ binding.renderValue = function(el, data) {
       
     chart.xAxis     //Chart x-axis settings
       .axisLabel('Time')
-      .tickFormat(function(d) { return d3.time.format('%b %Y')(new Date(d * 1000)); });
+      .tickFormat(function(d) { return d3.time.format('%b %Y')(new Date((d + 18000) * 1000)); });
       
 
 
  
     chart.yAxis     //Chart y-axis settings
       .axisLabel('Number of Reports')
-      .tickFormat(d3.format('.02f'));
+      .tickFormat(d3.format('d'));
 
     nv.utils.windowResize(chart.update);
     

@@ -26,6 +26,12 @@ shinyServer(function(input, output, session) {
     if (input$search_gender == 'Male' | input$search_gender == 'Female') {
       cv_reports_filtered_ids %<>% filter(GENDER_ENG == input$search_gender)
     }
+    
+    if (input$filter_over_100 & input$search_age[2] == 100) {
+      cv_reports_filtered_ids %<>% filter(AGE_Y >= input$search_age[1])
+    } else {
+      cv_reports_filtered_ids %<>% filter(AGE_Y >= input$search_age[1] & AGE_Y <= input$search_age[2])
+    }
     cv_reports_filtered_ids %<>% select(REPORT_ID)
     
     cv_report_drug_filtered <- cv_report_drug
@@ -44,6 +50,9 @@ shinyServer(function(input, output, session) {
       
     }
     if (input$drug_inv != "Any") cv_report_drug_filtered %<>% filter(DRUGINVOLV_ENG == input$drug_inv)
+    
+
+    
     cv_reactions_filtered <- cv_reactions %>% filter(PT_NAME_ENG != "")
     if (!is.null(input$search_rxn)) {
       if (length(input$search_rxn) == 1) {
@@ -75,6 +84,9 @@ shinyServer(function(input, output, session) {
     current_search$name <- name
     current_search$drug_inv <- input$drug_inv
     current_search$rxn <- input$search_rxn
+    current_search$gender <- input$search_gender
+    current_search$soc <- input$search_soc
+    current_search$age <- input$search_age
     current_search$date_range <- input$searchDateRange
     
     # so then all data is polled upon search, not just when display corresponding plot
@@ -93,16 +105,16 @@ shinyServer(function(input, output, session) {
     data_type <- ""
     
     if(input$search_dataset_type == "Report Data"){
-      reports_tab_master <- subset_cv$report
+      reports_tab_master <- subset_cv$report %>% as.data.frame() %>% `[`(, input$column_select_report)
       data_type <- "report"
     } else if(input$search_dataset_type == "Drug Data"){
-      reports_tab_master <- subset_cv$drug
+      reports_tab_master <- subset_cv$drug %>% as.data.frame() %>% `[`(, input$column_select_drug)
       data_type <- "drug"
     } else if(input$search_dataset_type == "Reaction Data"){
-      reports_tab_master <- subset_cv$rxn
+      reports_tab_master <- subset_cv$rxn %>% as.data.frame() %>% `[`(, input$column_select_reaction)
       data_type <- "rxn"
     }
-    reports_tab_master %<>% as.data.frame()
+    # reports_tab_master %<>% as.data.frame()
     
     # reports_tab_master_size <- paste("Size of Dataset is",
     #                                  format(object.size(reports_tab_master),
@@ -119,12 +131,18 @@ shinyServer(function(input, output, session) {
   output$current_search <- renderTable({
     data <- current_search
     result <- data.frame(names = c("Name Type:",
+                                   "Age Range:",
+                                   "Gender:",
                                    "Name:",
                                    "Adverse Reaction Term:",
+                                   "System Organ Class:",
                                    "Date Range:"),
                          values = c(data$name_type %>% toupper(),
+                                    sprintf("%s to %s%s", data$age[1], data$age[2], ifelse(input$filter_over_100 & data$age[2] == 100, '+', '')),
+                                    data$gender,
                                     paste0(data$name, collapse = ", "),
                                     paste0(data$rxn, collapse = ", "),
+                                    paste0(data$soc, collapse = ", "),
                                     paste(data$date_range, collapse = " to ")),
                          stringsAsFactors = FALSE)
     result$values["" == result$values] <- "Not Specified"
