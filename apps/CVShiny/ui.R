@@ -13,7 +13,8 @@ dashboardPage(
                menuSubItem('Suspect', tabName = 'drugdata_sus'),
                menuSubItem('Drugs per Report', tabName = 'drugdata_number')),
       menuItem("Reactions", tabName = "rxndata", icon = icon("heart-o")),
-      menuItem("About", tabName = "aboutinfo", icon = icon("info"), selected = TRUE)
+      menuItem("About", tabName = "aboutinfo", icon = icon("info"), selected = TRUE),
+      menuItem("Download", tabName = "download_tab", icon = icon("download"))
     ),
     conditionalPanel(
       condition = "input.name_type == 'brand'",
@@ -82,16 +83,7 @@ dashboardPage(
         actionButton("searchButton",
                      "Search",
                      width = '100%')
-      )),
-    div(style="display: inline-block; width: 161px;",
-        selectInput("search_dataset_type",
-                    "Download Type",
-                    c("Report Data", "Drug Data", "Reaction Data"))),
-    div(style="display: inline-block; vertical-align: bottom; height: 54px;",
-        downloadButton(outputId = 'download_reports',
-                       label = 'Download')),
-    tableOutput("current_search")
-  ), 
+      ))), 
   
   dashboardBody(
     customCSS(),
@@ -434,7 +426,49 @@ dashboardPage(
                   "<a href = \"http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/index-eng.php\">",
                   "http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/index-eng.php</a>.",
                   "</p>")),
-                aboutAuthors()
+                aboutAuthors())),
+      tabItem(tabName = "download_tab",
+              fluidRow(
+                box(
+                  column(
+                    width = 3,
+                    div(style="display: inline-block; width: 161px;",
+                        selectInput("search_dataset_type",
+                                    "Download Type",
+                                    c("Report Data", "Drug Data", "Reaction Data"))),
+                    div(style="display: inline-block; vertical-align: bottom; height: 54px;",
+                        downloadButton(outputId = 'download_reports',
+                                       label = 'Download')),
+                    conditionalPanel(
+                      "input.search_dataset_type == 'Report Data'",
+                      selectizeInput("column_select_report",
+                                     "Select Columns",
+                                     names(cv_reports %>% as.data.frame() %>% select(-c(REPORT_NO, OUTCOME_CODE, VERSION_NO, MAH_NO, REPORT_TYPE_CODE,
+                                                                                        GENDER_CODE, SERIOUSNESS_CODE, SOURCE_CODE))),
+                                     selected = c("REPORT_ID", "DATRECEIVED", "REPORT_TYPE_ENG", "GENDER_ENG", "AGE_Y", "OUTCOME_ENG", "WEIGHT", "WEIGHT_UNIT_ENG",
+                                                  "HEIGHT", "HEIGHT_UNIT_ENG", "SERIOUSNESS_ENG", "REPORTER_TYPE_ENG", "SOURCE_ENG"),
+                                     multiple = TRUE)),
+                    conditionalPanel(
+                      "input.search_dataset_type == 'Drug Data'",
+                      selectizeInput("column_select_drug",
+                                     "Select Columns",
+                                     names(cv_report_drug %>% left_join(cv_report_drug_indication, by = c("REPORT_DRUG_ID", "REPORT_ID", "DRUG_PRODUCT_ID", "DRUGNAME")) %>%
+                                             as.data.frame()),
+                                     selected = c("REPORT_ID", "DRUGNAME", "DRUGINVOLV_ENG", "ROUTEADMIN_ENG", "UNIT_DOSE_QTY", "DOSE_UNIT_ENG", "FREQUENCY", "FREQ_TIME",
+                                                  "FREQUENCY_TIME_ENG", "FREQ_TIME_UNIT_ENG", "DOSAGEFORM_ENG", "INDICATION_NAME_ENG"),
+                                     multiple = TRUE)),
+                    conditionalPanel(
+                      "input.search_dataset_type == 'Reaction Data'",
+                      selectizeInput("column_select_reaction",
+                                     "Select Columns",
+                                     names(cv_reactions %>% left_join(meddra, by = c("PT_NAME_ENG" = "PT_Term", "MEDDRA_VERSION" = "Version")) %>% as.data.frame()),
+                                     selected = c("REPORT_ID", "DURATION", "DURATION_UNIT_ENG", "PT_NAME_ENG", "SOC_NAME_ENG", "MEDDRA_VERSION", "SMQ"),
+                                     multiple = TRUE))),
+                  column(
+                    width = 9,
+                    tableOutput("current_search")
+                  ),
+                  width = 12)
               )
       )
     )
