@@ -45,7 +45,7 @@ binding.renderValue = function(el, data) {
  
     chart.yAxis     //Chart y-axis settings
       .axisLabel('Number of Reports')
-      .tickFormat(d3.format('.02f'));
+      .tickFormat(d3.format('d'));
 
     nv.utils.windowResize(chart.update);
     
