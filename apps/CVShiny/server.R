@@ -7,25 +7,23 @@ shinyServer(function(input, output, session) {
   # We need to have a reactive structure here so that it activates upon loading
   reactiveSearchButton <- reactive(as.vector(input$searchButton))
   observeEvent(reactiveSearchButton(), {
-    showModal(modalDialog(
-      title = list(icon("spinner", class = "fa-pulse"), "Results loading..."),
-      "Please wait while reports are being retrieved.",
-      footer = NULL,
-      size = "s"))
-    
+    withProgress(message = 'Calculation in progress', value = 0, {
     if (input$name_type == "brand") {
       name <- input$search_brand
-    } else if (input$name_type == "ingredient") {
-      name <- input$search_ing
-    } else {
-      name <- input$search_ing2
-    }
+      } else if (input$name_type == "ingredient") {
+        name <- input$search_ing
+        } else {
+          name <- input$search_ing2
+        }
+    incProgress(1/8, detail = 'Filtering Report IDs')
+                   
     
     cv_reports_filtered_ids <- cv_reports %>%
       filter(DATINTRECEIVED_CLEAN >= input$searchDateRange[1], DATINTRECEIVED_CLEAN <= input$searchDateRange[2])
     if (input$search_gender == 'Male' | input$search_gender == 'Female') {
       cv_reports_filtered_ids %<>% filter(GENDER_ENG == input$search_gender)
     }
+    incProgress(1/8, detail = 'Applying Age Constraints')
     
     if (input$filter_over_100 & input$search_age[2] == 100) {
       cv_reports_filtered_ids %<>% filter(AGE_Y >= input$search_age[1])
@@ -34,10 +32,13 @@ shinyServer(function(input, output, session) {
     }
     cv_reports_filtered_ids %<>% select(REPORT_ID)
     
+    
     cv_report_drug_filtered <- cv_report_drug
     if (input$name_type == "brand" & !is.null(name)) {
       if (length(name) == 1) cv_report_drug_filtered %<>% filter(DRUGNAME == name)
       else cv_report_drug_filtered %<>% filter(DRUGNAME %in% name)
+      
+      incProgress(1/8, detail = 'Filtering by Brand')
       
     } else if (input$name_type == "ingredient2" & !is.null(name) && name != "") {
       related_drugs <- cv_substances %>% filter(ing == name)
@@ -48,8 +49,11 @@ shinyServer(function(input, output, session) {
       else related_drugs <- cv_drug_product_ingredients %>% filter(ACTIVE_INGREDIENT_NAME %in% name)
       cv_report_drug_filtered %<>% semi_join(related_drugs, by = "DRUG_PRODUCT_ID")
       
+      incProgress(1/8, detail = 'Filtering by Ingredient')
+      
     }
     if (input$drug_inv != "Any") cv_report_drug_filtered %<>% filter(DRUGINVOLV_ENG == input$drug_inv)
+    incProgress(2/8, detail = 'Filtering Reactions')
     
 
     
@@ -66,12 +70,14 @@ shinyServer(function(input, output, session) {
       else cv_reactions_filtered %<>% filter(SOC_NAME_ENG %in% input$search_soc)
     }
     
+    
     selected_ids <-  cv_reports_filtered_ids %>%
       semi_join(cv_report_drug_filtered, by = "REPORT_ID") %>%
       semi_join(cv_reactions_filtered, by = "REPORT_ID")
+    incProgress(1/8, detail = 'Checking for no reports...')
     n_ids <- selected_ids %>% tally() %>% as.data.frame() %>% `$`('n')
     if (n_ids == 0) {
-      removeModal()
+      setProgress(1)
       showModal(modalDialog(
         title = list(icon("exclamation-triangle"), "No results found!"),
         "There were no reports matching your query.",
@@ -88,6 +94,7 @@ shinyServer(function(input, output, session) {
     current_search$soc <- input$search_soc
     current_search$age <- input$search_age
     current_search$date_range <- input$searchDateRange
+    incProgress(1/8, detail = 'Fetching data...')
     
     # so then all data is polled upon search, not just when display corresponding plot
     subset_cv$report <- cv_reports %>%
@@ -98,7 +105,8 @@ shinyServer(function(input, output, session) {
     subset_cv$rxn <- cv_reactions %>%
       semi_join(selected_ids, by = "REPORT_ID") %>%
       left_join(meddra, by = c("PT_NAME_ENG" = "PT_Term", "MEDDRA_VERSION" = "Version")) %>% as.data.frame()
-    removeModal()
+    incProgress(1/8)
+                 })
   })
   
   cv_download_reports <- reactive({

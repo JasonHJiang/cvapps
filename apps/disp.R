@@ -11,6 +11,7 @@ library(pool)
 library(plotly)
 library(ggplot2)
 library(googleVis)
+library(ggvis)
 
 # Shiny libraries
 library(shiny)
@@ -23,10 +24,10 @@ source("common_ui.R")
 
 #### Data pre-processing and server connections ####
 hcopen_pool <- dbPool(drv = "PostgreSQL",
-                 host = "shiny.hc.local",
-                 dbname = "hcopen",
-                 user = "hcreader",
-                 password = "canada1")
+                      host = "shiny.hc.local",
+                      dbname = "hcopen",
+                      user = "hcreader",
+                      password = "canada1")
 hcopen <- src_pool(hcopen_pool)
 gc()
 
@@ -94,7 +95,6 @@ drug_PT_HLT <- cv_drug_rxn_2006 %>%
 # drug and adverse event dropdown menu choices
 drug_choices <- drug_PT_HLT %>% distinct(ing) %>% as.data.frame() %>% `$`("ing") %>% sort()
 
-
 ################################## UI component ####
 ui <- dashboardPage(
   dashboardHeader(title = titleWarning("Shiny DISP (v0.15)"),
@@ -111,21 +111,23 @@ ui <- dashboardPage(
                      selected = drug_choices[1]),
       selectizeInput(inputId = "search_hlt",
                      label = "Adverse Event High-Level Term",
-                     choices = c("Loading..." = "")),
+                     choices = c("Start typing to search..." = ""),
+                     multiple = TRUE),
       selectizeInput(inputId = "search_pt",
                      label = "Adverse Event Preferred Term",
-                     choices = c("Loading..." = "")),
+                     choices = c("Start typing to search..." = ""),
+                     multiple = TRUE),
       checkboxInput(inputId = "checkbox_filter_pt",
                     label = "Only see PTs from chosen HLT",
                     value = FALSE),
       div(style="display: inline-block; width: 50%;",
           textInput(inputId = "min_count",
-                  label = "Min. count:",
-                  value = "0")),
+                    label = "Min. count:",
+                    value = "0")),
       div(style="display: inline-block; width: 50%;",
-        textInput(inputId = "min_exp",
-                  label = "Min. expected:",
-                  value = "0")),
+          textInput(inputId = "min_exp",
+                    label = "Min. expected:",
+                    value = "0")),
       checkboxInput(inputId = "inf_filter",
                     label = "Exclude Inf PRR from table",
                     value = FALSE),
@@ -145,7 +147,7 @@ ui <- dashboardPage(
       downloadButton(outputId = "hlt_data_dl",
                      label = "Export HLT data"),
       menuItem("Documentation", tabName = "Documentation", icon = icon("flag")),
-    menuItem("About", tabName = "aboutinfo", icon = icon("info"), selected = TRUE)
+      menuItem("About", tabName = "aboutinfo", icon = icon("info"), selected = TRUE)
     )
   ), 
   
@@ -158,17 +160,19 @@ ui <- dashboardPage(
                   
                   tabPanel(
                     "Preferred Terms",
-                    plotOutput(outputId = "timeplot_pt", height = "285px", click = "plot_click"),
+                    # plotOutput(outputId = "timeplot_pt", height = "285px", click = "plot_click"),
+                    h3(textOutput("current_pt_title")),
+                    ggvisOutput(plot_id = "timeplot_pt"),
                     tags$br(),
                     DT::dataTableOutput("table_pt"),
-                    tags$p("NOTE: The above table is ranked decreasingly by PRR value. All drug*reactions pairs that have PRR value of infinity are added at the end of the table."),
+                    #tags$p("NOTE: The above table is ranked decreasingly by PRR value. All drug*reactions pairs that have PRR value of infinity are added at the end of the table."),
                     width = 12),
                   tabPanel(
                     "High-Level Terms",
                     plotOutput(outputId = "timeplot_hlt", height = "285px"),
                     tags$br(),
                     DT::dataTableOutput("table_hlt"),
-                    tags$p("NOTE: The above table is ranked decreasingly by PRR value. All drug*reactions pairs that have PRR value of infinity are added at the end of the table."),
+                    #tags$p("NOTE: The above table is ranked decreasingly by PRR value. All drug*reactions pairs that have PRR value of infinity are added at the end of the table."),
                     width = 12),
                   width = 12
                 )
@@ -210,7 +214,6 @@ ui <- dashboardPage(
           "<br>",
           "<p>",
           "<strong>Data last updated: 2015-03-31</strong><br>",
-          "<strong>MedDRA Veresion: 19.0</strong><br>",
           "Data provided by the Canada Vigilance Adverse Reaction Online Database. The recency of the data is therefore ",
           "dependent on when the data source is updated, and is the responsibility of the Canada Vigilance Program. ",
           "For more information, please refer to ",
@@ -225,92 +228,127 @@ ui <- dashboardPage(
   skin = "blue"
 )
 
-############################## Server component ####
 server <- function(input, output, session) {
   # Relabel rxns dropdown menu based on selected drug
   observeEvent(input$search_drug, {
     hlt_choices <- drug_PT_HLT
     pt_choices <- drug_PT_HLT
-    if ("" != input$search_drug) {
-      hlt_choices %<>% filter(ing == input$search_drug)
-      pt_choices %<>% filter(ing == input$search_drug)
+    if (all("" != input$search_drug)) {
+      if (length(input$search_drug) == 1) {
+        hlt_choices %<>% filter(ing == input$search_drug)
+        pt_choices %<>% filter(ing == input$search_drug)
+      } else {
+        hlt_choices %<>% filter(ing %in% c(input$search_drug))
+        pt_choices %<>% filter(ing %in% c(input$search_drug))
+      }
     }
-    hlt_choices %<>%
-      distinct(HLT_NAME_ENG) %>%
-      as.data.frame() %>% `[[`(1) %>%
-      sort()
-    pt_choices %<>%
-      distinct(PT_NAME_ENG) %>%
-      as.data.frame() %>% `[[`(1) %>%
-      sort()
+    hlt_choices %<>% distinct(HLT_NAME_ENG) %>% as.data.frame() %>% `[[`(1) %>% sort()
+    # 
+    pt_choices %<>% distinct(PT_NAME_ENG) %>% as.data.frame() %>% `[[`(1) %>% sort()
+    # distinct(PT_NAME_ENG)
     updateSelectizeInput(session, "search_hlt",
                          choices = c("Start typing to search..." = "", hlt_choices))
     updateSelectizeInput(session, "search_pt",
                          choices = c("Start typing to search..." = "", pt_choices))
   })
   
-  # Relabel PT dropdown menu based on selected HLT
-  observe({
-    input$search_hlt
-    input$checkbox_filter_pt
-    isolate({
+  observeEvent(input$search_hlt, {
+    if (input$checkbox_filter_pt) {
       pt_choices <- drug_PT_HLT
-      pt_selected <- input$search_pt
-      if ("" != input$search_drug)
-        pt_choices %<>% filter(ing == input$search_drug)
-      if (input$checkbox_filter_pt & "" != input$search_hlt)
-        pt_choices %<>% filter(HLT_NAME_ENG == input$search_hlt)
-      pt_choices %<>%
-        dplyr::distinct(PT_NAME_ENG) %>%
-        as.data.frame() %>% `[[`(1) %>%
-        sort()
-      if (! pt_selected %in% pt_choices) pt_selected = ""
+      # if (is.null(input$search_hlt)) input$search_hlt = ""
+      # if (is.null(input$search_drug)) input$search_drug = ""
+      
+      
+      if (all("" != input$search_hlt) & !is.null(input$search_hlt)) {
+        if (length(input$search_hlt) == 1) {
+          pt_choices %<>% filter(HLT_NAME_ENG == input$search_hlt)
+        } else {
+          pt_choices %<>% filter(HLT_NAME_ENG == c(input$search_hlt))
+        }
+      }
+      if (all("" != input$search_drug) & !is.null(input$search_drug)) {
+        if (length(input$search_drug) == 1) {
+          pt_choices %<>% filter(ing == input$search_drug)
+        } else {
+          pt_choices %<>% filter(ing %in% c(input$search_drug))
+        }
+      }
+      
+      pt_choices %<>% distinct(PT_NAME_ENG) %>% as.data.frame() %>% `[[`(1) %>% sort()
       updateSelectizeInput(session, "search_pt",
-                           choices = c("Start typing to search..." = "", pt_choices),
-                           selected = pt_selected)
-  })
+                           choices = c("Start typing to search..." = "", pt_choices))
+    }})
+  
+  
+  
+  observeEvent(input$checkbox_filter_pt, {
+    pt_choices <- drug_PT_HLT
+    print(input$search_drug)
+    if (input$checkbox_filter_pt) {
+      if (all("" != input$search_hlt) & !is.null(input$search_hlt)) {
+        if (length(input$search_hlt) == 1) {
+          pt_choices %<>% filter(HLT_NAME_ENG == input$search_hlt)
+        } else {
+          pt_choices %<>% filter(HLT_NAME_ENG %in% c(input$search_hlt))
+        }
+      }
+    }
+    if (all("" != input$search_drug) & !is.null(input$search_drug)) {
+      if (length(input$search_drug) == 1) {
+        pt_choices %<>% filter(ing == input$search_drug)
+      } else {
+        pt_choices %<>% filter(ing %in% c(input$search_drug))
+      }
+    }
+    pt_choices %<>% distinct(PT_NAME_ENG) %>% as.data.frame() %>% `[[`(1) %>% sort()
+    updateSelectizeInput(session, "search_pt",
+                         choices = c("Start typing to search..." = "", pt_choices))
   })
   
-  # Select HLT dropdown menu based on selected PT
-  observeEvent(input$search_pt, {
-    if ("" != input$search_pt) {
-      hlt_mapped <- drug_PT_HLT %>%
-        filter(PT_NAME_ENG == input$search_pt) %>%
-        dplyr::distinct(HLT_NAME_ENG) %>%
-        as.data.frame() %>% `[[`(1)
-      updateSelectizeInput(session, "search_hlt",
-                           selected = hlt_mapped)
-    }
-  })
+  
+  
   
   ########## Reactive data processing
   # Data structure to store current query info
   current_search <- reactive({
     input$search_button
     isolate({
-      min_count <- as.numeric(input$min_count)
-      if (is.na(min_count) | min_count < 0) min_count = 0
-      min_count <- floor(min_count)
-      updateTextInput(session, "min_count", value = min_count)
-      
-      min_exp <- as.numeric(input$min_exp)
-      if (is.na(min_exp) | min_exp < 0) min_exp = 0
-      updateTextInput(session, "min_exp", value = min_exp)
-      
-      list(min_count = min_count,
-           min_exp = min_exp,
-           drug = input$search_drug,
-           hlt = input$search_hlt,
-           pt = input$search_pt,
-           filter_inf = input$inf_filter,
-           display_total = input$display_total)
+      withProgress(message = 'Calculation in progress', value = 0, {
+        
+        min_count <- as.numeric(input$min_count)
+        if (is.na(min_count) | min_count < 0) min_count = 0
+        min_count <- floor(min_count)
+        updateTextInput(session, "min_count", value = min_count)
+        incProgress(1/3)
+        
+        min_exp <- as.numeric(input$min_exp)
+        if (is.na(min_exp) | min_exp < 0) min_exp = 0
+        updateTextInput(session, "min_exp", value = min_exp)
+        incProgress(1/3)
+        
+        list(min_count = min_count,
+             min_exp = min_exp,
+             drug = input$search_drug,
+             hlt = input$search_hlt,
+             pt = input$search_pt,
+             filter_inf = input$inf_filter,
+             display_total = input$display_total)
+      })
     })
+    
+    
+    
   })
+  
+  
+  
+  
   
   ########## Output
   # Display what query was searched
   output$current_search <- renderTable({
     data <- current_search()
+    print(data)
     result <- data.frame(names = c("Generic Name:",
                                    "High-Level Term:",
                                    "Preferred Term:"),
@@ -321,7 +359,6 @@ server <- function(input, output, session) {
     result["" == result] <- "Not Specified"
     result
   }, include.colnames = FALSE)
-  
   output$pt_data_dl <- downloadHandler(
     filename = function() {
       current_drug <- current_search()$drug
@@ -353,11 +390,21 @@ server <- function(input, output, session) {
     isolate({
       data <- current_search()
       print(data)
+      if (is.null(data$drug)) data$drug = ""
+      if (is.null(data$pt)) data$pt = ""
+      if (is.null(data$hlt)) data$hlt = ""
       # PRR and ROR values of Inf means there are no other drugs associated with that specific adverse reaction, so denomimator is zero!
       # prr_tab_df is simply the table displayed at the bottom
       table <- master_table_pt
-      if (data$drug != "") table %<>% filter(drug_code == data$drug)
-      if (data$pt != "") table %<>% filter(event_effect == data$pt)
+      #if (all(data$drug != "")) table %<>% filter(drug_code == data$drug %>% as.data.frame())
+      drugs <- data$drug %>% as.data.frame()
+      names(drugs) <- 'drug_code'
+      if (all(drugs != "")) table %<>% semi_join(drugs)
+      
+      pts <- data$pt %>% as.data.frame()
+      names(pts) <- 'event_effect'
+      if (all(pts != "")) table %<>% semi_join(pts)
+      
       if (data$filter_inf) table %<>% filter(PRR != Inf)
       table %>% filter(count >= data$min_count) %>%
         filter(expected_count >= data$min_exp) %>%
@@ -366,6 +413,8 @@ server <- function(input, output, session) {
         lapply(function(x) {if (is.numeric(x)) round(x,3) else x}) %>%
         as.data.frame()
     })
+    
+    
   })
   
   # pass either datatable object or data to be turned into one to renderDataTable
@@ -381,16 +430,25 @@ server <- function(input, output, session) {
       columnDefs = list(list(visible = FALSE,
                              targets = c(5:6, 9:10, 16:17, 19:20, 22:23)))
     )))
-  
+  # 
   table_hlt_data <- reactive({
     input$search_button # hacky way to get eventReactive but also initial load
     isolate({
       data <- current_search()
+      if (is.null(data$drug)) data$drug = ""
+      if (is.null(data$pt)) data$pt = ""
+      if (is.null(data$hlt)) data$hlt = ""
       # PRR and ROR values of Inf means there are no other drugs associated with that specific adverse reaction, so denomimator is zero!
       # prr_tab_df is simply the table displayed at the bottom
       table <- master_table_hlt
-      if (data$drug != "") table %<>% filter(drug_code == data$drug)
-      if (data$hlt != "") table %<>% filter(event_effect == data$hlt)
+      drugs <- data$drug %>% as.data.frame()
+      names(drugs) <- 'drug_code'
+      if (all(drugs != "")) table %<>% semi_join(drugs)
+      
+      hlts <- data$hlt %>% as.data.frame()
+      names(hlts) <- 'event_effect'
+      if (all(hlts != "")) table %<>% semi_join(hlts)
+      
       if (data$filter_inf) table %<>% filter(PRR != Inf)
       table %<>% filter(count >= data$min_count) %>%
         filter(expected_count >= data$min_exp) %>%
@@ -442,6 +500,8 @@ server <- function(input, output, session) {
     
     filled_time_df %<>% rename(n = nn)
     
+    
+    
     # filled_time_df <- timeplot_df %>%
     #   mutate(label = paste0(ing, "_", PT_NAME_ENG)) %>%
     #   select(-ing, -PT_NAME_ENG) %>%
@@ -450,48 +510,69 @@ server <- function(input, output, session) {
     # filled_time_df
   })
   
-  
-  # Time Plot
-  output$timeplot_pt <- renderPlot({
-    data <- current_search()
-    
-    current_drug <- ifelse(data$drug == "", "All Drugs", data$drug)
-    current_rxn <- ifelse(data$pt == "", "Top 10 Reactions with Highest IC Estimates", data$pt)
-    plottitle <- paste("Non-Cumulative Report Count Time Plot for:", current_drug, "&", current_rxn)
-    
-    df <- time_data_pt() %>%
-      #   mutate(qtr = (quarter%%1 - 0.1)*2.5 + quarter%/%1)
-      # gvisLineChart(df,
-      #               xvar = "qtr",
-      #               yvar = names(df)[2:11]
-      #               options = list(
-      #                 height = 350,
-      #                 vAxis = "{title: 'Number of Reports'}",
-      #                 hAxis = "{title: 'Month'}",
-      #                 chartArea = "{top: 10, height: '80%', left: 120, width: '84%'}")
-      # )
-      mutate(qtr = as.yearqtr(quarter %>% as.character(), '%Y.%q'))
-    p <- ggplot(df, aes(x = qtr, y = n, label = label)) +
-      scale_x_yearqtr(breaks = seq(min(df$qtr), max(df$qtr), 0.25),
-                      format = "%Y Q%q") +
-      geom_line(aes(colour=label)) + geom_point()  +
-      ggtitle(plottitle) +
-      xlab("Quarter") +
-      ylab("Report Count") +
-      theme_bw() +
-      theme(plot.title = element_text(face="bold", hjust=0.1, size = rel(0.75)), 
-            axis.text.x = element_text(angle=30, vjust=0.9, hjust=1, size=rel(0.75)),
-            axis.title = element_text(size = rel(0.75)),
-            axis.title.x = element_text(vjust = 0))
-    # p <- plot_ly(df, x = ~qtr, y = ~n, mode = 'lines+markers') %>%
-    #      layout(title = plottitle,
-    #             font = list(size = 8))
-    
-    
-    print(p)
-    
+  output$current_pt_title<- renderText({
+    cur_search <- current_search()
+    paste("Non-Cumulative Report Count Time Plot for:", 
+          paste0(if(is.null(cur_search$drug)) {"All Drugs"} else {cur_search$drug}, collapse = ", "), "&",
+          paste0(if(is.null(cur_search$pt)) {"Top 10 Reactions with Highest IC Estimates"} else {cur_search$pt}, collapse = ", "))
   })
   
+  time_data_pt %>% mutate(qtr = as.yearqtr(quarter %>% as.character(), '%Y.%q')) %>%
+    ggvis(~qtr, ~n) %>% 
+    add_axis("x", title = "Quarter", properties = axis_props(
+      label = list(angle = 330))) %>%
+    add_axis("y", title = "Report Count") %>%
+    
+    add_tooltip(function(data){paste0("PT: ", data$label, "<br>", 
+                                      "Count: ", as.character(data$n))}, 
+                "hover") %>%
+    layer_points(fill = ~label, stroke := "black") %>%
+    group_by(label) %>%
+    layer_paths(stroke = ~label) %>%
+    set_options(width = 'auto') %>%  bind_shiny("timeplot_pt", "data")
+  
+  
+  
+  # Time Plot
+  # output$timeplot_pt <- renderPlot({
+  #   data <- current_search()
+  # 
+  #   current_drug <- ifelse(data$drug == "", "All Drugs", data$drug)
+  #   current_rxn <- ifelse(data$pt == "", "Top 10 Reactions with Highest IC Estimates", data$pt)
+  #   plottitle <- paste("Non-Cumulative Report Count Time Plot for:", current_drug, "&", current_rxn)
+  # 
+  #   df <- time_data_pt() %>%
+  #     #   mutate(qtr = (quarter%%1 - 0.1)*2.5 + quarter%/%1)
+  #     # gvisLineChart(df,
+  #     #               xvar = "qtr",
+  #     #               yvar = names(df)[2:11]
+  #     #               options = list(
+  #     #                 height = 350,
+  #     #                 vAxis = "{title: 'Number of Reports'}",
+  #     #                 hAxis = "{title: 'Month'}",
+  #     #                 chartArea = "{top: 10, height: '80%', left: 120, width: '84%'}")
+  #     # )
+  #     mutate(qtr = as.yearqtr(quarter %>% as.character(), '%Y.%q'))
+  #   # p <- ggplot(df, aes(x = qtr, y = n, label = label)) +
+  #   #   scale_x_yearqtr(breaks = seq(min(df$qtr), max(df$qtr), 0.25),
+  #   #                   format = "%Y Q%q") +
+  #   #   geom_line(aes(colour=label)) + geom_point()  +
+  #   #   ggtitle(plottitle) +
+  #   #   xlab("Quarter") +
+  #   #   ylab("Report Count") +
+  #   #   theme_bw() +
+  #   #   theme(plot.title = element_text(face="bold", hjust=0.1, size = rel(0.75)),
+  #   #         axis.text.x = element_text(angle=30, vjust=0.9, hjust=1, size=rel(0.75)),
+  #   #         axis.title = element_text(size = rel(0.75)),
+  #   #         axis.title.x = element_text(vjust = 0))
+  #   # p <- plot_ly(df, x = ~qtr, y = ~n, mode = 'lines+markers') %>%
+  #   #      layout(title = plottitle,
+  #   #             font = list(size = 8))
+  # 
+  # 
+  #   print(p)
+  # 
+  # })
   
   # time-series data
   time_data_hlt <- reactive({
@@ -521,8 +602,6 @@ server <- function(input, output, session) {
     filled_time_df %<>% rename(n = nn)
   })
   
-
-  # Time Plot
   output$timeplot_hlt <- renderPlot({
     input$search_button # hacky way to get eventReactive but also initial load
     isolate({
@@ -530,7 +609,7 @@ server <- function(input, output, session) {
       current_rxn <- ifelse(input$search_hlt == "","Top 10 Reactions with Highest IC Estimates",input$search_hlt)
     })
     plottitle <- paste("Non-Cumulative Report Count Time Plot for:", current_drug, "&", current_rxn)
-
+    
     df <- time_data_hlt() %>%
       mutate(qtr = as.yearqtr(quarter %>% as.character(), '%Y.%q'))
     p <- ggplot(df, aes(x = qtr, y = n)) +
@@ -544,8 +623,8 @@ server <- function(input, output, session) {
       theme(plot.title = element_text(lineheight=.8, face="bold"), axis.text.x = element_text(angle=30, vjust=0.9, hjust=1))
     print(p)
   })
-
+  
+  
 }
 
-options(shiny.trace = FALSE, shiny.reactlog = FALSE)
 shinyApp(ui, server)
