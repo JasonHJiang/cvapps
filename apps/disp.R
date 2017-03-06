@@ -221,7 +221,7 @@ ui <- dashboardPage(
           "<br>",
           "<p>",
           "<strong>Data last updated: 2015-03-31</strong><br>",
-          "<strong>MedDRA version: 19</strong><br>",
+          "<strong>MedDRA version: 19.0</strong><br>",
           "Data provided by the Canada Vigilance Adverse Reaction Online Database. The recency of the data is therefore ",
           "dependent on when the data source is updated, and is the responsibility of the Canada Vigilance Program. ",
           "For more information, please refer to ",
