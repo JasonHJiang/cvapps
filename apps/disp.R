@@ -131,9 +131,16 @@ ui <- dashboardPage(
       checkboxInput(inputId = "inf_filter",
                     label = "Exclude Inf PRR from table",
                     value = FALSE),
-      checkboxInput(inputId = "display_total",
-                    label = "Plot total counts for query",
-                    value = FALSE),
+      conditionalPanel(
+        "input.search_hlt == null",
+        checkboxInput(inputId = "display_total_hlt",
+                      label = "Plot Total Counts for HLT instead of Distinct Counts.",
+                      value = FALSE)),
+      conditionalPanel(
+        "input.search_pt == null",
+        checkboxInput(inputId = "display_total_pt",
+                      label = "Plot Total Counts for PT instead of Distinct Counts.",
+                      value = FALSE)),
       # hacky way to get borders correct
       tags$div(class="form-group shiny-input-container",
                actionButton(inputId = "search_button",
@@ -214,6 +221,7 @@ ui <- dashboardPage(
           "<br>",
           "<p>",
           "<strong>Data last updated: 2015-03-31</strong><br>",
+          "<strong>MedDRA version: 19</strong><br>",
           "Data provided by the Canada Vigilance Adverse Reaction Online Database. The recency of the data is therefore ",
           "dependent on when the data source is updated, and is the responsibility of the Canada Vigilance Program. ",
           "For more information, please refer to ",
@@ -332,7 +340,8 @@ server <- function(input, output, session) {
              hlt = input$search_hlt,
              pt = input$search_pt,
              filter_inf = input$inf_filter,
-             display_total = input$display_total)
+             display_total_pt = input$display_total_pt,
+             display_total_hlt = input$display_total_hlt)
       })
     })
     
@@ -488,14 +497,14 @@ server <- function(input, output, session) {
       ungroup() %>%
       mutate(label = paste0(ing, "_", PT_NAME_ENG)) %>%
       select(label, quarter, nn)
-    if (cur_search$display_total) {
+    if (cur_search$display_total_pt & is.null(cur_search$pt)) {
       total_df <- count_quarter_pt
-      if (cur_search$drug != "") total_df %<>% filter(ing == cur_search$drug)
-      if (cur_search$pt != "") total_df %<>% filter(PT_NAME_ENG == cur_search$pt)
+      if (!is.null(cur_search$drug)) total_df %<>% filter(ing == cur_search$drug)
+      if (!is.null(cur_search$pt)) total_df %<>% filter(PT_NAME_ENG == cur_search$pt)
       total_df %<>% count(quarter, wt = n) %>%
         mutate(label = paste0("total for query")) %>%
         select(label, quarter, nn)
-      filled_time_df %<>% rbind(total_df)
+      filled_time_df <- total_df
     }
     
     filled_time_df %<>% rename(n = nn)
@@ -589,14 +598,14 @@ server <- function(input, output, session) {
       ungroup() %>%
       mutate(label = paste0(ing, "_", HLT_NAME_ENG)) %>%
       select(label, quarter, nn)
-    if (cur_search$display_total) {
+    if (cur_search$display_total_hlt & is.null(cur_search$hlt)) {
       total_df <- count_quarter_hlt
-      if (cur_search$drug != "") total_df %<>% filter(ing == cur_search$drug)
-      if (cur_search$hlt != "") total_df %<>% filter(HLT_NAME_ENG == cur_search$hlt)
+      if (!is.null(cur_search$drug)) total_df %<>% filter(ing == cur_search$drug)
+      if (!is.null(cur_search$hlt)) total_df %<>% filter(HLT_NAME_ENG == cur_search$hlt)
       total_df %<>% count(quarter, wt = n) %>%
         mutate(label = paste0("total for query")) %>%
         select(label, quarter, nn)
-      filled_time_df %<>% rbind(total_df)
+      filled_time_df <- total_df
     }
     
     filled_time_df %<>% rename(n = nn)
