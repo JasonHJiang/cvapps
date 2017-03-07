@@ -176,7 +176,9 @@ ui <- dashboardPage(
                     width = 12),
                   tabPanel(
                     "High-Level Terms",
-                    plotOutput(outputId = "timeplot_hlt", height = "285px"),
+                    #plotOutput(outputId = "timeplot_hlt", height = "285px"),
+                    h3(textOutput("current_hlt_title")),
+                    ggvisOutput(plot_id = "timeplot_hlt"),
                     tags$br(),
                     DT::dataTableOutput("table_hlt"),
                     #tags$p("NOTE: The above table is ranked decreasingly by PRR value. All drug*reactions pairs that have PRR value of infinity are added at the end of the table."),
@@ -271,7 +273,7 @@ server <- function(input, output, session) {
         if (length(input$search_hlt) == 1) {
           pt_choices %<>% filter(HLT_NAME_ENG == input$search_hlt)
         } else {
-          pt_choices %<>% filter(HLT_NAME_ENG == c(input$search_hlt))
+          pt_choices %<>% filter(HLT_NAME_ENG %in% c(input$search_hlt))
         }
       }
       if (all("" != input$search_drug) & !is.null(input$search_drug)) {
@@ -285,7 +287,7 @@ server <- function(input, output, session) {
       pt_choices %<>% distinct(PT_NAME_ENG) %>% as.data.frame() %>% `[[`(1) %>% sort()
       updateSelectizeInput(session, "search_pt",
                            choices = c("Start typing to search..." = "", pt_choices))
-    }})
+    }}, ignoreNULL = FALSE)
   
   
   
@@ -490,7 +492,16 @@ server <- function(input, output, session) {
       mutate(drug_code = as.character(drug_code), event_effect = as.character(event_effect))
     timeplot_df <- count_quarter_pt %>% semi_join(top_pairs, by = c("ing" = "drug_code", "PT_NAME_ENG" = "event_effect"))
     quarters_df <- quarters %>% cbind(n = 0)
-    pairs_df <- top_pairs %>% rename(ing = drug_code, PT_NAME_ENG = event_effect) %>% cbind(n = 0)
+    if (nrow(top_pairs) > 0) {
+      pairs_df <- top_pairs %>% rename(ing = drug_code, PT_NAME_ENG = event_effect) %>% cbind(n = 0)
+    } else {
+      showModal(modalDialog(
+        title = list(icon("exclamation-triangle"), "No results found!"),
+        "There were no reports matching your query.",
+        size = "s",
+        easyClose = TRUE))
+      pairs_df <- data.frame(ing = NA, PT_NAME_ENG = NA, n = NA)# top_pairs %>% rename(ing = drug_code, PT_NAME_ENG = event_effect) %>% 
+    }
     filled_time_df <- full_join(pairs_df, quarters_df, by = "n") %>%
       bind_rows(timeplot_df) %>%
       count(ing, PT_NAME_ENG, quarter, wt = n) %>%
@@ -587,11 +598,21 @@ server <- function(input, output, session) {
   time_data_hlt <- reactive({
     cur_search <- current_search()
     
+    
     top_pairs <- table_hlt_data() %>% head(10) %>% select(drug_code, event_effect) %>%
       mutate(drug_code = as.character(drug_code), event_effect = as.character(event_effect))
     timeplot_df <- count_quarter_hlt %>% semi_join(top_pairs, by = c("ing" = "drug_code", "HLT_NAME_ENG" = "event_effect"))
     quarters_df <- quarters %>% cbind(n = 0)
-    pairs_df <- top_pairs %>% rename(ing = drug_code, HLT_NAME_ENG = event_effect) %>% cbind(n = 0)
+    if (nrow(top_pairs) > 0) {
+      pairs_df <- top_pairs %>% rename(ing = drug_code, HLT_NAME_ENG = event_effect) %>% cbind(n = 0)
+    } else {
+      showModal(modalDialog(
+        title = list(icon("exclamation-triangle"), "No results found!"),
+        "There were no reports matching your query.",
+        size = "s",
+        easyClose = TRUE))
+      pairs_df <- data.frame(ing = NA, HLT_NAME_ENG = NA, n = NA)
+    }
     filled_time_df <- full_join(pairs_df, quarters_df, by = "n") %>%
       bind_rows(timeplot_df) %>%
       count(ing, HLT_NAME_ENG, quarter, wt = n) %>%
@@ -611,27 +632,49 @@ server <- function(input, output, session) {
     filled_time_df %<>% rename(n = nn)
   })
   
-  output$timeplot_hlt <- renderPlot({
-    input$search_button # hacky way to get eventReactive but also initial load
-    isolate({
-      current_drug <- ifelse(input$search_drug == "","All Drugs",input$search_drug)
-      current_rxn <- ifelse(input$search_hlt == "","Top 10 Reactions with Highest IC Estimates",input$search_hlt)
-    })
-    plottitle <- paste("Non-Cumulative Report Count Time Plot for:", current_drug, "&", current_rxn)
-    
-    df <- time_data_hlt() %>%
-      mutate(qtr = as.yearqtr(quarter %>% as.character(), '%Y.%q'))
-    p <- ggplot(df, aes(x = qtr, y = n)) +
-      scale_x_yearqtr(breaks = seq(min(df$qtr), max(df$qtr), 0.25),
-                      format = "%Y Q%q") +
-      geom_line(aes(colour=label)) + geom_point()  +
-      ggtitle(plottitle) +
-      xlab("Quarter") +
-      ylab("Report Count") +
-      theme_bw() +
-      theme(plot.title = element_text(lineheight=.8, face="bold"), axis.text.x = element_text(angle=30, vjust=0.9, hjust=1))
-    print(p)
+  # output$timeplot_hlt <- renderPlot({
+  #   input$search_button # hacky way to get eventReactive but also initial load
+  #   isolate({
+  #     current_drug <- ifelse(is.null(input$search_drug),"All Drugs",input$search_drug)
+  #     current_rxn <- ifelse(is.null(input$search_hlt),"Top 10 Reactions with Highest IC Estimates",input$search_hlt)
+  #   })
+  #   plottitle <- paste("Non-Cumulative Report Count Time Plot for:", current_drug, "&", current_rxn)
+  #   
+  #   df <- time_data_hlt() %>%
+  #     mutate(qtr = as.yearqtr(quarter %>% as.character(), '%Y.%q'))
+  # 
+  #   p <- ggplot(df, aes(x = qtr, y = n)) +
+  #     scale_x_yearqtr(breaks = seq(min(df$qtr), max(df$qtr), 0.25),
+  #                     format = "%Y Q%q") +
+  #     ifelse(sum(df$n) == 0, geom_blank(), geom_line(aes(colour=label)) + geom_point()) +
+  #     ggtitle(plottitle) +
+  #     xlab("Quarter") +
+  #     ylab("Report Count") +
+  #     theme_bw() +
+  #     theme(plot.title = element_text(lineheight=.8, face="bold"), axis.text.x = element_text(angle=30, vjust=0.9, hjust=1))
+  #   print(p)
+  # })
+  
+  output$current_hlt_title<- renderText({
+    cur_search <- current_search()
+    paste("Non-Cumulative Report Count Time Plot for:", 
+          paste0(if(is.null(cur_search$drug)) {"All Drugs"} else {cur_search$drug}, collapse = ", "), "&",
+          paste0(if(is.null(cur_search$hlt)) {"Top 10 Reactions with Highest IC Estimates"} else {cur_search$hlt}, collapse = ", "))
   })
+  
+  time_data_hlt %>% mutate(qtr = as.yearqtr(quarter %>% as.character(), '%Y.%q')) %>%
+    ggvis(~qtr, ~n) %>% 
+    add_axis("x", title = "Quarter", properties = axis_props(
+      label = list(angle = 330))) %>%
+    add_axis("y", title = "Report Count") %>%
+    
+    add_tooltip(function(data){paste0("HLT: ", data$label, "<br>", 
+                                      "Count: ", as.character(data$n))}, 
+                "hover") %>%
+    layer_points(fill = ~label, stroke := "black") %>%
+    group_by(label) %>%
+    layer_paths(stroke = ~label) %>%
+    set_options(width = 'auto') %>%  bind_shiny("timeplot_hlt", "data")
   
   
 }
