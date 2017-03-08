@@ -60,7 +60,7 @@ age_code <- data.frame(term = 800:805,
                        stringsAsFactors = FALSE)
 
 ui <- dashboardPage(
-  dashboardHeader(title = titleWarning("Shiny FAERS (v0.15)"),
+  dashboardHeader(title = titleWarning("Shiny FAERS (v0.16)"),
                   titleWidth = 700),
   
   dashboardSidebar(
@@ -332,17 +332,16 @@ server <- function(input, output, session) {
   # We need to have a reactive structure here so that it activates upon loading
   reactiveSearchButton <- reactive(as.vector(input$searchButton))
   observeEvent(reactiveSearchButton(), {
-    showModal(modalDialog(
-      title = list(icon("spinner", class = "fa-pulse"), "Results loading..."),
-      "Please wait while reports are being retrieved.",
-      footer = NULL,
-      size = "s"))
+    
+    withProgress(message = 'Calculation in progress', value = 0, {
     
     if (input$name_type == "generic") {
       name <- input$search_generic
     } else {
       name <- input$search_brand
     }
+    incProgress(1/6)
+    
     
     openfda_query <- fda_query("/drug/event.json")
     query_str <- paste0("[", input$searchDateRange[1], "+TO+", input$searchDateRange[2], "]")
@@ -357,6 +356,7 @@ server <- function(input, output, session) {
         openfda_query %<>% fda_filter("patient.drug.openfda.brand_name.exact", query_str_combine)
       }
     }
+    incProgress(2/6)
     if(!is.null(input$search_rxn)) {
       query_str <- paste0('"', gsub(" ", "+", input$search_rxn), '"')
       query_str_combine <- sprintf('(%s)', paste0(query_str, collapse = '+'))
@@ -364,7 +364,7 @@ server <- function(input, output, session) {
     }
     result <- openfda_query %>% fda_search() %>% fda_limit(1) %>% fda_exec()
     if (is.null(result)) {
-      removeModal()
+      setProgress(1)
       showModal(modalDialog(
         title = list(icon("exclamation-triangle"), "No results found!"),
         "There were no reports matching your query.",
@@ -372,14 +372,16 @@ server <- function(input, output, session) {
         easyClose = TRUE))
       return()
     }
+    incProgress(1/6)
     
     current_search$name_type<- input$name_type
     current_search$name<- name
     current_search$rxn <- input$search_rxn
     current_search$date_range <- input$searchDateRange
     faers_query$query <- openfda_query
-    
-    removeModal()
+    incProgress(2/6)
+    })
+
   })
   ages <- reactive({
     query <- faers_query$query
