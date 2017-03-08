@@ -1,5 +1,5 @@
 dashboardPage(
-  dashboardHeader(title = titleWarning("CV Shiny (v0.15)"),
+  dashboardHeader(title = titleWarning("CV Shiny (v0.16)"),
                   titleWidth = 700),
   
   dashboardSidebar(
