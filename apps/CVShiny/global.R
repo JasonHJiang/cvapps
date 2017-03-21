@@ -17,6 +17,7 @@ library(shiny)
 library(shinydashboard)
 library(shinyBS)
 library(DT)
+library(data.table)
 
 source("common_ui.R")
 source("linechart.R")
