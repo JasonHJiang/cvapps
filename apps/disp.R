@@ -89,7 +89,7 @@ quarters <- count_quarter_pt %>% select(quarter) %>% distinct() %>% as.data.fram
 
 # PT-HLT mapping
 drug_PT_HLT <- cv_drug_rxn_2006 %>%
-  select(ing, PT_NAME_ENG, HLT_NAME_ENG) %>%
+  select(ing, PT_NAME_ENG, HLT_NAME_ENG, SOC_NAME_ENG) %>%
   distinct() %>%
   filter(!is.na(HLT_NAME_ENG))
 # drug and adverse event dropdown menu choices
@@ -97,7 +97,7 @@ drug_choices <- drug_PT_HLT %>% distinct(ing) %>% as.data.frame() %>% `$`("ing")
 
 ################################## UI component ####
 ui <- dashboardPage(
-  dashboardHeader(title = titleWarning("Shiny DISP (v0.16)"),
+  dashboardHeader(title = titleWarning("Shiny DISP (v0.17)"),
                   titleWidth = 700),
   
   dashboardSidebar(
@@ -252,10 +252,10 @@ server <- function(input, output, session) {
         pt_choices %<>% filter(ing %in% c(input$search_drug))
       }
     }
+    soc_choices <- pt_choices %>% distinct()
+    
     hlt_choices %<>% distinct(HLT_NAME_ENG) %>% as.data.frame() %>% `[[`(1) %>% sort()
-    # 
     pt_choices %<>% distinct(PT_NAME_ENG) %>% as.data.frame() %>% `[[`(1) %>% sort()
-    # distinct(PT_NAME_ENG)
     updateSelectizeInput(session, "search_hlt",
                          choices = c("Start typing to search..." = "", hlt_choices))
     updateSelectizeInput(session, "search_pt",
@@ -265,9 +265,6 @@ server <- function(input, output, session) {
   observeEvent(input$search_hlt, {
     if (input$checkbox_filter_pt) {
       pt_choices <- drug_PT_HLT
-      # if (is.null(input$search_hlt)) input$search_hlt = ""
-      # if (is.null(input$search_drug)) input$search_drug = ""
-      
       
       if (all("" != input$search_hlt) & !is.null(input$search_hlt)) {
         if (length(input$search_hlt) == 1) {

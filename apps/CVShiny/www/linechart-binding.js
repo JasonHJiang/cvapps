@@ -26,13 +26,14 @@ binding.renderValue = function(el, data) {
   // need to initialize the nvd3 line chart and d3 selection. We'll
   // store these on $el as a data value called "state".
   if (!$el.data("state")) {
-    var chart = nv.models.lineChart()
-      .margin({left: 100})
-      .useInteractiveGuideline(true)
-      .transitionDuration(350)
-      .showLegend(true)
-      .showYAxis(true)
-      .showXAxis(true);
+      var chart = nv.models.multiBarChart()
+        .margin({left: 100})
+        .transitionDuration(350)
+        .showControls(false)
+        .showLegend(true)
+        .showYAxis(true)
+        .showXAxis(true);
+  
       
     
       
@@ -46,6 +47,7 @@ binding.renderValue = function(el, data) {
     chart.yAxis     //Chart y-axis settings
       .axisLabel('Number of Reports')
       .tickFormat(d3.format('d'));
+      
 
     nv.utils.windowResize(chart.update);
     

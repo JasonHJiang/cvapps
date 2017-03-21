@@ -1,5 +1,7 @@
+
+
 dashboardPage(
-  dashboardHeader(title = titleWarning("CV Shiny (v0.16)"),
+  dashboardHeader(title = titleWarning("CV Shiny (v0.17)"),
                   titleWidth = 700),
   
   dashboardSidebar(
@@ -18,11 +20,10 @@ dashboardPage(
     ),
     conditionalPanel(
       condition = "input.name_type == 'brand'",
-      selectizeInput("search_brand", 
+      selectizeInput("search_brand",
                      "Brand Name (Canadian Trade Name)",
-                     c(topbrands, "Start typing to search..." = ""),
-                     multiple = TRUE,
-                     selected = topbrands[1])),
+                     c("Start typing to search..." = ""),
+                     multiple = TRUE)),
     conditionalPanel(
       condition = "input.name_type == 'ingredient2'",
       selectizeInput("search_ing2", 
@@ -32,9 +33,8 @@ dashboardPage(
       condition = "input.name_type == 'ingredient'",
       selectizeInput("search_ing", 
                      "Active Ingredient",
-                     c(topings_cv, "Start typing to search..." = ""),
-                     multiple = TRUE,
-                     selected = topings_cv[1])),
+                     c("Start typing to search..." = ""),
+                     multiple = TRUE)),
     div(style="display: inline-block; width: 47%;",
         radioButtons("name_type", "Drug name type:",
                      c("Brand Name" = "brand",
@@ -62,20 +62,35 @@ dashboardPage(
                   "Female")),
     selectizeInput("search_rxn", 
                    "Preferred Term (PT)",
-                   c("Start typing to search..." = "", pt_choices),
-                   multiple = TRUE,
-                   selected = pt_choices[1]),
+                   c("Start typing to search..." = ""),
+                   multiple = TRUE),
     selectizeInput("search_soc",
                    "System Organ Class (SOC)",
-                   c("Start typing to search..." = "", soc_choices),
-                   multiple = TRUE,
-                   selected = soc_choices[1]), 
-    dateRangeInput("searchDateRange",
-                   "Date Range",
-                   start = "1965-01-01",
-                   end = "2016-06-30",
-                   startview = "decade"),
-    # hacky way to get borders correct
+                   c("Start typing to search..." = ""),
+                   multiple = TRUE), 
+    fluidRow(
+      column(6,
+        selectizeInput("searchStartYear",
+                       label = "Start Year",
+                       choices = c(1965:2016),
+                       selected = 2000)),
+      column(6,
+        selectizeInput("searchStartMonth",
+                     label = "Start Month",
+                     choices = c(1:12),
+                     selected = 1))),
+    fluidRow(
+      column(6,
+             selectizeInput("searchEndYear",
+                            label = "End Year",
+                            choices = c(1965:2016),
+                            selected = 2016)),
+      column(6,
+             selectizeInput("searchEndMonth",
+                            label = "End Month",
+                            choices = c(1:12),
+                            selected = 6))),
+      # hacky way to get borders correct
     conditionalPanel(
       condition = "input.search_rxn != 'disable'",
       tags$div(
@@ -426,7 +441,7 @@ dashboardPage(
                   "<a href = \"http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/index-eng.php\">",
                   "http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/index-eng.php</a>.",
                   "</p>")),
-                aboutAuthors())),
+                aboutAuthors())), 
       tabItem(tabName = "download_tab",
               fluidRow(
                 box(
@@ -443,8 +458,7 @@ dashboardPage(
                       "input.search_dataset_type == 'Report Data'",
                       selectizeInput("column_select_report",
                                      "Select Columns",
-                                     names(cv_reports %>% as.data.frame() %>% select(-c(REPORT_NO, OUTCOME_CODE, VERSION_NO, MAH_NO, REPORT_TYPE_CODE,
-                                                                                        GENDER_CODE, SERIOUSNESS_CODE, SOURCE_CODE))),
+                                     cv_reports_names,
                                      selected = c("REPORT_ID", "DATRECEIVED", "REPORT_TYPE_ENG", "GENDER_ENG", "AGE_Y", "OUTCOME_ENG", "WEIGHT", "WEIGHT_UNIT_ENG",
                                                   "HEIGHT", "HEIGHT_UNIT_ENG", "SERIOUSNESS_ENG", "REPORTER_TYPE_ENG", "SOURCE_ENG"),
                                      multiple = TRUE)),
@@ -452,8 +466,7 @@ dashboardPage(
                       "input.search_dataset_type == 'Drug Data'",
                       selectizeInput("column_select_drug",
                                      "Select Columns",
-                                     names(cv_report_drug %>% left_join(cv_report_drug_indication, by = c("REPORT_DRUG_ID", "REPORT_ID", "DRUG_PRODUCT_ID", "DRUGNAME")) %>%
-                                             as.data.frame()),
+                                     cv_report_drug_names,
                                      selected = c("REPORT_ID", "DRUGNAME", "DRUGINVOLV_ENG", "ROUTEADMIN_ENG", "UNIT_DOSE_QTY", "DOSE_UNIT_ENG", "FREQUENCY", "FREQ_TIME",
                                                   "FREQUENCY_TIME_ENG", "FREQ_TIME_UNIT_ENG", "DOSAGEFORM_ENG", "INDICATION_NAME_ENG"),
                                      multiple = TRUE)),
@@ -461,7 +474,7 @@ dashboardPage(
                       "input.search_dataset_type == 'Reaction Data'",
                       selectizeInput("column_select_reaction",
                                      "Select Columns",
-                                     names(cv_reactions %>% left_join(meddra, by = c("PT_NAME_ENG" = "PT_Term", "MEDDRA_VERSION" = "Version")) %>% as.data.frame()),
+                                     cv_reaction_names,
                                      selected = c("REPORT_ID", "DURATION", "DURATION_UNIT_ENG", "PT_NAME_ENG", "SOC_NAME_ENG", "MEDDRA_VERSION", "SMQ"),
                                      multiple = TRUE))),
                   column(
@@ -474,3 +487,4 @@ dashboardPage(
     )
   )
 )
+
