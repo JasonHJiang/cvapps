@@ -33,8 +33,8 @@ shinyServer(function(input, output, session) {
       name <- input$search_ing2
     }
     
-    startDate <- paste(input$searchStartYear, input$searchStartMonth, collapse = "-") %>% parse_date_time("y-m")
-    endDate <- paste(input$searchEndYear, input$searchEndMonth, collapse = "-") %>% parse_date_time("y-m")
+    startDate <- paste(input$searchStartYear, input$searchStartMonth, '1', collapse = "-") %>% ymd(tz = 'EST')
+    endDate <- paste(input$searchEndYear, input$searchEndMonth, '1', collapse = "-") %>% ymd(tz = 'EST') 
     dateRange <- c(startDate, endDate)
     
     current_search$name_type <- input$name_type
