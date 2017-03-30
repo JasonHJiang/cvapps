@@ -419,6 +419,13 @@ dashboardPage(
                 # using tags$p() and tags$a() inserts spaces between text and hyperlink...thanks R
                 HTML(paste0(
                   "<p>",
+                  "<strong>",
+                  "<a href = \"http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/conditions_extract-extrait-eng.php\">",
+                  "Before using, please read over the Canada Vigilance Adverse Reaction caveat document.",
+                  "</a>",
+                  "</strong>",
+                  "</p>",
+                  "<p>",
                   "This is a beta product. DO NOT use as sole evidence to support regulatory decisions or to make decisions regarding ",
                   "medical care. Always speak to your health care provider about the risks and benefits of Health Canada regulated Products.",
                   "</p>",
