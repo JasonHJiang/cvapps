@@ -9,26 +9,27 @@ dashboardPage(
     sidebarMenu(
       menuItem("Reports", tabName = "reportdata", icon = icon("hospital-o")),
       menuItem("Patients", tabName = "patientdata", icon = icon("user-md")),
-      menuItem("Drugs", tabName = "drugdata", icon = icon("flask"),
-               menuSubItem('All', tabName = 'drugdata_all'),
-               menuSubItem('Concomitant', tabName = 'drugdata_con'),
-               menuSubItem('Suspect', tabName = 'drugdata_sus'),
-               menuSubItem('Drugs per Report', tabName = 'drugdata_number')),
+      menuItem("Drugs", tabName = "drugdata", icon = icon("flask")),
+               # menuSubItem('All', tabName = 'drugdata_all'),
+               # menuSubItem('Concomitant', tabName = 'drugdata_con'),
+               # menuSubItem('Suspect', tabName = 'drugdata_sus'),
+               # menuSubItem('Drugs per Report', tabName = 'drugdata_number')),
       menuItem("Reactions", tabName = "rxndata", icon = icon("heart-o")),
       menuItem("About", tabName = "aboutinfo", icon = icon("info"), selected = TRUE),
       menuItem("Download", tabName = "download_tab", icon = icon("download"))
     ),
     conditionalPanel(
       condition = "input.name_type == 'brand'",
+      # cvshiny_selectinput_UI('search_brand', 'Brand Name (Canadian Trade Name)')),
       selectizeInput("search_brand",
                      "Brand Name (Canadian Trade Name)",
                      c("Start typing to search..." = ""),
                      multiple = TRUE)),
-    conditionalPanel(
-      condition = "input.name_type == 'ingredient2'",
-      selectizeInput("search_ing2", 
-                     "Active Ingredient",
-                     c(topings_dpd, "Start typing to search..." = ""))),
+    # conditionalPanel(
+    #   condition = "input.name_type == 'ingredient2'",
+    #   selectizeInput("search_ing2", 
+    #                  "Active Ingredient",
+    #                  c(topings_dpd, "Start typing to search..." = ""))),
     conditionalPanel(
       condition = "input.name_type == 'ingredient'",
       selectizeInput("search_ing", 
@@ -67,7 +68,8 @@ dashboardPage(
     selectizeInput("search_soc",
                    "System Organ Class (SOC)",
                    c("Start typing to search..." = ""),
-                   multiple = TRUE), 
+                   multiple = TRUE),
+    # cvshiny_selectinput_UI('search_soc', 'System Organ Class'),
     fluidRow(
       column(6,
         selectizeInput("searchStartYear",
@@ -113,50 +115,14 @@ dashboardPage(
     tabItems(
       tabItem(tabName = "reportdata",
               fluidRow(
-                tabBox(
-                  tabPanel("Pie Chart",
-                           h3("Reporter Type",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste0(
-                                  "Indicates who reported the adverse reaction and their relationship to the patient. ",
-                                  "Slices may not be visible if they are too small.")
-                              )),
-                           htmlOutput("reporterplot"),
-                           width = 3),
-                  tabPanel("Table",
-                           h3("Reporter Type",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste0(
-                                  "Indicates who reported the adverse reaction and their relationship to the patient. ",
-                                  "Slices may not be visible if they are too small.")
-                              )),
-                           htmlOutput("reporterplot.table"),
-                           width = 3),
-                  width = 3),
-                tabBox(
-                  tabPanel("Pie Chart",
-                           h3("Seriousness",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste0(
-                                  "A serious report contains a serious adverse reaction, determined by the reporter ",
-                                  "of the report at the time of reporting. Slices may not be visible if they are too small.")
-                              )),
-                           htmlOutput("seriousplot"),
-                           width = 3),
-                  tabPanel("Table",
-                           h3("Seriousness",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste0(
-                                  "A serious report contains a serious adverse reaction, determined by the reporter ",
-                                  "of the report at the time of reporting. Slices may not be visible if they are too small.")
-                              )),
-                           htmlOutput("seriousplot.table"),
-                           width = 3),
-                  width = 3),
+                pieTableUI("reporterplot", "Reporter Type",
+                           paste0("Indicates who reported the adverse reaction and their relationship to the patient. ",
+                                  "Slices may not be visible if they are too small.")),
+               
+                pieTableUI("seriousplot", "Seriousness",
+                           paste0("A serious report contains a serious adverse reaction, determined by the reporter ",
+                                  "of the report at the time of reporting. Slices may not be visible if they are too small.")),
+                
                 box(h3("Reason(s) for Seriousness",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
@@ -168,249 +134,271 @@ dashboardPage(
       ),
       tabItem(tabName = "patientdata",
               fluidRow(
-                tabBox(
-                  tabPanel("Pie Chart",
-                           h3("Gender",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste0(
-                                  "Gender of the patient as it was provided by the reporter. ",
+                pieTableUI("sexplot", "Gender",
+                           paste0("Gender of the patient as it was provided by the reporter. ",
                                   "Where the gender is unknown, the reporter is unaware of the gender. ",
-                                  "Where the gender is not specified, the reporter did not specify the gender of the patient."))),
-                           htmlOutput("sexplot"),
-                           width = 3),
-                  tabPanel("Table",
-                           h3("Gender",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste0(
-                                  "Gender of the patient as it was provided by the reporter. ",
-                                  "Where the gender is unknown, the reporter is unaware of the gender. ",
-                                  "Where the gender is not specified, the reporter did not specify the gender of the patient."))),
-                           htmlOutput("sexplot.table"),
-                           width = 3)
-                ),
-                tabBox(
-                  tabPanel("Pie Chart",
-                           h3("Age Group",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title =  HTML(paste0(
-                                  "Age group of the patient when the adverse effect occurred.<br>",
-                                  "<br>Neonate: <= 25 days",
-                                  "<br>Infant: > 25 days to < 1 yr",
-                                  "<br>Child: >= 1 yr to < 13 yrs",
-                                  "<br>Adolescent: >= 13 yrs to < 18 yrs",
-                                  "<br>Adult: >= 18 yrs to <= 65 yrs",
-                                  "<br>Elderly: > 65 yrs")))),
-                           htmlOutput("agegroupplot"),
-                           width = 3),
-                  tabPanel("Table",
-                           h3("Age Group",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title =  HTML(paste0(
-                                  "Age group of the patient when the adverse effect occurred.<br>",
-                                  "<br>Neonate: <= 25 days",
-                                  "<br>Infant: > 25 days to < 1 yr",
-                                  "<br>Child: >= 1 yr to < 13 yrs",
-                                  "<br>Adolescent: >= 13 yrs to < 18 yrs",
-                                  "<br>Adult: >= 18 yrs to <= 65 yrs",
-                                  "<br>Elderly: > 65 yrs")))),
-                           htmlOutput("agegroupplot.table"),
-                           width = 3)
-                ),
+                                  "Where the gender is not specified, the reporter did not specify the gender of the patient.")),
+                # tabBox(
+                #   tabPanel("Pie Chart",
+                #            h3("Gender",
+                #               tipify(
+                #                 el = icon("info-circle"), trigger = "hover click",
+                #                 title = paste0(
+                #                   "Gender of the patient as it was provided by the reporter. ",
+                #                   "Where the gender is unknown, the reporter is unaware of the gender. ",
+                #                   "Where the gender is not specified, the reporter did not specify the gender of the patient."))),
+                #            htmlOutput("sexplot"),
+                #            width = 3),
+                #   tabPanel("Table",
+                #            h3("Gender",
+                #               tipify(
+                #                 el = icon("info-circle"), trigger = "hover click",
+                #                 title = paste0(
+                #                   "Gender of the patient as it was provided by the reporter. ",
+                #                   "Where the gender is unknown, the reporter is unaware of the gender. ",
+                #                   "Where the gender is not specified, the reporter did not specify the gender of the patient."))),
+                #            htmlOutput("sexplot.table"),
+                #            width = 3)
+                # ),
+                pieTableUI("agegroupplot", "Age Group",
+                           title =  HTML(paste0(
+                             "Age group of the patient when the adverse effect occurred.<br>",
+                             "<br>Neonate: <= 25 days",
+                             "<br>Infant: > 25 days to < 1 yr",
+                             "<br>Child: >= 1 yr to < 13 yrs",
+                             "<br>Adolescent: >= 13 yrs to < 18 yrs",
+                             "<br>Adult: >= 18 yrs to <= 65 yrs",
+                             "<br>Elderly: > 65 yrs"))),
+                # tabBox(
+                #   tabPanel("Pie Chart",
+                #            h3("Age Group",
+                #               tipify(
+                #                 el = icon("info-circle"), trigger = "hover click",
+                #                 title =  HTML(paste0(
+                #                   "Age group of the patient when the adverse effect occurred.<br>",
+                #                   "<br>Neonate: <= 25 days",
+                #                   "<br>Infant: > 25 days to < 1 yr",
+                #                   "<br>Child: >= 1 yr to < 13 yrs",
+                #                   "<br>Adolescent: >= 13 yrs to < 18 yrs",
+                #                   "<br>Adult: >= 18 yrs to <= 65 yrs",
+                #                   "<br>Elderly: > 65 yrs")))),
+                #            htmlOutput("agegroupplot"),
+                #            width = 3),
+                #   tabPanel("Table",
+                #            h3("Age Group",
+                #               tipify(
+                #                 el = icon("info-circle"), trigger = "hover click",
+                #                 title =  HTML(paste0(
+                #                   "Age group of the patient when the adverse effect occurred.<br>",
+                #                   "<br>Neonate: <= 25 days",
+                #                   "<br>Infant: > 25 days to < 1 yr",
+                #                   "<br>Child: >= 1 yr to < 13 yrs",
+                #                   "<br>Adolescent: >= 13 yrs to < 18 yrs",
+                #                   "<br>Adult: >= 18 yrs to <= 65 yrs",
+                #                   "<br>Elderly: > 65 yrs")))),
+                #            htmlOutput("agegroupplot.table"),
+                #            width = 3)
+                # ),
                 box(htmlOutput("agehisttitle"),
                     plotlyOutput("agehist"),
                     width = 6)
               )
       ),
-      tabItem(tabName = "drugdata_all",
+      tabItem(tabName = "drugdata",
               fluidRow(
-                tabBox(
-                  tabPanel("All: Bar Graph",
-                           h3("Most Frequently Reported Drugs (Brand Name)",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste0(
-                                  "This plot includes all drugs present in the matching reports. ",
-                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
-                           htmlOutput("all_drugs")),
-                  tabPanel("All: Data Table",
-                           h3("Most Frequently Reported Drugs (Brand Name)",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste0(
-                                  "This plot includes all drugs present in the matching reports. ",
-                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
-                           htmlOutput("all_drugs.table")),
-                  width = 6),
-                tabBox(
-                  tabPanel("Bar Chart",
-                           h3("Reports per Indication (all reported drugs)",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste(
-                                  "Indication refers to the particular condition for which a health product was taken. ",
-                                  "This plot includes all indications for all drugs present in the matching reports. ",
-                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
-                           htmlOutput("indication_plot")),
-                  tabPanel("Table",
-                           h3("Reports per Indication (all reported drugs)",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste(
-                                  "Indication refers to the particular condition for which a health product was taken. ",
-                                  "This plot includes all indications for all drugs present in the matching reports. ",
-                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
-                           htmlOutput("indication_plot.table")),
-                  width = 6))),
-      tabItem(tabName = 'drugdata_con',
-              fluidRow(
-                tabBox(
-                  tabPanel("Concomitant: Bar Graph",
-                           h3("Most Frequently Reported Drugs (Brand Name)",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste0(
-                                  "This plot includes all drugs present in the matching reports. ",
+                barTableUI("all_drugs", "Most Frequently Reported (Suspect and Concomitant) Drugs (Brand Name)", 
+                           paste0("This plot includes all drugs present in the matching reports. ",
+                                  "The search query filters unique reports, which may have one or more drugs associated with them.")),
+                barTableUI("suspect_drugs", "Most Frequently Reported Suspect Drugs (Brand Name)",
+                           paste0("This plot includes all drugs present in the matching reports. ",
                                   "The search query filters unique reports, which may have one or more drugs associated with them. ",
-                                  "The health product is not suspected, but the patient was taking it at the time of the adverse reaction."))),
-                           htmlOutput("concomitant_drugs")),
-                  tabPanel("Concomitant: Data Table",
-                           h3("Most Frequently Reported Drugs (Brand Name)",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste0(
-                                  "This plot includes all drugs present in the matching reports. ",
+                                  "The reporter suspects that the health product caused the adverse reaction.")),
+                barTableUI("concomitant_drugs", "Most Frequently Reported Concomitant Drugs (Brand Name)",
+                           paste0("This plot includes all drugs present in the matching reports. ",
                                   "The search query filters unique reports, which may have one or more drugs associated with them. ",
-                                  "The health product is not suspected, but the patient was taking it at the time of the adverse reaction."))),
-                           htmlOutput("concomitant_drugs.table"))),
-                tabBox(
-                  tabPanel("Bar Chart",
-                           h3("Reports per Indication (all reported drugs)",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste(
-                                  "Indication refers to the particular condition for which a health product was taken. ",
+                                  "The health product is not suspected, but the patient was taking it at the time of the adverse reaction.")),
+                # tabBox(
+                #   tabPanel("All",
+                #            h3("Most Frequently Reported Drugs (Brand Name)",
+                #               tipify(
+                #                 el = icon("info-circle"), trigger = "hover click",
+                #                 title = paste0(
+                #                   "This plot includes all drugs present in the matching reports. ",
+                #                   "The search query filters unique reports, which may have one or more drugs associated with them."))),
+                #            barTableUI("all_drugs", "", "")),
+                           # column(
+                           #   uiOutput('drug_all'),
+                           #   width = 10
+                           #   # conditionalPanel("input.all_select == 'Bar Chart'",
+                           #   #                  ),
+                           #   # conditionalPanel("input.all_select == 'Table'")
+                           # ),
+                           # column(
+                           #   selectizeInput("all_select",
+                           #                  '',
+                           #                  c('Bar Chart' = 'barchart', 'Table' = 'table')),
+                           #   width = 2
+                           # )),
+                           #htmlOutput("all_drugs")),
+                  # tabPanel("Suspect"),
+                  # tabPanel("Concomitant"),
+                  # width = 6
+                # ),
+                barTableUI("indicationplot", "Reports per Indication (all reported drugs)",
+                           paste0("Indication refers to the particular condition for which a health product was taken. ",
                                   "This plot includes all indications for all drugs present in the matching reports. ",
-                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
-                           htmlOutput("indication_plot.con")),
-                  tabPanel("Table",
-                           h3("Reports per Indication (all reported drugs)",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste(
-                                  "Indication refers to the particular condition for which a health product was taken. ",
-                                  "This plot includes all indications for all drugs present in the matching reports. ",
-                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
-                           htmlOutput("indication_plot.table.con")),
-                  width = 6))),
-      tabItem(tabName = 'drugdata_sus',
-              fluidRow(
-                tabBox(
-                  tabPanel("Suspect: Bar Graph",
-                           h3("Most Frequently Reported Drugs (Brand Name)",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste0(
-                                  "This plot includes all drugs present in the matching reports. ",
-                                  "The search query filters unique reports, which may have one or more drugs associated with them. ",
-                                  "The reporter suspects that the health product caused the adverse reaction."))),
-                           htmlOutput("suspect_drugs")),
-                  tabPanel("Suspect: Data Table",
-                           h3("Most Frequently Reported Drugs (Brand Name)",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste0(
-                                  "This plot includes all drugs present in the matching reports. ",
-                                  "The search query filters unique reports, which may have one or more drugs associated with them. ",
-                                  "The reporter suspects that the health product caused the adverse reaction."))),
-                           htmlOutput("suspect_drugs.table"))),
-                tabBox(
-                  tabPanel("Bar Chart",
-                           h3("Reports per Indication (all reported drugs)",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste(
-                                  "Indication refers to the particular condition for which a health product was taken. ",
-                                  "This plot includes all indications for all drugs present in the matching reports. ",
-                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
-                           htmlOutput("indication_plot.sus")),
-                  tabPanel("Table",
-                           h3("Reports per Indication (all reported drugs)",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste(
-                                  "Indication refers to the particular condition for which a health product was taken. ",
-                                  "This plot includes all indications for all drugs present in the matching reports. ",
-                                  "The search query filters unique reports, which may have one or more drugs associated with them."))),
-                           htmlOutput("indication_plot.table.sus")),
-                  width = 6))),
-      tabItem(tabName = 'drugdata_number',
+                                  "The search query filters unique reports, which may have one or more drugs associated with them.")))
+              ,
               fluidRow(
                 box(htmlOutput("drugcounttitle"),
                     htmlOutput("drugcount_plot"),
-                    width = 12))),
+                    width = 12))
+              ),
+              
+      # tabItem(tabName = "drugdata_all",
+      #         fluidRow(
+      #           tabBox(
+      #             tabPanel("All: Bar Graph",
+      #                      h3("Most Frequently Reported Drugs (Brand Name)",
+      #                         tipify(
+      #                           el = icon("info-circle"), trigger = "hover click",
+      #                           title = paste0(
+      #                             "This plot includes all drugs present in the matching reports. ",
+      #                             "The search query filters unique reports, which may have one or more drugs associated with them."))),
+      #                      htmlOutput("all_drugs")),
+      #             tabPanel("All: Data Table",
+      #                      h3("Most Frequently Reported Drugs (Brand Name)",
+      #                         tipify(
+      #                           el = icon("info-circle"), trigger = "hover click",
+      #                           title = paste0(
+      #                             "This plot includes all drugs present in the matching reports. ",
+      #                             "The search query filters unique reports, which may have one or more drugs associated with them."))),
+      #                      htmlOutput("all_drugs.table")),
+      #             width = 6),
+      #           tabBox(
+      #             tabPanel("Bar Chart",
+      #                      h3("Reports per Indication (all reported drugs)",
+      #                         tipify(
+      #                           el = icon("info-circle"), trigger = "hover click",
+      #                           title = paste(
+      #                             "Indication refers to the particular condition for which a health product was taken. ",
+      #                             "This plot includes all indications for all drugs present in the matching reports. ",
+      #                             "The search query filters unique reports, which may have one or more drugs associated with them."))),
+      #                      htmlOutput("indication_plot")),
+      #             tabPanel("Table",
+      #                      h3("Reports per Indication (all reported drugs)",
+      #                         tipify(
+      #                           el = icon("info-circle"), trigger = "hover click",
+      #                           title = paste(
+      #                             "Indication refers to the particular condition for which a health product was taken. ",
+      #                             "This plot includes all indications for all drugs present in the matching reports. ",
+      #                             "The search query filters unique reports, which may have one or more drugs associated with them."))),
+      #                      htmlOutput("indication_plot.table")),
+      #             width = 6))),
+      # tabItem(tabName = 'drugdata_con',
+      #         fluidRow(
+      #           tabBox(
+      #             tabPanel("Concomitant: Bar Graph",
+      #                      h3("Most Frequently Reported Drugs (Brand Name)",
+      #                         tipify(
+      #                           el = icon("info-circle"), trigger = "hover click",
+      #                           title = paste0(
+      #                             "This plot includes all drugs present in the matching reports. ",
+      #                             "The search query filters unique reports, which may have one or more drugs associated with them. ",
+      #                             "The health product is not suspected, but the patient was taking it at the time of the adverse reaction."))),
+      #                      htmlOutput("concomitant_drugs")),
+      #             tabPanel("Concomitant: Data Table",
+      #                      h3("Most Frequently Reported Drugs (Brand Name)",
+      #                         tipify(
+      #                           el = icon("info-circle"), trigger = "hover click",
+      #                           title = paste0(
+      #                             "This plot includes all drugs present in the matching reports. ",
+      #                             "The search query filters unique reports, which may have one or more drugs associated with them. ",
+      #                             "The health product is not suspected, but the patient was taking it at the time of the adverse reaction."))),
+      #                      htmlOutput("concomitant_drugs.table"))),
+      #           tabBox(
+      #             tabPanel("Bar Chart",
+      #                      h3("Reports per Indication (all reported drugs)",
+      #                         tipify(
+      #                           el = icon("info-circle"), trigger = "hover click",
+      #                           title = paste(
+      #                             "Indication refers to the particular condition for which a health product was taken. ",
+      #                             "This plot includes all indications for all drugs present in the matching reports. ",
+      #                             "The search query filters unique reports, which may have one or more drugs associated with them."))),
+      #                      htmlOutput("indication_plot.con")),
+      #             tabPanel("Table",
+      #                      h3("Reports per Indication (all reported drugs)",
+      #                         tipify(
+      #                           el = icon("info-circle"), trigger = "hover click",
+      #                           title = paste(
+      #                             "Indication refers to the particular condition for which a health product was taken. ",
+      #                             "This plot includes all indications for all drugs present in the matching reports. ",
+      #                             "The search query filters unique reports, which may have one or more drugs associated with them."))),
+      #                      htmlOutput("indication_plot.table.con")),
+      #             width = 6))),
+      # tabItem(tabName = 'drugdata_sus',
+      #         fluidRow(
+      #           tabBox(
+      #             tabPanel("Suspect: Bar Graph",
+      #                      h3("Most Frequently Reported Drugs (Brand Name)",
+      #                         tipify(
+      #                           el = icon("info-circle"), trigger = "hover click",
+      #                           title = paste0(
+      #                             "This plot includes all drugs present in the matching reports. ",
+      #                             "The search query filters unique reports, which may have one or more drugs associated with them. ",
+      #                             "The reporter suspects that the health product caused the adverse reaction."))),
+      #                      htmlOutput("suspect_drugs")),
+      #             tabPanel("Suspect: Data Table",
+      #                      h3("Most Frequently Reported Drugs (Brand Name)",
+      #                         tipify(
+      #                           el = icon("info-circle"), trigger = "hover click",
+      #                           title = paste0(
+      #                             "This plot includes all drugs present in the matching reports. ",
+      #                             "The search query filters unique reports, which may have one or more drugs associated with them. ",
+      #                             "The reporter suspects that the health product caused the adverse reaction."))),
+      #                      htmlOutput("suspect_drugs.table"))),
+      #           tabBox(
+      #             tabPanel("Bar Chart",
+      #                      h3("Reports per Indication (all reported drugs)",
+      #                         tipify(
+      #                           el = icon("info-circle"), trigger = "hover click",
+      #                           title = paste(
+      #                             "Indication refers to the particular condition for which a health product was taken. ",
+      #                             "This plot includes all indications for all drugs present in the matching reports. ",
+      #                             "The search query filters unique reports, which may have one or more drugs associated with them."))),
+      #                      htmlOutput("indication_plot.sus")),
+      #             tabPanel("Table",
+      #                      h3("Reports per Indication (all reported drugs)",
+      #                         tipify(
+      #                           el = icon("info-circle"), trigger = "hover click",
+      #                           title = paste(
+      #                             "Indication refers to the particular condition for which a health product was taken. ",
+      #                             "This plot includes all indications for all drugs present in the matching reports. ",
+      #                             "The search query filters unique reports, which may have one or more drugs associated with them."))),
+      #                      htmlOutput("indication_plot.table.sus")),
+      #             width = 6))),
+      # tabItem(tabName = 'drugdata_number',
+      #         fluidRow(
+      #           box(htmlOutput("drugcounttitle"),
+      #               htmlOutput("drugcount_plot"),
+      #               width = 12))),
       tabItem(tabName = "rxndata",
               fluidRow(
-                tabBox(
-                  tabPanel("Bar Chart",
-                           h3("Most Frequent Adverse Events (Preferred Terms)",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste0(
-                                  "MedDRA Preferred Term is a distinct descriptor (single medical concept) for a symptom, ",
+                barTableUI("toppt", "Most Frequent Adverse Events (Preferred Terms)",
+                           paste0("MedDRA Preferred Term is a distinct descriptor (single medical concept) for a symptom, ",
                                   "sign, disease, diagnosis, therapeutic indication, investigation, surgical, or medical ",
                                   "procedure, and medical, social, or family history characteristic. For more rigorous analysis, ",
-                                  "use disproportionality statistics."))),
-                           htmlOutput("top_pt")),
-                  tabPanel("Data Table",
-                           h3("Most Frequent Adverse Events (Preferred Terms)",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste0(
-                                  "MedDRA Preferred Term is a distinct descriptor (single medical concept) for a symptom, ",
-                                  "sign, disease, diagnosis, therapeutic indication, investigation, surgical, or medical ",
-                                  "procedure, and medical, social, or family history characteristic. For more rigorous analysis, ",
-                                  "use disproportionality statistics."))),
-                           htmlOutput("top_pt.table")),
-                  width = 6),
-                tabBox(
-                  tabPanel("Bar Chart",
-                           h3("Most Frequent Adverse Events (High-Level Terms)",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = "For more rigorous analysis, use disproportionality statistics.")),
-                           htmlOutput("top_hlt")),
-                  tabPanel("Data Table",
-                           h3("Most Frequent Adverse Events (High-Level Terms)",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = "For more rigorous analysis, use disproportionality statistics.")),
-                           htmlOutput("top_hlt.table")),
-                  width = 6)),
+                                  "use disproportionality statistics.")),
+ 
+                barTableUI("tophlt", "Most Frequent Adverse Events (High-Level Terms)",
+                           "For more rigorous analysis, use disproportionality statistics.")),
+           
               fluidRow(
-                tabBox(
-                  tabPanel("Pie Chart",
-                           h3("Report Outcome",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste0(
-                                  "The report outcome represents the outcome of the reported case as described by the reporter ",
+                pieTableUI("outcomeplot", "Report Outcome",
+                           paste0("The report outcome represents the outcome of the reported case as described by the reporter ",
                                   "at the time of reporting and does not infer a causal relationship. The report outcome is not ",
-                                  "based on a scientific evaluation by Health Canada."))),
-                           htmlOutput("outcomeplot")),
-                  tabPanel("Data Table",
-                           h3("Report Outcome",
-                              tipify(
-                                el = icon("info-circle"), trigger = "hover click",
-                                title = paste0(
-                                  "The report outcome represents the outcome of the reported case as described by the reporter ",
-                                  "at the time of reporting and does not infer a causal relationship. The report outcome is not ",
-                                  "based on a scientific evaluation by Health Canada."))),
-                           htmlOutput("outcomeplot.table")),
-                  width = 4))),
+                                  "based on a scientific evaluation by Health Canada.")))),
+            
       
       tabItem(tabName = "aboutinfo",
               box(
