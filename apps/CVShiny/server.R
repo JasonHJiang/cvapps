@@ -4,7 +4,8 @@ shinyServer(function(input, output, session) {
   updateSelectizeInput(session, 'search_rxn', choices = pt_choices, server = TRUE)
   updateSelectizeInput(session, 'search_soc', choices = soc_choices, server = TRUE)
   
-
+  # callModule(cvshiny_selectinput, 'search_soc', data = soc_choices)
+  # callModule(cvshiny_selectinput, 'search_brand', data = topbrands)
   
   
   ##### Reactive data processing
@@ -24,7 +25,7 @@ shinyServer(function(input, output, session) {
 
   
  observeEvent(reactiveSearchButton(),
-               withProgress(message = 'Calculation in progress', value = 0, {
+    withProgress(message = 'Calculation in progress', value = 0, {
                  
     if (input$name_type == "brand") {
       name <- input$search_brand
@@ -235,7 +236,7 @@ shinyServer(function(input, output, session) {
 
     dates <- data %>% select(DATINTRECEIVED_CLEAN) %>% summarize(date_min = min(DATINTRECEIVED_CLEAN),
                                                                  date_max = max(DATINTRECEIVED_CLEAN)) %>%
-      as.data.table()
+      as.data.frame()
 
     two_years <- 730
 
@@ -286,31 +287,19 @@ shinyServer(function(input, output, session) {
   ##### Data about Reports
   
   reporterplot_data <- reactive({
-    mainDataSelection() %>%
+    df <- mainDataSelection() %>%
       count(REPORTER_TYPE_ENG) %>%
       as.data.frame()
+    
+    df$REPORTER_TYPE_ENG[df$REPORTER_TYPE_ENG == ""] <- "Not reported"
+    df$REPORTER_TYPE_ENG[df$REPORTER_TYPE_ENG == "Consumer Or Other Non Health Professional"] <- "Consumer or non-health professional"
+    df$REPORTER_TYPE_ENG[df$REPORTER_TYPE_ENG == "Other Health Professional"] <- "Other health professional"
+    
+    df
+    
   })
-  output$reporterplot <- renderGvis({
-    
-    reporter_results <- reporterplot_data()
-    
-    reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == ""] <- "Not reported"
-    reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == "Consumer Or Other Non Health Professional"] <- "Consumer or non-health professional"
-    reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == "Other Health Professional"] <- "Other health professional"
-    # data <- reports_tab(current_generic="ampicillin",current_brand="PENBRITIN",current_rxn="Urticaria",date_ini=ymd("19650101"),date_end=ymd("20151231"))
-
-    gvisPieChart_HCSC(reporter_results, "REPORTER_TYPE_ENG", "count")
-  })
-  output$reporterplot.table <- renderGvis({
-    reporter_results <- reporterplot_data()
-    
-    reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == ""] <- "Not reported"
-    reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == "Consumer Or Other Non Health Professional"] <- "Consumer or non-health professional"
-    reporter_results$REPORTER_TYPE_ENG[reporter_results$REPORTER_TYPE_ENG == "Other Health Professional"] <- "Other health professional"
-    # data <- reports_tab(current_generic="ampicillin",current_brand="PENBRITIN",current_rxn="Urticaria",date_ini=ymd("19650101"),date_end=ymd("20151231"))
-    
-    gvisTable(reporter_results)
-  })
+  callModule(pieTable, "reporterplot", dataChart = reporterplot_data(), x = "REPORTER_TYPE_ENG", y = "count")
+  
   seriousplot_data <- reactive({
     mainDataSelection() %>%
       count(SERIOUSNESS_ENG) %>%
@@ -323,15 +312,8 @@ shinyServer(function(input, output, session) {
       select(label, n) %>%
       slice(match(c("Serious", "Non-serious", "Not reported"), label))
   })
-  output$seriousplot <- renderGvis({
-    serious_results <- seriousplot_data()
-    
-    gvisPieChart_HCSC(serious_results, "label", "count")
-  })
-  output$seriousplot.table <- renderGvis({
-    serious_results <- seriousplot_data()
-    gvisTable(serious_results)
-  })
+  callModule(pieTable, "seriousplot", dataChart = seriousplot_data(), x = "label", y = "count")
+
   output$seriousreasonsplot <- renderGvis({
     data <- mainDataSelection() %>%
       filter(SERIOUSNESS_ENG == "Yes")
@@ -398,31 +380,18 @@ shinyServer(function(input, output, session) {
     data <- mainDataSelection() %>%
       count(GENDER_ENG) %>%
       as.data.frame()
-  })
-  output$sexplot <- renderGvis({
-    data <- sexplot_data()
-    # replace blank in GENDER_ENG with character "Unknown"
     data$GENDER_ENG[data$GENDER_ENG == ""] <- "Not specified"
     sex_results <- count(data, GENDER_ENG, wt = n)
-    
-    gvisPieChart_HCSC(sex_results, "GENDER_ENG", "n")
-  })
-  output$sexplot.table <- renderGvis({
-    data <- sexplot_data()
-    # replace blank in GENDER_ENG with character "Unknown"
-    data$GENDER_ENG[data$GENDER_ENG == ""] <- "Not specified"
-    sex_results <- count(data, GENDER_ENG, wt = n)
-    
-    gvisTable(sex_results)
+    sex_results
   })
   
+  callModule(pieTable, "sexplot", dataChart = sexplot_data(), x = "GENDER_ENG", y = "n")
+
+  
   agegroup_data <-reactive({
-    data <- mainDataSelection() %>%
+    age_groups <- mainDataSelection() %>%
       count(AGE_GROUP_CLEAN) %>%
       as.data.frame()
-  })
-  output$agegroupplot <- renderGvis({
-    age_groups <- agegroup_data()
     age_group_order <- data.frame(AGE_GROUP_CLEAN = c("Neonate",
                                                       "Infant",
                                                       "Child",
@@ -433,24 +402,10 @@ shinyServer(function(input, output, session) {
                                   stringsAsFactors = FALSE)
     data <- left_join(age_group_order, age_groups, by = "AGE_GROUP_CLEAN")
     data[is.na(data)] <- 0 # always including empty rows means colour-scheme will be consistent
-
-    gvisPieChart_HCSC(data, "AGE_GROUP_CLEAN", "n")
+    data
   })
-  output$agegroupplot.table <- renderGvis({
-    age_groups <- agegroup_data()
-    age_group_order <- data.frame(AGE_GROUP_CLEAN = c("Neonate",
-                                                      "Infant",
-                                                      "Child",
-                                                      "Adolescent",
-                                                      "Adult",
-                                                      "Elderly",
-                                                      "Unknown"),
-                                  stringsAsFactors = FALSE)
-    data <- left_join(age_group_order, age_groups, by = "AGE_GROUP_CLEAN")
-    data[is.na(data)] <- 0 # always including empty rows means colour-scheme will be consistent
+  callModule(pieTable, "agegroupplot", dataChart = agegroup_data(), x = "AGE_GROUP_CLEAN", y = "n")
 
-    gvisTable(data)
-  })
   
 
   output$agehisttitle <- renderUI({
@@ -488,8 +443,8 @@ shinyServer(function(input, output, session) {
   
   #### Data about Drugs
   drugDataSelection <- reactive({
-    data <- semi_join(cv_report_drug, selected_ids$ids, by = "REPORT_ID", copy = T) %>% 
-      left_join(cv_report_drug_indication, by = c("REPORT_DRUG_ID", "REPORT_ID", "DRUG_PRODUCT_ID", "DRUGNAME"))
+    data <- semi_join(cv_report_drug, selected_ids$ids, by = "REPORT_ID", copy = T)
+    #%>%       left_join(cv_report_drug_indication, by = c("REPORT_DRUG_ID", "REPORT_ID", "DRUG_PRODUCT_ID", "DRUGNAME"))
     data
   })
   indication_data <- reactive({
@@ -503,33 +458,54 @@ shinyServer(function(input, output, session) {
     # DRUG_ID -> multiple reports may use the same drugs
     # REPORT_DRUG_ID -> unique for each drug/report combination. count is less than total reports since drugs can have multiple indications
     # so distinct REPORT_DRUG_ID x INDICATION_NAME_ENG includes the entire set of reports
-    indications_sorted <- drugDataSelection() %>%
+    data <- drugDataSelection() %>%
       count(INDICATION_NAME_ENG) %>%
       arrange(desc(n)) %>%
       as.data.frame() %>%
       filter(!is.na(INDICATION_NAME_ENG)) %>%
       head(25)
-    
+    data
   })
   
-  output$indication_plot <- renderGvis({
-    gvisBarChart_HCSC(indication_data(), "INDICATION_NAME_ENG", "n", google_colors[1])
+  callModule(barTable, "indicationplot", dataChart = indication_data(), x = "INDICATION_NAME_ENG", y = "n", colour = google_colors[1])
+  # output$indication_plot <- renderGvis({
+  #   gvisBarChart_HCSC(indication_data(), "INDICATION_NAME_ENG", "n", google_colors[1])
+  # })
+  # output$indication_plot.table <- renderGvis({
+  #   gvisTable(indication_data())
+  # })
+  # output$indication_plot.sus <- renderGvis({
+  #   gvisBarChart_HCSC(indication_data(), "INDICATION_NAME_ENG", "n", google_colors[1])
+  # })
+  # output$indication_plot.table.sus <- renderGvis({
+  #   gvisTable(indication_data())
+  # })
+  # output$indication_plot.con <- renderGvis({
+  #   gvisBarChart_HCSC(indication_data(), "INDICATION_NAME_ENG", "n", google_colors[1])
+  # })
+  # output$indication_plot.table.con <- renderGvis({
+  #   gvisTable(indication_data())
+  # })
+  
+  all_data <- reactive({
+    data <- drugDataSelection() %>%
+      distinct(REPORT_ID, DRUGNAME) %>%
+      count(DRUGNAME) %>%
+      arrange(desc(n)) %>%
+      head(25) %>%
+      as.data.frame()
+    data
   })
-  output$indication_plot.table <- renderGvis({
-    gvisTable(indication_data())
-  })
-  output$indication_plot.sus <- renderGvis({
-    gvisBarChart_HCSC(indication_data(), "INDICATION_NAME_ENG", "n", google_colors[1])
-  })
-  output$indication_plot.table.sus <- renderGvis({
-    gvisTable(indication_data())
-  })
-  output$indication_plot.con <- renderGvis({
-    gvisBarChart_HCSC(indication_data(), "INDICATION_NAME_ENG", "n", google_colors[1])
-  })
-  output$indication_plot.table.con <- renderGvis({
-    gvisTable(indication_data())
-  })
+  
+  callModule(barTable, "all_drugs", dataChart = all_data(), x = "DRUGNAME", y = "n", colour = google_colors[2])
+  # output$drug_all <- renderUI({
+  #   data <- all_data()
+  #   
+  #   switch(input$all_select,
+  #          "barchart" = gvisBarChart_HCSC(data, "DRUGNAME", "n", google_colors[2]),
+  #          "table" = gvisTable(data))
+  # })
+  
   
   suspect_data <- reactive({
     data <- drugDataSelection() %>%
@@ -541,6 +517,7 @@ shinyServer(function(input, output, session) {
       as.data.frame()
   })
   
+  callModule(barTable, "suspect_drugs", dataChart = suspect_data(), x = "DRUGNAME", y = "n", colour = google_colors[3])
   output$suspect_drugs <- renderGvis({
     # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name
     #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
@@ -562,7 +539,8 @@ shinyServer(function(input, output, session) {
       head(25) %>%
       as.data.frame()
   })
-  
+   
+  callModule(barTable, "concomitant_drugs", dataChart = concomitant_data(), x = "DRUGNAME", y = "n", colour = google_colors[4])
   output$concomitant_drugs <- renderGvis({
     # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name
     #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
@@ -574,32 +552,7 @@ shinyServer(function(input, output, session) {
     data <- concomitant_data()
     gvisTable(data)
   })
-  
-  
-  all_data <- reactive({
-    data <- drugDataSelection() %>%
-      distinct(REPORT_ID, DRUGNAME) %>%
-      count(DRUGNAME) %>%
-      arrange(desc(n)) %>%
-      head(25) %>%
-      as.data.frame()
-  })
-  
-  output$all_drugs <- renderGvis({
-    # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name
-    #    (some REPORT_ID maybe duplicated due to multiple REPORT_DRUG_ID & DRUG_PRODUCT_ID which means that patient has diff dosage/freq)
-    data <- all_data()
-    # the top drugs reported here might be influenced by such drug is originally most reported among all reports
-    gvisBarChart_HCSC(data, "DRUGNAME", "n", google_colors[2])
-  })
-  
-  output$all_drugs.table <- renderGvis({
-    data <- all_data()
-    gvisTable(data)
-  })
-  
-  
-  
+ 
   output$drugcounttitle <- renderUI({
     excluded_count <- drugDataSelection() %>%
       count(REPORT_ID) %>%
@@ -643,53 +596,39 @@ shinyServer(function(input, output, session) {
   
   rxnDataSelection <- reactive({
     data <- cv_reactions %>%
-      semi_join(selected_ids$ids, by = "REPORT_ID", copy = T) %>%
-      left_join(meddra, by = c("PT_NAME_ENG" = "PT_Term", "MEDDRA_VERSION" = "Version"))
+      semi_join(selected_ids$ids, by = "REPORT_ID", copy = T) 
+    data
   })
   
   top_pt_data <- reactive({
     data <- rxnDataSelection() %>%
       count(PT_NAME_ENG) %>%
       arrange(desc(n)) %>%
-      head(25) %>%
+      head(15) %>%
       as.data.frame()
+    data
   })
-  
-  
-  
-  output$top_pt <- renderGvis({
-    gvisBarChart_HCSC(top_pt_data(), "PT_NAME_ENG", "n", google_colors[1])
-  })
-  output$top_pt.table <- renderGvis({
-    gvisTable(top_pt_data())
-  })
+  callModule(barTable, "toppt", dataChart = top_pt_data(), x = "PT_NAME_ENG", y = "n", colour = google_colors[1])
   
   top_hlt_data <- reactive({
     data <- rxnDataSelection() %>%
       filter(!is.na(HLT_Term)) %>%
       count(HLT_Term) %>%
       arrange(desc(n)) %>%
-      head(25) %>%
+      head(15) %>%
       as.data.frame()
+    data
   })
-  output$top_hlt <- renderGvis({
-    gvisBarChart_HCSC(top_hlt_data(), "HLT_Term", "n", google_colors[2])
-  })
-  output$top_hlt.table <- renderGvis({
-    gvisTable(top_hlt_data())
-  })
+  callModule(barTable, "tophlt", dataChart = top_hlt_data(), x = "HLT_Term", y = "n", colour = google_colors[2])
+
   
   outcomeplot_data <- reactive({
-    data <- mainDataSelection() %>%
+    mainDataSelection() %>%
       count(OUTCOME_ENG) %>%
       as.data.frame()
   })
-  output$outcomeplot <- renderGvis({
-    gvisPieChart_HCSC(outcomeplot_data(), "OUTCOME_ENG", "n")
-  })
-  output$outcomeplot.table <- renderGvis({
-    gvisTable(outcomeplot_data())
-  })
+  callModule(pieTable, "outcomeplot", dataChart = outcomeplot_data(), x = "OUTCOME_ENG", y = "n")
+
   
   ############# Download Tab
   output$download_reports <- downloadHandler(
