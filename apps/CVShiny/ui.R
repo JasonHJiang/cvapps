@@ -46,6 +46,11 @@ dashboardPage(
                      c("Suspect",
                        "Concomitant",
                        "Any"))),
+    div(style="display: inline-block; vertical-align:top; width: 52%",
+        radioButtons("seriousness_type", "Seriousness:",
+                     c("All",
+                       "Serious",
+                       "Death"))),
     sliderInput("search_age",
                 "Set Age Range",
                 min = 0,
@@ -134,7 +139,8 @@ dashboardPage(
       ),
       tabItem(tabName = "patientdata",
               fluidRow(
-                pieTableUI("sexplot", "Gender",
+                pieTableUI("sexplot", 
+                           "Gender",
                            paste0("Gender of the patient as it was provided by the reporter. ",
                                   "Where the gender is unknown, the reporter is unaware of the gender. ",
                                   "Where the gender is not specified, the reporter did not specify the gender of the patient.")),
@@ -455,7 +461,7 @@ dashboardPage(
                                      "Select Columns",
                                      cv_reports_names,
                                      selected = c("REPORT_ID", "DATRECEIVED", "REPORT_TYPE_ENG", "GENDER_ENG", "AGE_Y", "OUTCOME_ENG", "WEIGHT", "WEIGHT_UNIT_ENG",
-                                                  "HEIGHT", "HEIGHT_UNIT_ENG", "SERIOUSNESS_ENG", "REPORTER_TYPE_ENG", "SOURCE_ENG"),
+                                                  "HEIGHT", "HEIGHT_UNIT_ENG", "SERIOUSNESS_ENG", "DEATH","REPORTER_TYPE_ENG", "SOURCE_ENG"),
                                      multiple = TRUE)),
                     conditionalPanel(
                       "input.search_dataset_type == 'Drug Data'",
@@ -463,14 +469,14 @@ dashboardPage(
                                      "Select Columns",
                                      cv_report_drug_names,
                                      selected = c("REPORT_ID", "DRUGNAME", "DRUGINVOLV_ENG", "ROUTEADMIN_ENG", "UNIT_DOSE_QTY", "DOSE_UNIT_ENG", "FREQUENCY", "FREQ_TIME",
-                                                  "FREQUENCY_TIME_ENG", "FREQ_TIME_UNIT_ENG", "DOSAGEFORM_ENG", "INDICATION_NAME_ENG"),
+                                                  "FREQUENCY_TIME_ENG", "FREQ_TIME_UNIT_ENG", "DOSAGEFORM_ENG", "INDICATION_NAME_ENG", "SERIOUSNESS_TYPE", "DEATH"),
                                      multiple = TRUE)),
                     conditionalPanel(
                       "input.search_dataset_type == 'Reaction Data'",
                       selectizeInput("column_select_reaction",
                                      "Select Columns",
                                      cv_reaction_names,
-                                     selected = c("REPORT_ID", "DURATION", "DURATION_UNIT_ENG", "PT_NAME_ENG", "SOC_NAME_ENG", "MEDDRA_VERSION", "SMQ"),
+                                     selected = c("REPORT_ID", "DURATION", "DURATION_UNIT_ENG", "PT_NAME_ENG", "SOC_NAME_ENG", "MEDDRA_VERSION", "SMQ", "SERIOUSNESS_TYPE", "DEATH"),
                                      multiple = TRUE))),
                   column(
                     width = 9,
@@ -482,4 +488,5 @@ dashboardPage(
     )
   )
 )
+
 

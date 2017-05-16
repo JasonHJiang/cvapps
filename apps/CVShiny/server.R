@@ -1,3 +1,4 @@
+library(plotly)
 shinyServer(function(input, output, session) {
   updateSelectizeInput(session, 'search_brand', choices = topbrands, server = TRUE)
   updateSelectizeInput(session, 'search_ing', choices = topings_cv, server = TRUE)
@@ -42,23 +43,26 @@ shinyServer(function(input, output, session) {
     current_search$name_type <- input$name_type
     current_search$name <- name
     current_search$drug_inv <- input$drug_inv
+    current_search$seriousness_type <- input$seriousness_type
     current_search$rxn <- input$search_rxn
     current_search$gender <- input$search_gender
     current_search$soc <- input$search_soc
     current_search$age <- input$search_age
     current_search$date_range <- dateRange
     current_search$checkbox_filter <- input$filter_over_100
-
-    incProgress(1/8, detail = 'Filtering Report IDs')
-    
-
+    incProgress(1/9, detail = 'Filtering Report Date Range')
     
     cv_reports_filtered_ids <- cv_reports %>%
       filter(DATINTRECEIVED_CLEAN >= current_search$date_range[1], DATINTRECEIVED_CLEAN <= current_search$date_range[2])
+    incProgress(1/9, detail = 'Filtering Seriousness Type and Gender')
+    
+    if (current_search$seriousness_type == "Death") {cv_reports_filtered_ids %<>% filter(DEATH == '1')}
+    else if (current_search$seriousness_type == "Serious") {cv_reports_filtered_ids %<>% filter(SERIOUSNESS_ENG == 'Yes')}
+    
     if (current_search$gender == 'Male' | current_search$gender == 'Female') {
       cv_reports_filtered_ids %<>% filter(GENDER_ENG == current_search$gender)
     }
-    incProgress(1/8, detail = 'Applying Age Constraints')
+    incProgress(1/9, detail = 'Applying Age Constraints')
 
     if (current_search$checkbox_filter & current_search$age[2] == 100) {
       cv_reports_filtered_ids %<>% filter(AGE_Y >= current_search$age[1])
@@ -73,7 +77,7 @@ shinyServer(function(input, output, session) {
       if (length(current_search$name) == 1) cv_report_drug_filtered %<>% filter(DRUGNAME == current_search$name)
       else cv_report_drug_filtered %<>% filter(DRUGNAME %in% current_search$name)
 
-      incProgress(1/8, detail = 'Filtering by Brand')
+      incProgress(1/9, detail = 'Filtering by Brand')
 
     } else if (current_search$name_type == "ingredient2" & !is.null(current_search$name) && current_search$name != "") {
       related_drugs <- cv_substances %>% filter(ing == current_search$name)
@@ -84,13 +88,14 @@ shinyServer(function(input, output, session) {
       else related_drugs <- cv_drug_product_ingredients %>% filter(ACTIVE_INGREDIENT_NAME %in% current_search$name)
       cv_report_drug_filtered %<>% semi_join(related_drugs, by = "DRUG_PRODUCT_ID")
 
-      incProgress(1/8, detail = 'Filtering by Ingredient')
+      incProgress(1/9, detail = 'Filtering by Ingredient')
 
     }
     if (current_search$drug_inv != "Any") cv_report_drug_filtered %<>% filter(DRUGINVOLV_ENG == current_search$drug_inv)
-
-    incProgress(2/8, detail = 'Filtering Reactions')
-
+    if (current_search$seriousness_type == "Death") {cv_report_drug_filtered %<>% filter(DEATH == '1')}
+    else if (current_search$seriousness_type == "Serious") {cv_report_drug_filtered %<>% filter(SERIOUSNESS_ENG == 'Yes')}
+    
+    incProgress(2/9, detail = 'Filtering Reactions')
 
 
     cv_reactions_filtered <- cv_reactions %>% filter(PT_NAME_ENG != "")
@@ -109,12 +114,13 @@ shinyServer(function(input, output, session) {
     # cv_reports_filtered_ids %<>% as.data.frame()
     # cv_report_drug_filtered %<>% as.data.frame()
     # cv_reactions_filtered %<>% as.data.frame()
-
+    if (current_search$seriousness_type == "Death") {cv_reactions_filtered %<>% filter(DEATH == '1')}
+    else if (current_search$seriousness_type == "Serious") {cv_reactions_filtered %<>% filter(SERIOUSNESS_ENG == 'Yes')}
 
     selected_ids$ids <-  cv_reports_filtered_ids %>%
-      semi_join(cv_report_drug_filtered, by = "REPORT_ID") %>%
-      semi_join(cv_reactions_filtered, by = "REPORT_ID") %>% as.data.frame()
-    incProgress(1/8, detail = 'Checking for no reports...')
+      semi_join(cv_report_drug_filtered, "REPORT_ID" = "REPORT_ID") %>%
+      semi_join(cv_reactions_filtered, "REPORT_ID" = "REPORT_ID") %>% as.data.frame()
+    incProgress(1/9, detail = 'Checking for no reports...')
     n_ids <- selected_ids$ids %>% nrow()
     if (n_ids == 0) {
       setProgress(1)
@@ -126,7 +132,7 @@ shinyServer(function(input, output, session) {
       return()
     }
 
-    incProgress(1/8, detail = 'Fetching data...')
+    incProgress(1/9, detail = 'Fetching data...')
     
     # so then all data is polled upon search, not just when display corresponding plot
     # subset_cv$report <- cv_reports %>%
@@ -147,7 +153,7 @@ shinyServer(function(input, output, session) {
     
     
     
-    incProgress(1/8)
+    incProgress(1/9)
                  })
   )
   
@@ -182,6 +188,7 @@ shinyServer(function(input, output, session) {
                                    "Name:",
                                    "Adverse Reaction Term:",
                                    "System Organ Class:",
+                                   "Seriousness:",
                                    "Date Range:"),
                          values = c(data$name_type %>% toupper(),
                                     sprintf("%s to %s%s", data$age[1], data$age[2], ifelse(data$checkbox_filter & data$age[2] == 100, '+', '')),
@@ -189,6 +196,7 @@ shinyServer(function(input, output, session) {
                                     paste0(data$name, collapse = ", "),
                                     paste0(data$rxn, collapse = ", "),
                                     paste0(data$soc, collapse = ", "),
+                                    paste0(data$seriousness_type, collapse = ", "),
                                     paste(data$date_range, collapse = " to ")),
                          stringsAsFactors = FALSE)
     result$values["" == result$values] <- "Not Specified"
@@ -203,6 +211,7 @@ shinyServer(function(input, output, session) {
     data <- semi_join(cv_reports, selected_ids$ids, by = "REPORT_ID", copy=T)
     data
   })
+  
   ##### Create time plot  ###
   
   output$timeplot_title <- renderUI({
@@ -255,6 +264,11 @@ shinyServer(function(input, output, session) {
     total_results <- data_r %>%
       group_by(time_p) %>%
       summarize(total = n())
+    
+    nonserious_results <- data_r %>%
+      filter(SERIOUSNESS_ENG == "No") %>%
+      group_by(time_p) %>%
+      summarize(nonserious = n())
 
 
     serious_results <- data_r %>%
@@ -262,7 +276,7 @@ shinyServer(function(input, output, session) {
       group_by(time_p) %>%
       summarize(serious = n())
 
-
+ 
 
     death_results <- data_r %>%
       filter(DEATH == 1) %>%
@@ -273,8 +287,8 @@ shinyServer(function(input, output, session) {
     ntime_p <- interval(dates$date_min, dates$date_max) %/% time_function(1)
     time_list <- min(dates$date_min %>% floor_date(time_period)) + time_function(0:ntime_p)
 
-    results_to_be_mapped <- left_join(total_results, serious_results, by = 'time_p') %>%
-      left_join(death_results, by = 'time_p') %>% as.data.frame() %>%
+    results_to_be_mapped <- left_join(death_results, serious_results, by = 'time_p') %>%
+      left_join(nonserious_results, by = 'time_p') %>% as.data.frame() %>%
       mutate(time_p = ymd(time_p))
 
     results <- data.frame(time_p = time_list) %>%

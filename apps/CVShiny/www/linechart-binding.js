@@ -29,10 +29,14 @@ binding.renderValue = function(el, data) {
       var chart = nv.models.multiBarChart()
         .margin({left: 100})
         .transitionDuration(350)
-        .showControls(false)
         .showLegend(true)
         .showYAxis(true)
-        .showXAxis(true);
+        .showXAxis(true)
+        .transitionDuration(350)
+        .reduceXTicks(true)   //If 'false', every single x-axis tick label will be rendered.
+        .rotateLabels(0)      //Angle to rotate x-axis labels.
+        .showControls(true)   //Allow user to switch between 'Grouped' and 'Stacked' mode.
+        .groupSpacing(0.1);    //Distance between each group of bars.
   
       
     
@@ -56,7 +60,8 @@ binding.renderValue = function(el, data) {
     // Store the chart object on el so we can get it next time
     $el.data("state", {
       chart: chart,
-      selection: selection
+      selection: selection,
+      
     });
   }
   
