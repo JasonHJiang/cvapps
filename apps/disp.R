@@ -72,8 +72,8 @@ cv_reportid <- cv_reportid[!duplicated(cv_reportid),]
 
 # OPTION1: save var report id(a lot bigger)
 # a <- cv_reportid %>%
-  #  group_by(event_effect,quarter) %>%
-  #  summarize(REPORT_ID = paste(unique(REPORT_ID), collapse = ", "))
+#  group_by(event_effect,quarter) %>%
+#  summarize(REPORT_ID = paste(unique(REPORT_ID), collapse = ", "))
 # OPTION2: save var quarter
 cat_id_pt <- cv_reportid %>%
   group_by(event_effect) %>%
@@ -211,7 +211,7 @@ ui <- dashboardPage(
       tags$div(class="form-group shiny-input-container",
                actionButton(inputId = "search_button",
                             label = "Search",
-                            width = '100%')
+                            width = '90%')
       ),
       tags$h3(strong("Current Query:")),
       tableOutput("current_search"),
@@ -229,10 +229,11 @@ ui <- dashboardPage(
     tabItems(
       tabItem(tabName = "data",
               fluidRow(
-                tabBox(
+                tabBox(id="tabbox",
                   
                   tabPanel(
-                    "Preferred Terms",
+                    title="Preferred Terms",
+                    value="panel1",
                     # plotOutput(outputId = "timeplot_pt", height = "285px", click = "plot_click"),
                     h3(textOutput("current_pt_title")),
                     ggvisOutput(plot_id = "timeplot_pt"),
@@ -241,7 +242,8 @@ ui <- dashboardPage(
                     #tags$p("NOTE: The above table is ranked decreasingly by PRR value. All drug*reactions pairs that have PRR value of infinity are added at the end of the table."),
                     width = 12),
                   tabPanel(
-                    "High-Level Terms",
+                    title="High-Level Terms",
+                    value="panel2",
                     #plotOutput(outputId = "timeplot_hlt", height = "285px"),
                     h3(textOutput("current_hlt_title")),
                     ggvisOutput(plot_id = "timeplot_hlt"),
@@ -327,9 +329,11 @@ server <- function(input, output, session) {
     updateSelectizeInput(session, "search_pt",
                          choices = c("Start typing to search..." = "", pt_choices))
   })
-  
+  observeEvent(input$search_hlt,{
+    updateTabsetPanel(session, "tabbox",selected ="panel2")
+  })
   observeEvent(input$search_hlt, {
-    if (input$checkbox_filter_pt) {
+        if (input$checkbox_filter_pt) {
       pt_choices <- drug_PT_HLT
       
       if (all("" != input$search_hlt) & !is.null(input$search_hlt)) {
