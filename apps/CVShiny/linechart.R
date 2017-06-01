@@ -30,11 +30,12 @@ renderLineChart <- function(expr, env=parent.frame(), quoted=FALSE) {
   installExprFunction(expr, "func", env, quoted)
   
   function() {
-    dataframe_month <- func()[, 1] %>% as.POSIXct() %>% as.integer()
-    dataframe_result <- func()[, 2:4]
+    df <- func()
+    dataframe_month <- df[, 1]
+    dataframe_result <- df[, 2:4]
     
 
-    df <- mapply(function(col, name) {
+    mapply(function(col, name) {
       
       values <- mapply(function(val, i) {
         list(x = i, y = val)
@@ -43,9 +44,6 @@ renderLineChart <- function(expr, env=parent.frame(), quoted=FALSE) {
       list(key = name, values = values)
       
     }, dataframe_result, names(dataframe_result), SIMPLIFY=FALSE, USE.NAMES=FALSE)
-    
-    print(toJSON(df))
-    df
   }
 }
 

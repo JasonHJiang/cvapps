@@ -60,7 +60,7 @@ age_code <- data.frame(term = 800:805,
                        stringsAsFactors = FALSE)
 
 ui <- dashboardPage(
-  dashboardHeader(title = titleWarning("Shiny FAERS (v0.15)"),
+  dashboardHeader(title = titleWarning("Shiny FAERS (v0.18)"),
                   titleWidth = 700),
   
   dashboardSidebar(
@@ -76,19 +76,22 @@ ui <- dashboardPage(
       condition = "input.name_type == 'generic'",
       selectizeInput("search_generic", 
                      "Generic Name", 
-                     topdrugs)),
+                     topdrugs,
+                     multiple = TRUE)),
     conditionalPanel(
       condition = "input.name_type == 'brand'",
       selectizeInput("search_brand", 
                      "Brand Name (US Trade Name)",
-                     topbrands)),
+                     topbrands,
+                     multiple = TRUE)),
     radioButtons("name_type", "Drug name type:",
                  c("Generic" = "generic",
                    "Brand Name" = "brand")),
     selectizeInput("search_rxn",
                    "Preferred Term (PT)",
                    c("Loading..." = ""),
-                   options = list(create = TRUE)),
+                   options = list(create = TRUE),
+                   multiple = TRUE),
     dateRangeInput("searchDateRange", 
                    "Date Range", 
                    start = "2003-01-01",
@@ -292,11 +295,13 @@ server <- function(input, output, session) {
       pt_selected <- input$search_rxn
       pt_choices <- fda_query("/drug/event.json")
       
-      if (input$name_type == "generic" & input$search_generic != "") {
+      if (input$name_type == "generic" & !is.null(input$search_generic)) {
         query_str <- paste0('"', gsub(" ", "+", input$search_generic), '"')
+        query_str <- sprintf('(%s)', paste0(query_str, collapse = '+'))
         pt_choices %<>% fda_filter("patient.drug.openfda.generic_name.exact", query_str)
-      } else if (input$name_type == "brand" & input$search_brand != "") {
+      } else if (input$name_type == "brand" & !is.null(input$search_brand)) {
         query_str <- paste0('"', gsub(" ", "+", input$search_brand), '"')
+        query_str <- sprintf('(%s)', paste0(query_str, collapse = '+'))
         pt_choices %<>% fda_filter("patient.drug.openfda.brand_name.exact", query_str)
       }
       
@@ -308,12 +313,14 @@ server <- function(input, output, session) {
         sort() %>%
         grep("[%,']", ., value = TRUE, invert = TRUE) # https://github.com/FDA/openfda/issues/29
       
-      if (! pt_selected %in% pt_choices) pt_selected = ""
+      if (is.null(pt_selected)) pt_selected = ""
       updateSelectizeInput(session, "search_rxn",
                            choices = c("Start typing to search..." = "", pt_choices),
                            selected = pt_selected)
     })
   })
+  
+  
   
   
   
@@ -325,36 +332,39 @@ server <- function(input, output, session) {
   # We need to have a reactive structure here so that it activates upon loading
   reactiveSearchButton <- reactive(as.vector(input$searchButton))
   observeEvent(reactiveSearchButton(), {
-    showModal(modalDialog(
-      title = list(icon("spinner", class = "fa-pulse"), "Results loading..."),
-      "Please wait while reports are being retrieved.",
-      footer = NULL,
-      size = "s"))
+    
+    withProgress(message = 'Calculation in progress', value = 0, {
     
     if (input$name_type == "generic") {
       name <- input$search_generic
     } else {
       name <- input$search_brand
     }
+    incProgress(1/6)
+    
     
     openfda_query <- fda_query("/drug/event.json")
     query_str <- paste0("[", input$searchDateRange[1], "+TO+", input$searchDateRange[2], "]")
     openfda_query %<>% fda_filter("receivedate", query_str)
-    if("" != name) {
+    if(!is.null(name)) {
       query_str <- paste0('"', gsub(" ", "+", name), '"')
+      query_str_combine <- sprintf('(%s)', paste0(query_str, collapse = '+'))
+
       if (input$name_type == "generic") {
-        openfda_query %<>% fda_filter("patient.drug.openfda.generic_name.exact", query_str)
+        openfda_query %<>% fda_filter("patient.drug.openfda.generic_name.exact", query_str_combine)
       } else {
-        openfda_query %<>% fda_filter("patient.drug.openfda.brand_name.exact", query_str)
+        openfda_query %<>% fda_filter("patient.drug.openfda.brand_name.exact", query_str_combine)
       }
     }
-    if("" != input$search_rxn) {
+    incProgress(2/6)
+    if(!is.null(input$search_rxn)) {
       query_str <- paste0('"', gsub(" ", "+", input$search_rxn), '"')
-      openfda_query %<>% fda_filter("patient.reaction.reactionmeddrapt.exact", query_str)
+      query_str_combine <- sprintf('(%s)', paste0(query_str, collapse = '+'))
+      openfda_query %<>% fda_filter("patient.reaction.reactionmeddrapt.exact", query_str_combine)
     }
     result <- openfda_query %>% fda_search() %>% fda_limit(1) %>% fda_exec()
     if (is.null(result)) {
-      removeModal()
+      setProgress(1)
       showModal(modalDialog(
         title = list(icon("exclamation-triangle"), "No results found!"),
         "There were no reports matching your query.",
@@ -362,14 +372,16 @@ server <- function(input, output, session) {
         easyClose = TRUE))
       return()
     }
+    incProgress(1/6)
     
     current_search$name_type<- input$name_type
     current_search$name<- name
     current_search$rxn <- input$search_rxn
     current_search$date_range <- input$searchDateRange
     faers_query$query <- openfda_query
-    
-    removeModal()
+    incProgress(2/6)
+    })
+
   })
   ages <- reactive({
     query <- faers_query$query
@@ -458,11 +470,11 @@ server <- function(input, output, session) {
                                    "Adverse Reaction Term:",
                                    "Date Range:"),
                          values = c(toupper(data$name_type),
-                                    data$name,
-                                    data$rxn,
+                                    ifelse(is.null(data$name), 'Not Specified', paste(data$name, collapse = ', ')),
+                                    ifelse(is.null(data$rxn), 'Not Specified', paste(data$rxn, collapse = ', ')),
                                     paste(data$date_range, collapse = " to ")),
                          stringsAsFactors = FALSE)
-    result$values["" == result$values] <- "Not Specified"
+    #result$values[result$values] <- "Not Specified"
     result
   }, include.colnames = FALSE)
   
@@ -479,9 +491,9 @@ server <- function(input, output, session) {
     drug_name <- current_search$name
     rxn_name <- current_search$rxn
     
-    if ("" == drug_name) drug_name <- "All Drugs"
-    if ("" == rxn_name) rxn_name <- "All Reactions"
-    plottitle <- paste0("Drug Adverse Event Reports for ", drug_name, " and ", rxn_name, " (", nreports, " reports)")
+    if (is.null(drug_name)) drug_name <- "All Drugs"
+    if (is.null(rxn_name)) rxn_name <- "All Reactions"
+    plottitle <- paste0("Drug Adverse Event Reports for ", paste0(drug_name, collapse = ', '), " and ", paste0(rxn_name, collapse = ', '), " (", nreports, " reports)")
     h3(strong(plottitle))
   })
   output$timeplot <- renderGvis({
