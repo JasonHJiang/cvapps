@@ -36,7 +36,8 @@ binding.renderValue = function(el, data) {
         .reduceXTicks(true)   //If 'false', every single x-axis tick label will be rendered.
         .rotateLabels(0)      //Angle to rotate x-axis labels.
         .showControls(true)   //Allow user to switch between 'Grouped' and 'Stacked' mode.
-        .groupSpacing(0.1);    //Distance between each group of bars.
+        .groupSpacing(0.1)    //Distance between each group of bars.
+        .stacked(true);
   
       
     

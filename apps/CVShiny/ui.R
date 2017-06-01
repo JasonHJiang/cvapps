@@ -1,7 +1,7 @@
 
 
 dashboardPage(
-  dashboardHeader(title = titleWarning("CV Shiny (v0.18)"),
+  dashboardHeader(title = titleWarning("CV Shiny (v0.19)"),
                   titleWidth = 700),
   
   dashboardSidebar(
@@ -124,9 +124,11 @@ dashboardPage(
                            paste0("Indicates who reported the adverse reaction and their relationship to the patient. ",
                                   "Slices may not be visible if they are too small.")),
                
-                pieTableUI("seriousplot", "Seriousness",
+                       pieTableUI("seriousplot", "Seriousness",
                            paste0("A serious report contains a serious adverse reaction, determined by the reporter ",
                                   "of the report at the time of reporting. Slices may not be visible if they are too small.")),
+                       
+                
                 
                 box(h3("Reason(s) for Seriousness",
                        tipify(
@@ -134,9 +136,9 @@ dashboardPage(
                          title = paste0("The serious condition which the adverse event resulted in. Total may sum to",
                                         " more than the total number of reports because reports can be marked serious for multiple reasons"))),
                     htmlOutput("seriousreasonsplot"),
-                    width = 5)
-              )
-      ),
+                    width = 6)
+              ) 
+              ),
       tabItem(tabName = "patientdata",
               fluidRow(
                 pieTableUI("sexplot", 
@@ -218,7 +220,8 @@ dashboardPage(
                 barTableUI("suspect_drugs", "Most Frequently Reported Suspect Drugs (Brand Name)",
                            paste0("This plot includes all drugs present in the matching reports. ",
                                   "The search query filters unique reports, which may have one or more drugs associated with them. ",
-                                  "The reporter suspects that the health product caused the adverse reaction.")),
+                                  "The reporter suspects that the health product caused the adverse reaction."))),
+              fluidRow(
                 barTableUI("concomitant_drugs", "Most Frequently Reported Concomitant Drugs (Brand Name)",
                            paste0("This plot includes all drugs present in the matching reports. ",
                                   "The search query filters unique reports, which may have one or more drugs associated with them. ",
