@@ -20,8 +20,8 @@ library(DT)
 
 source("common_ui.R")
 source("linechart.R")
-source("~/cvapps/apps/pieTableUtil.R")
-source("~/cvapps/apps/barTableUtil.R")
+source("pieTableUtil.R")
+source("barTableUtil.R")
 
 # ON NEW RELEASE, CHANGE THIS DATE --------------------------------------------
 data_date   <- "20160630"                                                    #|
