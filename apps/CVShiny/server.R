@@ -15,7 +15,7 @@ shinyServer(function(input, output, session) {
   #subset_cv <- reactiveValues()
   selected_ids <- reactiveValues()
   report_tab <- reactiveValues()
-
+  
   
   
   
@@ -23,138 +23,139 @@ shinyServer(function(input, output, session) {
   reactiveSearchButton <- reactive(as.vector(input$searchButton))
   
   
-
   
- observeEvent(reactiveSearchButton(),
-    withProgress(message = 'Calculation in progress', value = 0, {
+  
+  observeEvent(reactiveSearchButton(),
+               withProgress(message = 'Calculation in progress', value = 0, {
                  
-    if (input$name_type == "brand") {
-      name <- input$search_brand
-    } else if (input$name_type == "ingredient") {
-      name <- input$search_ing
-    } else {
-      name <- input$search_ing2
-    }
-    
-    startDate <- paste(input$searchStartYear, input$searchStartMonth, '1', collapse = "-") %>% ymd(tz = 'EST')
-    endDate <- paste(input$searchEndYear, input$searchEndMonth, '1', collapse = "-") %>% ymd(tz = 'EST') 
-    dateRange <- c(startDate, endDate)
-    
-    current_search$name_type <- input$name_type
-    current_search$name <- name
-    current_search$drug_inv <- input$drug_inv
-    current_search$seriousness_type <- input$seriousness_type
-    current_search$rxn <- input$search_rxn
-    current_search$gender <- input$search_gender
-    current_search$soc <- input$search_soc
-    current_search$age <- input$search_age
-    current_search$date_range <- dateRange
-    current_search$checkbox_filter <- input$filter_over_100
-    incProgress(1/9, detail = 'Filtering Report Date Range')
-    
-    cv_reports_filtered_ids <- cv_reports %>%
-      filter(DATINTRECEIVED_CLEAN >= current_search$date_range[1], DATINTRECEIVED_CLEAN <= current_search$date_range[2])
-    incProgress(1/9, detail = 'Filtering Seriousness Type and Gender')
-    
-    if (current_search$seriousness_type == "Death") {cv_reports_filtered_ids %<>% filter(DEATH == '1')}
-    else if (current_search$seriousness_type == "Serious") {cv_reports_filtered_ids %<>% filter(SERIOUSNESS_ENG == 'Yes')}
-    
-    if (current_search$gender == 'Male' | current_search$gender == 'Female') {
-      cv_reports_filtered_ids %<>% filter(GENDER_ENG == current_search$gender)
-    }
-    incProgress(1/9, detail = 'Applying Age Constraints')
-
-    if (current_search$checkbox_filter & current_search$age[2] == 100) {
-      cv_reports_filtered_ids %<>% filter(AGE_Y >= current_search$age[1])
-    } else {
-      cv_reports_filtered_ids %<>% filter(AGE_Y >= current_search$age[1] & AGE_Y <= current_search$age[2])
-    }
-    cv_reports_filtered_ids %<>% select(REPORT_ID)
-
-
-    cv_report_drug_filtered <- cv_report_drug
-    if (current_search$name_type == "brand" & !is.null(current_search$name)) {
-      if (length(current_search$name) == 1) cv_report_drug_filtered %<>% filter(DRUGNAME == current_search$name)
-      else cv_report_drug_filtered %<>% filter(DRUGNAME %in% current_search$name)
-
-      incProgress(1/9, detail = 'Filtering by Brand')
-
-    } else if (current_search$name_type == "ingredient2" & !is.null(current_search$name) && current_search$name != "") {
-      related_drugs <- cv_substances %>% filter(ing == current_search$name)
-      cv_report_drug_filtered %<>% semi_join(related_drugs, by = "DRUGNAME")
-
-    } else if (current_search$name_type == "ingredient" & !is.null(current_search$name)) {
-      if (length(current_search$name) == 1) related_drugs <- cv_drug_product_ingredients %>% filter(ACTIVE_INGREDIENT_NAME == current_search$name)
-      else related_drugs <- cv_drug_product_ingredients %>% filter(ACTIVE_INGREDIENT_NAME %in% current_search$name)
-      cv_report_drug_filtered %<>% semi_join(related_drugs, by = "DRUG_PRODUCT_ID")
-
-      incProgress(1/9, detail = 'Filtering by Ingredient')
-
-    }
-    if (current_search$drug_inv != "Any") cv_report_drug_filtered %<>% filter(DRUGINVOLV_ENG == current_search$drug_inv)
-    if (current_search$seriousness_type == "Death") {cv_report_drug_filtered %<>% filter(DEATH == '1')}
-    else if (current_search$seriousness_type == "Serious") {cv_report_drug_filtered %<>% filter(SERIOUSNESS_ENG == 'Yes')}
-    
-    incProgress(2/9, detail = 'Filtering Reactions')
-
-
-    cv_reactions_filtered <- cv_reactions %>% filter(PT_NAME_ENG != "")
-    if (!is.null(current_search$rxn)) {
-      if (length(current_search$rxn) == 1) {
-        cv_reactions_filtered %<>% filter(PT_NAME_ENG == current_search$rxn | SMQ == current_search$rxn) %>% distinct()
-      } else {
-        cv_reactions_filtered %<>% filter(PT_NAME_ENG %in% current_search$rxn | SMQ %in% current_search$rxn) %>% distinct()
-      }
-    }
-    if (!is.null(current_search$soc)) {
-      if (length(current_search$soc) == 1) cv_reactions_filtered %<>% filter(SOC_NAME_ENG == current_search$soc)
-      else cv_reactions_filtered %<>% filter(SOC_NAME_ENG %in% current_search$soc)
-    }
-
-    # cv_reports_filtered_ids %<>% as.data.frame()
-    # cv_report_drug_filtered %<>% as.data.frame()
-    # cv_reactions_filtered %<>% as.data.frame()
-    if (current_search$seriousness_type == "Death") {cv_reactions_filtered %<>% filter(DEATH == '1')}
-    else if (current_search$seriousness_type == "Serious") {cv_reactions_filtered %<>% filter(SERIOUSNESS_ENG == 'Yes')}
-
-    selected_ids$ids <-  cv_reports_filtered_ids %>%
-      semi_join(cv_report_drug_filtered, "REPORT_ID" = "REPORT_ID") %>%
-      semi_join(cv_reactions_filtered, "REPORT_ID" = "REPORT_ID") %>% as.data.frame()
-    incProgress(1/9, detail = 'Checking for no reports...')
-    n_ids <- selected_ids$ids %>% nrow()
-    if (n_ids == 0) {
-      setProgress(1)
-      showModal(modalDialog(
-        title = list(icon("exclamation-triangle"), "No results found!"),
-        "There were no reports matching your query.",
-        size = "s",
-        easyClose = TRUE))
-      return()
-    }
-
-    incProgress(1/9, detail = 'Fetching data...')
-    
-    # so then all data is polled upon search, not just when display corresponding plot
-    # subset_cv$report <- cv_reports %>%
-    #   semi_join(selected_ids, by = "REPORT_ID")
-    # subset_cv$drug <- cv_report_drug %>%
-    #   semi_join(selected_ids, by = "REPORT_ID") %>%
-    #   left_join(cv_report_drug_indication, by = c("REPORT_DRUG_ID", "REPORT_ID", "DRUG_PRODUCT_ID", "DRUGNAME")) 
-    # subset_cv$rxn <- cv_reactions %>%
-    #   semi_join(selected_ids, by = "REPORT_ID") %>%
-    #   left_join(meddra, by = c("PT_NAME_ENG" = "PT_Term", "MEDDRA_VERSION" = "Version"))
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    incProgress(1/9)
-                 })
+                 if (input$name_type == "brand") {
+                   name <- input$search_brand
+                 } else if (input$name_type == "ingredient") {
+                   name <- input$search_ing
+                 } else {
+                   name <- input$search_ing2
+                 }
+                 
+                 startDate <- paste(input$searchStartYear, input$searchStartMonth, '1', collapse = "-") %>% ymd(tz = 'EST')
+                 endDate <- paste(input$searchEndYear, input$searchEndMonth, '1', collapse = "-") %>% ymd(tz = 'EST') 
+                 dateRange <- c(startDate, endDate)
+                 
+                 current_search$name_type <- input$name_type
+                 current_search$name <- name
+                 current_search$drug_inv <- input$drug_inv
+                 current_search$seriousness_type <- input$seriousness_type
+                 current_search$rxn <- input$search_rxn
+                 current_search$gender <- input$search_gender
+                 current_search$soc <- input$search_soc
+                 current_search$age <- input$search_age
+                 current_search$date_range <- dateRange
+                 current_search$checkbox_filter <- input$filter_over_100
+                 incProgress(1/9, detail = 'Filtering Report Date Range')
+                 
+                 cv_reports_filtered_ids <- cv_reports %>%
+                   filter(DATINTRECEIVED_CLEAN >= current_search$date_range[1], DATINTRECEIVED_CLEAN <= current_search$date_range[2])
+                 incProgress(1/9, detail = 'Filtering Seriousness Type and Gender')
+                 
+                 if (current_search$seriousness_type == "Death") {cv_reports_filtered_ids %<>% filter(DEATH == '1')}
+                 else if (current_search$seriousness_type == "Serious") {cv_reports_filtered_ids %<>% filter(SERIOUSNESS_ENG == 'Yes')}
+                 
+                 if (current_search$gender == 'Male' | current_search$gender == 'Female') {
+                   cv_reports_filtered_ids %<>% filter(GENDER_ENG == current_search$gender)
+                 }
+                 incProgress(1/9, detail = 'Applying Age Constraints')
+                 
+                 if (current_search$checkbox_filter & current_search$age[2] == 100) {
+                   cv_reports_filtered_ids %<>% filter(AGE_Y >= current_search$age[1])
+                 } else {
+                   cv_reports_filtered_ids %<>% filter(AGE_Y >= current_search$age[1] & AGE_Y <= current_search$age[2])
+                 }
+                 cv_reports_filtered_ids %<>% select(REPORT_ID)
+                 
+                 
+                 cv_report_drug_filtered <- cv_report_drug
+                 if (current_search$name_type == "brand" & !is.null(current_search$name)) {
+                   if (length(current_search$name) == 1) cv_report_drug_filtered %<>% filter(DRUGNAME == current_search$name)
+                   else cv_report_drug_filtered %<>% filter(DRUGNAME %in% current_search$name)
+                   
+                   incProgress(1/9, detail = 'Filtering by Brand')
+                   
+                 } else if (current_search$name_type == "ingredient2" & !is.null(current_search$name) && current_search$name != "") {
+                   related_drugs <- cv_substances %>% filter(ing == current_search$name)
+                   cv_report_drug_filtered %<>% semi_join(related_drugs, by = "DRUGNAME")
+                   
+                 } else if (current_search$name_type == "ingredient" & !is.null(current_search$name)) {
+                   if (length(current_search$name) == 1) related_drugs <- cv_drug_product_ingredients %>% filter(ACTIVE_INGREDIENT_NAME == current_search$name)
+                   else related_drugs <- cv_drug_product_ingredients %>% filter(ACTIVE_INGREDIENT_NAME %in% current_search$name)
+                   cv_report_drug_filtered %<>% semi_join(related_drugs, by = "DRUG_PRODUCT_ID")
+                   
+                   incProgress(1/9, detail = 'Filtering by Ingredient')
+                   
+                 }
+                 if (current_search$drug_inv != "Any") cv_report_drug_filtered %<>% filter(DRUGINVOLV_ENG == current_search$drug_inv)
+                 if (current_search$seriousness_type == "Death") {cv_report_drug_filtered %<>% filter(DEATH == '1')}
+                 else if (current_search$seriousness_type == "Serious") {cv_report_drug_filtered %<>% filter(SERIOUSNESS_ENG == 'Yes')}
+                 
+                 incProgress(2/9, detail = 'Filtering Reactions')
+                 
+                 
+                 cv_reactions_filtered <- cv_reactions %>% filter(PT_NAME_ENG != "")
+                 if (!is.null(current_search$rxn)) {
+                   if (length(current_search$rxn) == 1) {
+                     cv_reactions_filtered %<>% filter(PT_NAME_ENG == current_search$rxn | SMQ == current_search$rxn) %>% distinct()
+                   } else {
+                     cv_reactions_filtered %<>% filter(PT_NAME_ENG %in% current_search$rxn | SMQ %in% current_search$rxn) %>% distinct()
+                   }
+                 }
+                 if (!is.null(current_search$soc)) {
+                   if (length(current_search$soc) == 1) cv_reactions_filtered %<>% filter(SOC_NAME_ENG == current_search$soc)
+                   else cv_reactions_filtered %<>% filter(SOC_NAME_ENG %in% current_search$soc)
+                 }
+                 
+                 # cv_reports_filtered_ids %<>% as.data.frame()
+                 # cv_report_drug_filtered %<>% as.data.frame()
+                 # cv_reactions_filtered %<>% as.data.frame()
+                 if (current_search$seriousness_type == "Death") {cv_reactions_filtered %<>% filter(DEATH == '1')}
+                 else if (current_search$seriousness_type == "Serious") {cv_reactions_filtered %<>% filter(SERIOUSNESS_ENG == 'Yes')}
+                 
+                 
+                 selected_ids$ids <-  cv_reports_filtered_ids %>%
+                   semi_join(cv_report_drug_filtered, "REPORT_ID" = "REPORT_ID") %>%
+                   semi_join(cv_reactions_filtered, "REPORT_ID" = "REPORT_ID") %>% as.data.frame()
+                 incProgress(1/9, detail = 'Checking for no reports...')
+                 n_ids <- selected_ids$ids %>% nrow()
+                 if (n_ids == 0) {
+                   setProgress(1)
+                   showModal(modalDialog(
+                     title = list(icon("exclamation-triangle"), "No results found!"),
+                     "There were no reports matching your query.",
+                     size = "s",
+                     easyClose = TRUE))
+                   return()
+                 }
+                 
+                 incProgress(1/9, detail = 'Fetching data...')
+                 
+                 # so then all data is polled upon search, not just when display corresponding plot
+                 # subset_cv$report <- cv_reports %>%
+                 #   semi_join(selected_ids, by = "REPORT_ID")
+                 # subset_cv$drug <- cv_report_drug %>%
+                 #   semi_join(selected_ids, by = "REPORT_ID") %>%
+                 #   left_join(cv_report_drug_indication, by = c("REPORT_DRUG_ID", "REPORT_ID", "DRUG_PRODUCT_ID", "DRUGNAME")) 
+                 # subset_cv$rxn <- cv_reactions %>%
+                 #   semi_join(selected_ids, by = "REPORT_ID") %>%
+                 #   left_join(meddra, by = c("PT_NAME_ENG" = "PT_Term", "MEDDRA_VERSION" = "Version"))
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 incProgress(1/9)
+               })
   )
   
   
@@ -216,14 +217,14 @@ shinyServer(function(input, output, session) {
   
   output$timeplot_title <- renderUI({
     data <- mainDataSelection()
-
+    
     nreports <- data %>%
       distinct(REPORT_ID) %>%
       tally() %>%
       as.data.frame()
     drug_name <- paste0(current_search$name, collapse = ", ")
     rxn_name <- paste0(current_search$rxn, collapse = ", ")
-
+    
     if ("" == drug_name) drug_name <- "All Drugs"
     if ("" == rxn_name) rxn_name <- "All Reactions"
     plottitle <- paste0("Drug Adverse Event Reports for ", drug_name, " and ", rxn_name, " (", nreports, " reports)")
@@ -240,15 +241,15 @@ shinyServer(function(input, output, session) {
     # search_function(mychart_pool, current_search)
     # data <- semi_join(cv_reports, selected_ids, by = "REPORT_ID")
     data <- mainDataSelection()
-
-
-
+    
+    
+    
     dates <- data %>% select(DATINTRECEIVED_CLEAN) %>% summarize(date_min = min(DATINTRECEIVED_CLEAN),
                                                                  date_max = max(DATINTRECEIVED_CLEAN)) %>%
       as.data.frame()
-
+    
     two_years <- 730
-
+    
     if ((dates$date_max - dates$date_min) >= two_years) {
       time_period <- "year"
       time_function <- function(x) {years(x)}
@@ -256,11 +257,11 @@ shinyServer(function(input, output, session) {
       time_period <- "month"
       time_function <- function(x) {months(x)}
     }
-
+    
     data_r <- data %>% select(c(DATINTRECEIVED_CLEAN, SERIOUSNESS_ENG, DEATH)) %>%
       dplyr::mutate(time_p = date_trunc(time_period, DATINTRECEIVED_CLEAN))
-
-
+    
+    
     total_results <- data_r %>%
       group_by(time_p) %>%
       summarize(total = n())
@@ -269,35 +270,35 @@ shinyServer(function(input, output, session) {
       filter(SERIOUSNESS_ENG == "No") %>%
       group_by(time_p) %>%
       summarize(nonserious = n())
-
-
+    
+    
     serious_results <- data_r %>%
       filter(SERIOUSNESS_ENG == "Yes") %>%
       group_by(time_p) %>%
       summarize(serious = n())
-
- 
-
+    
+    
+    
     death_results <- data_r %>%
       filter(DEATH == 1) %>%
       group_by(time_p) %>%
       summarize(death = n())
-
-
+    
+    
     ntime_p <- interval(dates$date_min, dates$date_max) %/% time_function(1)
     time_list <- min(dates$date_min %>% floor_date(time_period)) + time_function(0:ntime_p)
-
+    
     results_to_be_mapped <- left_join(death_results, serious_results, by = 'time_p') %>%
       left_join(nonserious_results, by = 'time_p') %>% as.data.frame() %>%
       mutate(time_p = ymd(time_p))
-
+    
     results <- data.frame(time_p = time_list) %>%
       left_join(results_to_be_mapped, by = 'time_p')
-
+    
     results[is.na(results)] <- 0
     results
   })
-
+  
   ##### Data about Reports
   
   reporterplot_data <- reactive({
@@ -327,11 +328,11 @@ shinyServer(function(input, output, session) {
       slice(match(c("Serious", "Non-serious", "Not reported"), label))
   })
   callModule(pieTable, "seriousplot", dataChart = seriousplot_data(), x = "label", y = "count")
-
+  
   output$seriousreasonsplot <- renderGvis({
     data <- mainDataSelection() %>%
       filter(SERIOUSNESS_ENG == "Yes")
-
+    
     n_congen <- data %>%
       filter(CONGENITAL_ANOMALY == 1) %>%
       tally() %>% as.data.frame() %>% `$`(n)
@@ -359,7 +360,7 @@ shinyServer(function(input, output, session) {
       filter(HOSP_REQUIRED != 1 | is.na(HOSP_REQUIRED)) %>%
       filter(OTHER_MEDICALLY_IMP_COND != 1 | is.na(OTHER_MEDICALLY_IMP_COND)) %>%
       tally() %>% as.data.frame() %>% `$`(n)
-
+    
     serious_reasons <- data.frame(label = c("Death",
                                             "Life-threatening",
                                             "Hospitalization",
@@ -400,7 +401,7 @@ shinyServer(function(input, output, session) {
   })
   
   callModule(pieTable, "sexplot", dataChart = sexplot_data(), x = "GENDER_ENG", y = "n")
-
+  
   
   agegroup_data <-reactive({
     age_groups <- mainDataSelection() %>%
@@ -419,9 +420,9 @@ shinyServer(function(input, output, session) {
     data
   })
   callModule(pieTable, "agegroupplot", dataChart = agegroup_data(), x = "AGE_GROUP_CLEAN", y = "n")
-
   
-
+  
+  
   output$agehisttitle <- renderUI({
     excluded_count <- mainDataSelection() %>%
       filter(AGE_GROUP_CLEAN != "Unknown", AGE_Y > 100) %>%
@@ -438,14 +439,14 @@ shinyServer(function(input, output, session) {
       select(c(AGE_Y, AGE_GROUP_CLEAN)) %>%
       as.data.frame()
     age_groups$AGE_GROUP_CLEAN %<>% factor(levels = c("Neonate", "Infant", "Child", "Adolescent", "Adult", "Elderly"))
-
+    
     # joining by remaining terms so you can assign the right colours to the legend
     colours_df <- data.frame(
       AGE_GROUP_CLEAN = c("Neonate", "Infant", "Child", "Adolescent", "Adult", "Elderly"),
       colours = google_colors[1:6],
       stringsAsFactors = FALSE) %>%
       semi_join(age_groups, by = "AGE_GROUP_CLEAN")
-
+    
     hist <- ggplot(age_groups, aes(x = AGE_Y, fill = AGE_GROUP_CLEAN)) +
       geom_histogram(breaks = seq(0, 100, by = 2)) +
       scale_fill_manual(values = colours_df$colours) +
@@ -553,7 +554,7 @@ shinyServer(function(input, output, session) {
       head(25) %>%
       as.data.frame()
   })
-   
+  
   callModule(barTable, "concomitant_drugs", dataChart = concomitant_data(), x = "DRUGNAME", y = "n", colour = google_colors[4])
   output$concomitant_drugs <- renderGvis({
     # When generic, brand & reaction names are unspecified, count number of UNIQUE reports associated with each durg_name
@@ -566,7 +567,7 @@ shinyServer(function(input, output, session) {
     data <- concomitant_data()
     gvisTable(data)
   })
- 
+  
   output$drugcounttitle <- renderUI({
     excluded_count <- drugDataSelection() %>%
       count(REPORT_ID) %>%
@@ -602,7 +603,7 @@ shinyServer(function(input, output, session) {
       vAxis = "{title: 'Number of Reports'}",
       hAxis = "{title: 'Number of Drugs in Report'}",
       chartArea = "{top: 20, height: '75%', left: 80, width: '90%'}")
-      )
+    )
   })
   
   
@@ -634,7 +635,7 @@ shinyServer(function(input, output, session) {
     data
   })
   callModule(barTable, "tophlt", dataChart = top_hlt_data(), x = "HLT_Term", y = "n", colour = google_colors[2])
-
+  
   
   outcomeplot_data <- reactive({
     mainDataSelection() %>%
@@ -642,7 +643,7 @@ shinyServer(function(input, output, session) {
       as.data.frame()
   })
   callModule(pieTable, "outcomeplot", dataChart = outcomeplot_data(), x = "OUTCOME_ENG", y = "n")
-
+  
   
   ############# Download Tab
   output$download_reports <- downloadHandler(
