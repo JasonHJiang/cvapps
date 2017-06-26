@@ -52,6 +52,13 @@ cv_report_drug              <- tbl(hcopen, table_name_cv_report_drug)
 cv_reactions                <- tbl(hcopen, table_name_cv_reactions)
 cv_substances               <- tbl(hcopen, "cv_substances")
 
+cv_reports_temp <- tbl(hcopen, table_name_cv_reports) %>%
+  select(REPORT_ID, SERIOUSNESS_ENG,DEATH)
+# cv_reports_temp$DEATH[cv_reports_temp$DEATH == 1] <- "Yes"
+# cv_reports_temp$DEATH[is.na(cv_reports_temp$DEATH)] <- "No"
+
+cv_report_drug %<>% left_join(cv_reports_temp, "REPORT_ID" = "REPORT_ID")
+cv_reactions %<>% left_join(cv_reports_temp, "REPORT_ID" = "REPORT_ID")
 
 #Fetch brand/drug names
 
