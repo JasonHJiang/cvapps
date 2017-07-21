@@ -1,311 +1,3 @@
-# data manip + utils
-library(magrittr)
-library(lubridate)
-library(tidyr)
-library(dplyr)
-library(utils)
-library(zoo)
-library(pool)
-
-# data visualizations
-library(plotly)
-library(ggplot2)
-library(googleVis)
-library(ggvis)
-
-# Shiny libraries
-library(shiny)
-library(shinydashboard)
-library(shinyBS)
-library(DT)
-library(markdown)
-
-source("common_ui.R")
-
-#### Data pre-processing and server connections ####
-hcopen_pool <- dbPool(drv = "PostgreSQL",
-                      host = "shiny.hc.local",
-                      dbname = "hcopen",
-                      user = "hcreader",
-                      password = "canada1")
-hcopen <- src_pool(hcopen_pool)
-gc()
-
-# removing these columns first results in a faster join
-cv_bcpnn <- hcopen %>% tbl("PT_IC_161027") %>%
-  select(drug_code, event_effect, count, expected_count, median_IC, LB95_IC, UB95_IC)
-cv_gps <- hcopen %>% tbl("PT_GPS_161121") %>%
-  select(drug_code, event_effect, postH0, postE_lambda, Q0.05_lambda)
-cv_rfet <- hcopen %>% tbl("PT_RFET_161101") %>%
-  select(drug_code, event_effect, midRFET, RFET)
-cv_prr <- hcopen %>% tbl("PT_PRR_160927") %>%
-  select(drug_code, event_effect, PRR, LB95_PRR, UB95_PRR)
-cv_ror <- hcopen %>% tbl("PT_ROR_160927") %>%
-  select(drug_code, event_effect, ROR, LB95_ROR, UB95_ROR)
-cv_rrr <- hcopen %>% tbl("PT_RRR_160927") %>%
-  select(drug_code, event_effect, RRR, LB95_RRR, UB95_RRR)
-cv_counts <- hcopen %>% tbl("PT_counts_161103") %>%
-  select(drug_code, event_effect, drug_margin, event_margin)
-
-
-# Grab PT, HLT and SOC Terms from MedDra
-soc_all <- hcopen %>% tbl("meddra") %>%
-  select(PT_Term,HLT_Term,SOC_Term)
-cv_soc <- soc_all %>%
-  select(PT_Term,SOC_Term) %>%
-  rename(event_effect = PT_Term) %>%
-  as.data.frame()
-cv_soc <- cv_soc[!duplicated(cv_soc),]
-# Concatenate all SOC Terms
-cat_pt <- cv_soc %>%
-  group_by(event_effect) %>%
-  summarize(SOC_Term = paste(unique(SOC_Term), collapse = ", "))
-
-# Grab PT, HLT, quarter info
-reportid_all <- hcopen %>% tbl("cv_drug_rxn_meddra") %>%
-  select(PT_NAME_ENG, HLT_NAME_ENG,quarter)
-cv_reportid <- reportid_all %>%
-  select(PT_NAME_ENG, quarter) %>%
-  rename(event_effect = PT_NAME_ENG) %>%
-  as.data.frame()
-cv_reportid <- cv_reportid[!duplicated(cv_reportid),]
-
-# OPTION1: save var report id(a lot bigger)
-# a <- cv_reportid %>%
-#  group_by(event_effect,quarter) %>%
-#  summarize(REPORT_ID = paste(unique(REPORT_ID), collapse = ", "))
-# OPTION2: save var quarter
-cat_id_pt <- cv_reportid %>%
-  group_by(event_effect) %>%
-  summarize(quarter = paste(unique(quarter), collapse = ", "))
-
-master_table_pt <- cv_bcpnn %>%
-  inner_join(cv_counts, by = c("drug_code", "event_effect")) %>%
-  inner_join(cv_gps, by = c("drug_code", "event_effect")) %>%
-  inner_join(cv_rfet, by = c("drug_code", "event_effect")) %>%
-  inner_join(cv_prr, by = c("drug_code", "event_effect")) %>%
-  inner_join(cv_ror, by = c("drug_code", "event_effect")) %>%
-  inner_join(cv_rrr, by = c("drug_code", "event_effect")) %>%
-  left_join(cat_pt,"event_effect" = "event_effect",copy = TRUE) %>%
-  left_join(cat_id_pt, "event_effect" = "event_effect", copy = TRUE) %>%
-  select(1:4, 24:25, 8:9, 5:23) %>%
-  as.data.frame() # already pull entire table to display at onset of app, might as well do everything locally (faster)
-
-master_table_pt <- master_table_pt[!duplicated(master_table_pt),]
-
-
-hlt_bcpnn <- hcopen %>% tbl("HLT_IC_161027") %>%
-  select(drug_code, event_effect, count, expected_count, median_IC, LB95_IC, UB95_IC)
-hlt_gps <- hcopen %>% tbl("HLT_GPS_161121") %>%
-  select(drug_code, event_effect, postH0, postE_lambda, Q0.05_lambda)
-hlt_rfet <- hcopen %>% tbl("HLT_RFET_161101") %>%
-  select(drug_code, event_effect, midRFET, RFET)
-hlt_prr <- hcopen %>% tbl("HLT_PRR_160927") %>%
-  select(drug_code, event_effect, PRR, LB95_PRR, UB95_PRR)
-hlt_ror <- hcopen %>% tbl("HLT_ROR_160927") %>%
-  select(drug_code, event_effect, ROR, LB95_ROR, UB95_ROR)
-hlt_rrr <- hcopen %>% tbl("HLT_RRR_160927") %>%
-  select(drug_code, event_effect, RRR, LB95_RRR, UB95_RRR)
-hlt_counts <- hcopen %>% tbl("HLT_counts_161103") %>%
-  select(drug_code, event_effect, drug_margin, event_margin)
-hlt_soc <- soc_all %>%
-  select(HLT_Term,SOC_Term) %>%
-  rename(event_effect = HLT_Term) %>%
-  as.data.frame()
-hlt_soc <- hlt_soc[!duplicated(hlt_soc),]
-cat_hlt <- hlt_soc %>%
-  group_by(event_effect) %>%
-  summarize(SOC_Term = paste(unique(SOC_Term),collapse = ", "))
-
-hlt_reportid <- reportid_all %>%
-  select(HLT_NAME_ENG, quarter) %>%
-  rename(event_effect = HLT_NAME_ENG) %>%
-  as.data.frame()
-hlt_reportid <- hlt_reportid[!duplicated(hlt_reportid),]
-
-# OPTION1: save var report id(a lot bigger)
-# new_id_hlt <- hlt_reportid %>%
-#  group_by(event_effect,quarter) %>%
-#  summarize(REPORT_ID = paste(unique(REPORT_ID), collapse = ", "))
-# OPTION2: save var quarter
-cat_id_hlt <- hlt_reportid %>%
-  group_by(event_effect) %>%
-  summarize(quarter = paste(unique(quarter), collapse = ", "))
-
-master_table_hlt <- hlt_bcpnn %>%
-  inner_join(hlt_counts, by = c("drug_code", "event_effect")) %>%
-  inner_join(hlt_gps, by = c("drug_code", "event_effect")) %>%
-  inner_join(hlt_rfet, by = c("drug_code", "event_effect")) %>%
-  inner_join(hlt_prr, by = c("drug_code", "event_effect")) %>%
-  inner_join(hlt_ror, by = c("drug_code", "event_effect")) %>%
-  inner_join(hlt_rrr, by = c("drug_code", "event_effect")) %>%
-  left_join(cat_hlt, "event_effect" = "event_effect", copy = TRUE) %>%
-  left_join(cat_id_hlt, "event_effect" = "event_effect", copy = TRUE) %>%
-  select(1:4, 24:25, 8:9, 5:23) %>%
-  as.data.frame()
-
-master_table_hlt <- master_table_hlt[!duplicated(master_table_hlt),]
-
-cv_drug_rxn_meddra <- hcopen %>% tbl("cv_drug_rxn_meddra")
-cv_drug_rxn_2006 <- cv_drug_rxn_meddra %>% filter(quarter >= 2006.1)
-count_quarter_pt <- count(cv_drug_rxn_2006, ing, PT_NAME_ENG, quarter) %>% as.data.frame()
-count_quarter_hlt <- count(cv_drug_rxn_2006, ing, HLT_NAME_ENG, quarter) %>% as.data.frame()
-quarters <- count_quarter_pt %>% select(quarter) %>% distinct() %>% as.data.frame()
-
-
-# PT-HLT mapping
-drug_PT_HLT <- cv_drug_rxn_2006 %>%
-  select(ing, PT_NAME_ENG, HLT_NAME_ENG, SOC_NAME_ENG) %>%
-  distinct() %>%
-  filter(!is.na(HLT_NAME_ENG))
-# drug and adverse event dropdown menu choices
-drug_choices <- drug_PT_HLT %>% distinct(ing) %>% as.data.frame() %>% `$`("ing") %>% sort()
-
-################################## UI component ####
-ui <- dashboardPage(
-  dashboardHeader(title = titleWarning("Shiny DISP (v0.19)"),
-                  titleWidth = 700),
-  
-  dashboardSidebar(
-    width = 280,
-    sidebarMenu(
-      menuItem("Disproportionality Analysis", tabName = "data", icon = icon("database")),
-      selectizeInput(inputId ="search_drug",
-                     label = "Generic Name/Ingredient",
-                     choices = c(drug_choices, "Start typing to search..." = ""),
-                     multiple = TRUE,
-                     selected = drug_choices[1]),
-      selectizeInput(inputId = "search_hlt",
-                     label = "Adverse Event High-Level Term",
-                     choices = c("Start typing to search..." = ""),
-                     multiple = TRUE),
-      selectizeInput(inputId = "search_pt",
-                     label = "Adverse Event Preferred Term",
-                     choices = c("Start typing to search..." = ""),
-                     multiple = TRUE),
-      checkboxInput(inputId = "checkbox_filter_pt",
-                    label = "Only see PTs from chosen HLT",
-                    value = FALSE),
-      div(style="display: inline-block; width: 50%;",
-          textInput(inputId = "min_count",
-                    label = "Min. count:",
-                    value = "0")),
-      div(style="display: inline-block; width: 50%;",
-          textInput(inputId = "min_exp",
-                    label = "Min. expected:",
-                    value = "0")),
-      checkboxInput(inputId = "inf_filter",
-                    label = "Exclude Inf PRR from table",
-                    value = FALSE),
-      conditionalPanel(
-        "input.search_hlt == null",
-        checkboxInput(inputId = "display_total_hlt",
-                      label = "Plot Total Counts for HLT instead of Distinct Counts.",
-                      value = FALSE)),
-      conditionalPanel(
-        "input.search_pt == null",
-        checkboxInput(inputId = "display_total_pt",
-                      label = "Plot Total Counts for PT instead of Distinct Counts.",
-                      value = FALSE)),
-      # hacky way to get borders correct
-      tags$div(class="form-group shiny-input-container",
-               actionButton(inputId = "search_button",
-                            label = "Search",
-                            width = '90%')
-      ),
-      tags$h3(strong("Current Query:")),
-      tableOutput("current_search"),
-      downloadButton(outputId = "pt_data_dl",
-                     label = "Export PT data"),
-      downloadButton(outputId = "hlt_data_dl",
-                     label = "Export HLT data"),
-      menuItem("Documentation", tabName = "Documentation", icon = icon("flag")),
-      menuItem("About", tabName = "aboutinfo", icon = icon("info"), selected = TRUE)
-    )
-  ), 
-  
-  dashboardBody(
-    customCSS(),
-    tabItems(
-      tabItem(tabName = "data",
-              fluidRow(
-                tabBox(id="tabbox",
-                  
-                  tabPanel(
-                    title="Preferred Terms",
-                    value="panel1",
-                    # plotOutput(outputId = "timeplot_pt", height = "285px", click = "plot_click"),
-                    h3(textOutput("current_pt_title")),
-                    ggvisOutput(plot_id = "timeplot_pt"),
-                    tags$br(),
-                    DT::dataTableOutput("table_pt"),
-                    #tags$p("NOTE: The above table is ranked decreasingly by PRR value. All drug*reactions pairs that have PRR value of infinity are added at the end of the table."),
-                    width = 12),
-                  tabPanel(
-                    title="High-Level Terms",
-                    value="panel2",
-                    #plotOutput(outputId = "timeplot_hlt", height = "285px"),
-                    h3(textOutput("current_hlt_title")),
-                    ggvisOutput(plot_id = "timeplot_hlt"),
-                    tags$br(),
-                    DT::dataTableOutput("table_hlt"),
-                    #tags$p("NOTE: The above table is ranked decreasingly by PRR value. All drug*reactions pairs that have PRR value of infinity are added at the end of the table."),
-                    width = 12),
-                  width = 12
-                )
-              )
-      ),
-      
-      tabItem(tabName = "Documentation",
-              fluidRow(
-                box(
-                  tabPanel(
-                    "Documentation",
-                    withMathJax(includeMarkdown("/home/shared/DISP data/CopyOfDISP about/DISP_about.md")),
-                    tags$br(),
-                    width = 12),
-                  width=12
-                )
-              )
-      ),
-      
-      tabItem(tabName = "aboutinfo", box(
-        width = 12,
-        h2("About"),
-        # using tags$p() and tags$a() inserts spaces between text and hyperlink...thanks R
-        HTML(paste0(
-          "<p>",
-          "This app has been developed by the Data Sciences Unit of RMOD at Health Canada as part of the Open Data Initiative. ",
-          "This is a prototyping platform to utilize open data sources (Canada Vigilance Adverse Reaction Online Database) ",
-          "to conduct disproportionality analysis for safety signal detection. It provides visualizations in an interactive ",
-          "format to demonstrate the results of multiple disproportionality analysis.",
-          "</p>",
-          "<p>",
-          "DO NOT USE FOR REGULATORY DECISION MAKING! The methods described and results generated from the work presented herein ",
-          "relate solely to the testing of methodologies and representations for the evaluation of drugs and AERs. This report ",
-          "neither replaces nor is intended to replace or comment on any regulatory decisions made by Health Canada.",
-          "</p>",
-          "<p>",
-          "Detailed documentation on all disproportionality analyses can be found in Documentation tab.",
-          "</p>",
-          "<br>",
-          "<p>",
-          "<strong>Data last updated: 2015-03-31</strong><br>",
-          "<strong>MedDRA version: 19.0</strong><br>",
-          "Data provided by the Canada Vigilance Adverse Reaction Online Database. The recency of the data is therefore ",
-          "dependent on when the data source is updated, and is the responsibility of the Canada Vigilance Program. ",
-          "For more information, please refer to ",
-          "<a href = \"http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/index-eng.php\">",
-          "http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/index-eng.php</a>.",
-          "</p>")),
-        aboutAuthors()
-      ))
-    )
-  ), 
-  
-  skin = "blue"
-)
-
 server <- function(input, output, session) {
   # Relabel rxns dropdown menu based on selected drug
   observeEvent(input$search_drug, {
@@ -329,11 +21,16 @@ server <- function(input, output, session) {
     updateSelectizeInput(session, "search_pt",
                          choices = c("Start typing to search..." = "", pt_choices))
   })
-  observeEvent(input$search_hlt,{
-    updateTabsetPanel(session, "tabbox",selected ="panel2")
-  })
+  observeEvent(c(input$search_button,input$search_hlt),{
+    if(is.null(input$search_pt)){
+      updateTabsetPanel(session, "tabbox",selected ="panel2")
+    }else {
+      updateTabsetPanel(session, "tabbox",selected ="panel1")
+    } 
+  
+    })
   observeEvent(input$search_hlt, {
-        if (input$checkbox_filter_pt) {
+    if (input$checkbox_filter_pt) {
       pt_choices <- drug_PT_HLT
       
       if (all("" != input$search_hlt) & !is.null(input$search_hlt)) {
@@ -464,6 +161,16 @@ server <- function(input, output, session) {
   
   # PRR tab
   table_pt_data <- reactive({
+#    if(input$table_selection=="All"){
+#     table <- master_table_pt
+#   }else if (input$table_selection=="PT seen before"){
+#     table<-master_table_pt%>%filter(count<5)
+#   }else {
+#     table<-master_table_pt%>%filter(count>5)
+#   }
+    
+    table<-master_table_pt
+    
     input$search_button # hacky way to get eventReactive but also initial load
     isolate({
       data <- current_search()
@@ -473,23 +180,24 @@ server <- function(input, output, session) {
       if (is.null(data$hlt)) data$hlt = ""
       # PRR and ROR values of Inf means there are no other drugs associated with that specific adverse reaction, so denomimator is zero!
       # prr_tab_df is simply the table displayed at the bottom
-      table <- master_table_pt
+      
+      
       #if (all(data$drug != "")) table %<>% filter(drug_code == data$drug %>% as.data.frame())
       drugs <- data$drug %>% as.data.frame()
       names(drugs) <- 'drug_code'
-      if (all(drugs != "")) table %<>% semi_join(drugs)
+      if (all(drugs != "")) table %<>% semi_join(drugs,copy=TRUE)
       
-      pts <- data$pt %>% as.data.frame()
+      pts <- data$pt %>%as.data.frame()
       names(pts) <- 'event_effect'
-      if (all(pts != "")) table %<>% semi_join(pts)
+      if (all(pts != "")) table%<>% semi_join(pts,copy=TRUE)
       
-      if (data$filter_inf) table %<>% filter(PRR != Inf)
+      if (data$filter_inf) table%<>% filter(PRR != Inf)
       table %>% filter(count >= data$min_count) %>%
         filter(expected_count >= data$min_exp) %>%
         arrange(desc(median_IC), desc(LB95_IC), drug_code, event_effect) %>%
-        as.data.frame() %>%
+        as.data.table() %>%
         lapply(function(x) {if (is.numeric(x)) round(x,3) else x}) %>%
-        as.data.frame()
+        as.data.table()
     })
     
     
@@ -521,19 +229,19 @@ server <- function(input, output, session) {
       table <- master_table_hlt
       drugs <- data$drug %>% as.data.frame()
       names(drugs) <- 'drug_code'
-      if (all(drugs != "")) table %<>% semi_join(drugs)
+      if (all(drugs != "")) table %<>% semi_join(drugs,copy=TRUE)
       
       hlts <- data$hlt %>% as.data.frame()
       names(hlts) <- 'event_effect'
-      if (all(hlts != "")) table %<>% semi_join(hlts)
+      if (all(hlts != "")) table %<>% semi_join(hlts,copy=TRUE)
       
       if (data$filter_inf) table %<>% filter(PRR != Inf)
       table %<>% filter(count >= data$min_count) %>%
         filter(expected_count >= data$min_exp) %>%
         arrange(desc(median_IC), desc(LB95_IC), drug_code, event_effect) %>%
-        as.data.frame() %>%
+        as.data.table() %>%
         lapply(function(x) {if (is.numeric(x)) round(x,3) else x}) %>%
-        as.data.frame()
+        as.data.table()
     })
   })
   
@@ -745,5 +453,3 @@ server <- function(input, output, session) {
   
   
 }
-
-shinyApp(ui, server)
