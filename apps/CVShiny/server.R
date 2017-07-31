@@ -57,7 +57,7 @@ shinyServer(function(input, output, session) {
                  incProgress(1/9, detail = 'Filtering Seriousness Type and Gender')
                  
                  if (current_search$seriousness_type == "Death") {cv_reports_filtered_ids %<>% filter(DEATH == '1')}
-                 else if (current_search$seriousness_type == "Serious") {cv_reports_filtered_ids %<>% filter(SERIOUSNESS_ENG == 'Yes')}
+                 else if (current_search$seriousness_type == "Serious(Excluding Death)") {cv_reports_filtered_ids %<>% filter(SERIOUSNESS_ENG == 'Yes') %<>% filter(is.null(DEATH) || DEATH == 2)}
                  
                  if (current_search$gender == 'Male' | current_search$gender == 'Female') {
                    cv_reports_filtered_ids %<>% filter(GENDER_ENG == current_search$gender)
@@ -93,7 +93,7 @@ shinyServer(function(input, output, session) {
                  }
                  if (current_search$drug_inv != "Any") cv_report_drug_filtered %<>% filter(DRUGINVOLV_ENG == current_search$drug_inv)
                  if (current_search$seriousness_type == "Death") {cv_report_drug_filtered %<>% filter(DEATH == '1')}
-                 else if (current_search$seriousness_type == "Serious") {cv_report_drug_filtered %<>% filter(SERIOUSNESS_ENG == 'Yes')}
+                 else if (current_search$seriousness_type == "Serious(Excluding Death)") {cv_report_drug_filtered %<>% filter(SERIOUSNESS_ENG == 'Yes') %<>% filter(is.null(DEATH) || DEATH == 2)}
                  
                  incProgress(2/9, detail = 'Filtering Reactions')
                  
@@ -115,7 +115,7 @@ shinyServer(function(input, output, session) {
                  # cv_report_drug_filtered %<>% as.data.frame()
                  # cv_reactions_filtered %<>% as.data.frame()
                  if (current_search$seriousness_type == "Death") {cv_reactions_filtered %<>% filter(DEATH == '1')}
-                 else if (current_search$seriousness_type == "Serious") {cv_reactions_filtered %<>% filter(SERIOUSNESS_ENG == 'Yes')}
+                 else if (current_search$seriousness_type == "Serious(Excluding Death)") {cv_reactions_filtered %<>% filter(SERIOUSNESS_ENG == 'Yes') %<>% filter(is.null(DEATH) || DEATH == 2)}
                  
                  
                  selected_ids$ids <-  cv_reports_filtered_ids %>%
@@ -269,27 +269,28 @@ shinyServer(function(input, output, session) {
     nonserious_results <- data_r %>%
       filter(SERIOUSNESS_ENG == "No") %>%
       group_by(time_p) %>%
-      summarize(nonserious = n())
+      summarize(Nonserious = n())
     
     
     serious_results <- data_r %>%
       filter(SERIOUSNESS_ENG == "Yes") %>%
+      filter(is.null(DEATH) || DEATH == 2) %>%
       group_by(time_p) %>%
-      summarize(serious = n())
+      summarize("Serious(Excluding Death)" = n())
     
     
     
     death_results <- data_r %>%
       filter(DEATH == 1) %>%
       group_by(time_p) %>%
-      summarize(death = n())
+      summarize(Death = n())
     
     
     ntime_p <- interval(dates$date_min, dates$date_max) %/% time_function(1)
     time_list <- min(dates$date_min %>% floor_date(time_period)) + time_function(0:ntime_p)
     
-    results_to_be_mapped <- left_join(death_results, serious_results, by = 'time_p') %>%
-      left_join(nonserious_results, by = 'time_p') %>% as.data.frame() %>%
+    results_to_be_mapped <- full_join(serious_results, death_results, by = 'time_p') %>%
+      full_join(nonserious_results, by = 'time_p') %>% as.data.frame() %>%
       mutate(time_p = ymd(time_p))
     
     results <- data.frame(time_p = time_list) %>%
@@ -316,16 +317,41 @@ shinyServer(function(input, output, session) {
   callModule(pieTable, "reporterplot", dataChart = reporterplot_data(), x = "REPORTER_TYPE_ENG", y = "count")
   
   seriousplot_data <- reactive({
-    mainDataSelection() %>%
+    ser_eng <- mainDataSelection() %>%
       count(SERIOUSNESS_ENG) %>%
-      select(SERIOUSNESS_ENG, n) %>%
+      select(SERIOUSNESS_ENG,n) %>%
+      mutate(label = "SERIOUSNESS_ENG") %>%
+      as.data.frame()
+
+    death_count <- mainDataSelection() %>%
+      select(DEATH) %>%
+      count(DEATH) %>%
+      mutate(label = "Death") %>%
+      as.data.frame()
+    
+    colnames(ser_eng) <- c("content","n","label")
+    colnames(death_count) <- c("content","n","label")  
+
+    big_table <- rbind(ser_eng,death_count)
+    big_table %<>% as.data.frame()
+    big_table <- big_table[c(1,2,4),]
+    
+    for (i in 1:nrow(big_table))
+    {
+        if (big_table$content[i] == "") {big_table$label[i] <- "Not reported"}
+        else if (big_table$content[i] == 'No') {big_table$label[i] <- "Non-serious"}
+        else if (big_table$content[i] == 'Yes') 
+        {
+          big_table$label[i] <- "Serious(Excluding Death)"
+          big_table$n[i] <- as.numeric(big_table$n[i]) - as.numeric(big_table[big_table$content == '1',]$n)
+          }
+        else if (big_table$content[i] == '1') {big_table$label[i] <- "Death"}
+    }
+
+    big_table %>%
       as.data.frame() %>%
-      mutate(label = NA,
-             label = ifelse(SERIOUSNESS_ENG == "Yes", "Serious", label),
-             label = ifelse(SERIOUSNESS_ENG == "No", "Non-serious", label),
-             label = ifelse(SERIOUSNESS_ENG == "", "Not reported", label)) %>%
-      select(label, n) %>%
-      slice(match(c("Serious", "Non-serious", "Not reported"), label))
+      select(label,n)%>%
+      slice(match(c("Serious(Excluding Death)", "Death", "Non-serious", "Not reported"), label))
   })
   callModule(pieTable, "seriousplot", dataChart = seriousplot_data(), x = "label", y = "count")
   

@@ -29,14 +29,15 @@ data_date   <- "20160630"                                                    #|
 
 ########## Codes to fetch top 1000 specific results to be used in dropdown menu ############### 
 # Temperary solution: fetch all tables to local and run functions on them
-hcopen_pool <- dbPool(drv      = "PostgreSQL",
+hcopen_pool <- dbPool(drv      = RPostgreSQL::PostgreSQL(),
                       host     = "shiny.hc.local",
                       dbname   = "hcopen",
                       user     = "hcreader",
                       password = "canada1")
 
 # Not sure if this is the correct way to implement a database connection.
-hcopen      <- src_pool(hcopen_pool)
+# hcopen      <- src_pool(hcopen_pool)
+
 
 # Appending date to the table names in the PostgreSQL database
 table_name_cv_reports                  <- paste0("cv_reports_", data_date)
@@ -46,13 +47,13 @@ table_name_cv_reactions                <- paste0("cv_reactions_meddra_", data_da
 
 # Creating tbls for the data tables we care about
 # Again, not sure if this is the correct way to implement
-cv_reports                  <- tbl(hcopen, table_name_cv_reports)
-cv_drug_product_ingredients <- tbl(hcopen, table_name_cv_drug_product_ingredients)
-cv_report_drug              <- tbl(hcopen, table_name_cv_report_drug)
-cv_reactions                <- tbl(hcopen, table_name_cv_reactions)
-cv_substances               <- tbl(hcopen, "cv_substances")
+cv_reports                  <- tbl(hcopen_pool, table_name_cv_reports)
+cv_drug_product_ingredients <- tbl(hcopen_pool, table_name_cv_drug_product_ingredients)
+cv_report_drug              <- tbl(hcopen_pool, table_name_cv_report_drug)
+cv_reactions                <- tbl(hcopen_pool, table_name_cv_reactions)
+cv_substances               <- tbl(hcopen_pool, "cv_substances")
 
-cv_reports_temp <- tbl(hcopen, table_name_cv_reports) %>%
+cv_reports_temp <- tbl(hcopen_pool, table_name_cv_reports) %>%
   select(REPORT_ID, SERIOUSNESS_ENG,DEATH)
 # cv_reports_temp$DEATH[cv_reports_temp$DEATH == 1] <- "Yes"
 # cv_reports_temp$DEATH[is.na(cv_reports_temp$DEATH)] <- "No"

@@ -49,7 +49,7 @@ dashboardPage(
     div(style="display: inline-block; vertical-align:top; width: 52%",
         radioButtons("seriousness_type", "Seriousness:",
                      c("All",
-                       "Serious",
+                       "Serious(Excluding Death)",
                        "Death"))),
     sliderInput("search_age",
                 "Set Age Range",
