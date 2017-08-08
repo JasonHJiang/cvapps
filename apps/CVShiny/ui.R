@@ -1,32 +1,32 @@
 
 ### optional shinycssloader ###
-# library(shinyjs)
-# library(shinycssloaders)
-# 
-# appCSS <- "
-# #loading-content {
-#   position: absolute;
-#   background: #FFFFFF;
-#   opacity: 0.9;
-#   z-index: 100;
-#   left: 0;
-#   right: 0;
-#   height: 100%;
-#   text-align: center;
-#   color: #000000;
-# }
-# "
-# 
-# bootstrapPage(
-#   useShinyjs(),
-#   inlineCSS(appCSS),
-#   div(
-#     id = "loading-content",
-#     h1("Please Wait...")%>%withSpinner(proxy.height='300px',type=6)
-#   ),
-# 
-#   hidden(
-#   div(id="main-content",
+library(shinyjs)
+library(shinycssloaders)
+
+appCSS <- "
+#loading-content {
+  position: absolute;
+  background: #FFFFFF;
+  opacity: 0.9;
+  z-index: 100;
+  left: 0;
+  right: 0;
+  height: 100%;
+  text-align: center;
+  color: #000000;
+}
+"
+
+bootstrapPage(
+  useShinyjs(),
+  inlineCSS(appCSS),
+  div(
+    id = "loading-content",
+    h1("Please Wait...")%>%withSpinner(proxy.height='300px',type=6)
+  ),
+
+  hidden(
+  div(id="main-content",
 dashboardPage(
   dashboardHeader(title = titleWarning("CV Shiny (v0.19)"),
                   titleWidth = 700),
@@ -151,10 +151,10 @@ dashboardPage(
                                                                                    "Slices may not be visible if they are too small.")),
                
                 pieTableUI("Seriousness", "seriouschart", "serioustable",paste0("A serious report contains a serious adverse reaction, determined by the reporter ",
-                                                                                 "of the report at the time of reporting. Slices may not be visible if they are too small.")),
+                                                                                 "of the report at the time of reporting. Slices may not be visible if they are too small."))
 
-                
-                
+              ),
+              fluidRow(
                 box(h3("Reason(s) for Seriousness",
                        tipify(
                          el = icon("info-circle"), trigger = "hover click",
@@ -162,7 +162,8 @@ dashboardPage(
                                         " more than the total number of reports because reports can be marked serious for multiple reasons"))),
                     htmlOutput("seriousreasonsplot"),
                     width = 6)
-              ) 
+                
+              )
               ),
       tabItem(tabName = "patientdata",
               fluidRow(
@@ -514,6 +515,6 @@ dashboardPage(
       )
     )
   )
-)
+))))
 
 

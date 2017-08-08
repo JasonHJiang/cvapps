@@ -2,9 +2,9 @@ library(plotly)
 shinyServer(function(input, output, session) {
   
   ### page loader setting ###
-  # Sys.sleep(5)
-  # hide(id="loading-content",anim=TRUE,animType="fade")
-  # show("main-content")
+  Sys.sleep(5)
+  hide(id="loading-content",anim=TRUE,animType="fade")
+  show("main-content")
   
   updateSelectizeInput(session, 'search_brand', choices = topbrands, server = TRUE)
   updateSelectizeInput(session, 'search_ing', choices = topings_cv, server = TRUE)
@@ -349,37 +349,43 @@ shinyServer(function(input, output, session) {
       select(SERIOUSNESS_ENG,n) %>%
       mutate(label = "SERIOUSNESS_ENG") %>%
       as.data.frame()
-
+    
     death_count <- mainDataSelection() %>%
-      select(DEATH) %>%
       count(DEATH) %>%
+      select(DEATH,n) %>%
       mutate(label = "Death") %>%
       as.data.frame()
     
     colnames(ser_eng) <- c("content","n","label")
     colnames(death_count) <- c("content","n","label")  
-
+    
     big_table <- rbind(ser_eng,death_count)
     big_table %<>% as.data.frame()
-    big_table <- big_table[c(1,2,4),]
+    no_row <- big_table[big_table$label=="SERIOUSNESS_ENG" & big_table$content=="No",]
+    yes_row <- big_table[big_table$label=="SERIOUSNESS_ENG" & big_table$content=="Yes",]
+    one_row <- big_table[big_table$label=="Death" & big_table$content=='1',]
+    missing_row <- big_table[big_table$content=="",]
+    big_table <- rbind(no_row,yes_row,one_row,missing_row)
+    big_table <- na.omit(big_table)
     
     for (i in 1:nrow(big_table))
     {
-        if (big_table$content[i] == "") {big_table$label[i] <- "Not reported"}
-        else if (big_table$content[i] == 'No') {big_table$label[i] <- "Non-serious"}
-        else if (big_table$content[i] == 'Yes') 
-        {
-          big_table$label[i] <- "Serious(Excluding Death)"
-          big_table$n[i] <- as.numeric(big_table$n[i]) - as.numeric(big_table[big_table$content == '1',]$n)
-          }
-        else if (big_table$content[i] == '1') {big_table$label[i] <- "Death"}
+      if (big_table[i,1] == "") {big_table[i,3] <- "Not reported"}
+      else if (big_table[i,1] == 'No') {big_table[i,3] <- "Non-serious"}
+      else if (big_table[i,1] == 'Yes') 
+      {
+        big_table[i,3] <- "Serious(Excluding Death)"
+        big_table[i,2] <- big_table[i,2] - big_table[big_table$content == '1',][2]
+      }
+      else if (big_table[i,1] == 1) {big_table[i,3] <- "Death"}
     }
-
+    
     big_table %<>%
       as.data.frame() %>%
       select(label,n)%>%
       slice(match(c("Serious(Excluding Death)", "Death", "Non-serious", "Not reported"), label))
-    big_table
+    
+    return(big_table)
   })
   
   output$seriouschart <- renderGvis({
@@ -541,8 +547,20 @@ shinyServer(function(input, output, session) {
   
   #### Data about Drugs
   drugDataSelection <- reactive({
-    data <- semi_join(cv_report_drug, selected_ids$ids, by = "REPORT_ID", copy = T)
-    #%>%       left_join(cv_report_drug_indication, by = c("REPORT_DRUG_ID", "REPORT_ID", "DRUG_PRODUCT_ID", "DRUGNAME"))
+    n_ids <- selected_ids$ids %>% nrow()
+    if (nrow(selected_ids$ids) > 0)
+    {
+      data <- semi_join(cv_report_drug, selected_ids$ids, by = "REPORT_ID", copy = T)
+      #%>%       left_join(cv_report_drug_indication, by = c("REPORT_DRUG_ID", "REPORT_ID", "DRUG_PRODUCT_ID", "DRUGNAME"))
+    }
+    else
+    {
+      data <- NULL
+      data <- cv_report_drug
+      current_search$name = ""
+      current_search$rxn = ""
+    }
+    
     data
   })
   
@@ -711,8 +729,19 @@ shinyServer(function(input, output, session) {
   #### Data about Reactions
   
   rxnDataSelection <- reactive({
-    data <- cv_reactions %>%
-      semi_join(selected_ids$ids, by = "REPORT_ID", copy = T) 
+    n_ids <- selected_ids$ids %>% nrow()
+    if (nrow(selected_ids$ids) > 0)
+    {
+      data <- cv_reactions %>% semi_join(selected_ids$ids, by = "REPORT_ID", copy = T) 
+    }
+    else
+    {
+      data <- NULL
+      data <- cv_reactions
+      current_search$name = ""
+      current_search$rxn = ""
+    }
+    
     data
   })
   
