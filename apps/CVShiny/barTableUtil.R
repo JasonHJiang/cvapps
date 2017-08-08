@@ -1,7 +1,7 @@
 # A reusable module for displaying data with
 # a horizontal bar chart and a data table in a tab box
 
-barTableUI <- function(id, header, titleInfo) {
+barTableUI1 <- function(id, header, titleInfo) {
   # Required for all modules
   # Must set the local namespace for this function
   # Example: if id = 'reporter', then the barchart module will be called
@@ -34,6 +34,25 @@ barTableUI <- function(id, header, titleInfo) {
   
   
 }
+
+barTableUI <- function(plottitle, chartname, tablename,titleinfo) {
+  infoClick <- h3(plottitle,
+                  tipify(
+                    el = icon("info-circle"), trigger = "hover click",
+                    title = paste0(titleinfo)))
+  tagList(
+    tabBox(
+      tabPanel("Bar Chart",
+               infoClick,
+               htmlOutput(chartname)),
+      tabPanel("Table",
+               infoClick,
+               htmlOutput(tablename)),
+      width = 6
+    )
+  )
+}
+
 
 barTable   <- function(input, output, session, dataChart, x, y, colour) {
   # Much like a shinyserver function, we require input, output and session

@@ -1,13 +1,32 @@
 # A reusable module for displaying data with 
 # a pie chart and a data table in a tab box
 
-pieTableUI <- function(id, header, titleInfo, width = 6) {
+pieTableUI <- function(plottitle, chartname, tablename,titleinfo) {
+  infoClick <- h3(plottitle,
+                  tipify(
+                    el = icon("info-circle"), trigger = "hover click",
+                    title = paste0(titleinfo)))
+  tagList(
+    tabBox(
+      tabPanel("Pie Chart",
+               infoClick,
+               htmlOutput(chartname)),
+      tabPanel("Table",
+               infoClick,
+               htmlOutput(tablename)),
+      width = 6
+    )
+  )
+}
+
+
+pieTableUI1 <- function(id, header, titleInfo, width = 6) {
   # Required for all modules
   # Must set the local namespace for this function
   # Example: if id = 'reporter', then the piechart module will be called
   #          'reporter-piechart'
   ns <- NS(id)
- 
+  
   # Basic title and info-box functionality.
   # The titleInfo argument should contain information pertaining to the graph
   # It is not optional
@@ -16,21 +35,6 @@ pieTableUI <- function(id, header, titleInfo, width = 6) {
                     el = icon("info-circle"), trigger = "hover click",
                     title = titleInfo
                   ))
- 
-  # Must wrap UI elements in a tagList, then they follow standard Shiny UI placement
-  # Notice the ids for Pie Chart and Table. They are wrapped in ns(). This means
-  # that those ids are unique to this function, not the whole Shiny App.
-  tagList(
-    tabBox(
-      tabPanel("Pie Chart",
-               infoClick,
-               htmlOutput(ns("piechart"))),
-      tabPanel("Table",
-               infoClick,
-               htmlOutput(ns("table"))),
-      width = width
-    )
-  )
 }
 
 pieTable   <- function(input, output, session, dataChart, x, y) {

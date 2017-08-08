@@ -1,5 +1,32 @@
 
-
+### optional shinycssloader ###
+# library(shinyjs)
+# library(shinycssloaders)
+# 
+# appCSS <- "
+# #loading-content {
+#   position: absolute;
+#   background: #FFFFFF;
+#   opacity: 0.9;
+#   z-index: 100;
+#   left: 0;
+#   right: 0;
+#   height: 100%;
+#   text-align: center;
+#   color: #000000;
+# }
+# "
+# 
+# bootstrapPage(
+#   useShinyjs(),
+#   inlineCSS(appCSS),
+#   div(
+#     id = "loading-content",
+#     h1("Please Wait...")%>%withSpinner(proxy.height='300px',type=6)
+#   ),
+# 
+#   hidden(
+#   div(id="main-content",
 dashboardPage(
   dashboardHeader(title = titleWarning("CV Shiny (v0.19)"),
                   titleWidth = 700),
@@ -120,14 +147,12 @@ dashboardPage(
     tabItems(
       tabItem(tabName = "reportdata",
               fluidRow(
-                pieTableUI("reporterplot", "Reporter Type",
-                           paste0("Indicates who reported the adverse reaction and their relationship to the patient. ",
-                                  "Slices may not be visible if they are too small.")),
+                pieTableUI("Reporter Type","reporterchart","reportertable",paste0("Indicates who reported the adverse reaction and their relationship to the patient. ",
+                                                                                   "Slices may not be visible if they are too small.")),
                
-                       pieTableUI("seriousplot", "Seriousness",
-                           paste0("A serious report contains a serious adverse reaction, determined by the reporter ",
-                                  "of the report at the time of reporting. Slices may not be visible if they are too small.")),
-                       
+                pieTableUI("Seriousness", "seriouschart", "serioustable",paste0("A serious report contains a serious adverse reaction, determined by the reporter ",
+                                                                                 "of the report at the time of reporting. Slices may not be visible if they are too small.")),
+
                 
                 
                 box(h3("Reason(s) for Seriousness",
@@ -141,8 +166,7 @@ dashboardPage(
               ),
       tabItem(tabName = "patientdata",
               fluidRow(
-                pieTableUI("sexplot", 
-                           "Gender",
+                pieTableUI("Gender","sexchart","sextable", 
                            paste0("Gender of the patient as it was provided by the reporter. ",
                                   "Where the gender is unknown, the reporter is unaware of the gender. ",
                                   "Where the gender is not specified, the reporter did not specify the gender of the patient.")),
@@ -168,8 +192,8 @@ dashboardPage(
                 #            htmlOutput("sexplot.table"),
                 #            width = 3)
                 # ),
-                pieTableUI("agegroupplot", "Age Group",
-                           title =  HTML(paste0(
+                pieTableUI("Age Group", "agechart", "agetable",
+                           HTML(paste0(
                              "Age group of the patient when the adverse effect occurred.<br>",
                              "<br>Neonate: <= 25 days",
                              "<br>Infant: > 25 days to < 1 yr",
@@ -214,15 +238,15 @@ dashboardPage(
       ),
       tabItem(tabName = "drugdata",
               fluidRow(
-                barTableUI("all_drugs", "Most Frequently Reported (Suspect and Concomitant) Drugs (Brand Name)", 
+                barTableUI("Most Frequently Reported (Suspect and Concomitant) Drugs (Brand Name)", "alldrugchart","alldrugtable",
                            paste0("This plot includes all drugs present in the matching reports. ",
                                   "The search query filters unique reports, which may have one or more drugs associated with them.")),
-                barTableUI("suspect_drugs", "Most Frequently Reported Suspect Drugs (Brand Name)",
+                barTableUI("Most Frequently Reported Suspect Drugs (Brand Name)","suspecteddrugchart","suspecteddrugtable",
                            paste0("This plot includes all drugs present in the matching reports. ",
                                   "The search query filters unique reports, which may have one or more drugs associated with them. ",
                                   "The reporter suspects that the health product caused the adverse reaction."))),
               fluidRow(
-                barTableUI("concomitant_drugs", "Most Frequently Reported Concomitant Drugs (Brand Name)",
+                barTableUI("Most Frequently Reported Concomitant Drugs (Brand Name)","concomitantdrugchart","concomitantdrugtable",
                            paste0("This plot includes all drugs present in the matching reports. ",
                                   "The search query filters unique reports, which may have one or more drugs associated with them. ",
                                   "The health product is not suspected, but the patient was taking it at the time of the adverse reaction.")),
@@ -253,7 +277,7 @@ dashboardPage(
                   # tabPanel("Concomitant"),
                   # width = 6
                 # ),
-                barTableUI("indicationplot", "Reports per Indication (all reported drugs)",
+                barTableUI("Reports per Indication (all reported drugs)","indicationchart","indicationtable",
                            paste0("Indication refers to the particular condition for which a health product was taken. ",
                                   "This plot includes all indications for all drugs present in the matching reports. ",
                                   "The search query filters unique reports, which may have one or more drugs associated with them.")))
@@ -393,17 +417,17 @@ dashboardPage(
       #               width = 12))),
       tabItem(tabName = "rxndata",
               fluidRow(
-                barTableUI("toppt", "Most Frequent Adverse Events (Preferred Terms)",
+                barTableUI("Most Frequent Adverse Events (Preferred Terms)","topptchart","toppttable",
                            paste0("MedDRA Preferred Term is a distinct descriptor (single medical concept) for a symptom, ",
                                   "sign, disease, diagnosis, therapeutic indication, investigation, surgical, or medical ",
                                   "procedure, and medical, social, or family history characteristic. For more rigorous analysis, ",
                                   "use disproportionality statistics.")),
  
-                barTableUI("tophlt", "Most Frequent Adverse Events (High-Level Terms)",
+                barTableUI("Most Frequent Adverse Events (High-Level Terms)","tophltchart","tophlttable",
                            "For more rigorous analysis, use disproportionality statistics.")),
            
               fluidRow(
-                pieTableUI("outcomeplot", "Report Outcome",
+                pieTableUI("Report Outcome", "outcomechart", "outcometable",
                            paste0("The report outcome represents the outcome of the reported case as described by the reporter ",
                                   "at the time of reporting and does not infer a causal relationship. The report outcome is not ",
                                   "based on a scientific evaluation by Health Canada.")))),
