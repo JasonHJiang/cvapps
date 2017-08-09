@@ -1,7 +1,7 @@
 # data manip + utils
 ################################## UI component ####
 ui <- dashboardPage(
-  dashboardHeader(title = titleWarning("Shiny DISP (v0.18)"),
+  dashboardHeader(title = titleWarning("Shiny DISP (v0.20)"),
                   titleWidth = 700),
   
   dashboardSidebar(
