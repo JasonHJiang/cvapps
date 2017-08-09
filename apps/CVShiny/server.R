@@ -367,6 +367,14 @@ shinyServer(function(input, output, session) {
     missing_row <- big_table[big_table$content=="",]
     big_table <- rbind(no_row,yes_row,one_row,missing_row)
     big_table <- na.omit(big_table)
+    if (nrow(big_table[big_table$content==1,])==0 || is.null(big_table[big_table$content==1,]))
+    {
+      number = 0
+    }
+    else
+    {
+      number = big_table[big_table$content==1,]$n
+    }
     
     for (i in 1:nrow(big_table))
     {
@@ -375,7 +383,7 @@ shinyServer(function(input, output, session) {
       else if (big_table[i,1] == 'Yes') 
       {
         big_table[i,3] <- "Serious(Excluding Death)"
-        big_table[i,2] <- big_table[i,2] - big_table[big_table$content == '1',][2]
+        big_table[i,2] <- big_table[i,2] - number
       }
       else if (big_table[i,1] == 1) {big_table[i,3] <- "Death"}
     }
