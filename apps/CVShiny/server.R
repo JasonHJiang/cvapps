@@ -590,6 +590,10 @@ shinyServer(function(input, output, session) {
       as.data.frame() %>%
       filter(!is.na(INDICATION_NAME_ENG)) %>%
       head(25)
+    if (nrow(data) == 0)
+    {
+      data <- data.frame(INDICATION_NAME_ENG = "None", n = 0)
+    }
     data
   })
   
@@ -681,6 +685,11 @@ shinyServer(function(input, output, session) {
       arrange(desc(n)) %>%
       head(25) %>%
       as.data.frame()
+    if (nrow(data) == 0)
+    {
+      data <- data.frame(DRUGNAME = 'None', n = 0)
+    }
+    data
   })
   
   output$concomitantdrugchart <- renderGvis({
