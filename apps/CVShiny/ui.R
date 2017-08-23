@@ -28,7 +28,7 @@ bootstrapPage(
   hidden(
   div(id="main-content",
 dashboardPage(
-  dashboardHeader(title = titleWarning("CV Shiny (v0.20)"),
+  dashboardHeader(title = titleWarning("CV Shiny (v0.22)"),
                   titleWidth = 700),
   
   dashboardSidebar(
@@ -488,7 +488,7 @@ dashboardPage(
                       selectizeInput("column_select_report",
                                      "Select Columns",
                                      cv_reports_names,
-                                     selected = c("REPORT_ID", "DATRECEIVED", "REPORT_TYPE_ENG", "GENDER_ENG", "AGE_Y", "OUTCOME_ENG", "WEIGHT", "WEIGHT_UNIT_ENG",
+                                     selected = c("REPORT_ID", "REPORT_NO", "DATRECEIVED", "REPORT_TYPE_ENG", "GENDER_ENG", "AGE_Y", "OUTCOME_ENG", "WEIGHT", "WEIGHT_UNIT_ENG",
                                                   "HEIGHT", "HEIGHT_UNIT_ENG", "SERIOUSNESS_ENG", "DEATH","REPORTER_TYPE_ENG", "SOURCE_ENG"),
                                      multiple = TRUE)),
                     conditionalPanel(
@@ -496,7 +496,7 @@ dashboardPage(
                       selectizeInput("column_select_drug",
                                      "Select Columns",
                                      cv_report_drug_names,
-                                     selected = c("REPORT_ID", "DRUGNAME", "DRUGINVOLV_ENG", "ROUTEADMIN_ENG", "UNIT_DOSE_QTY", "DOSE_UNIT_ENG", "FREQUENCY", "FREQ_TIME",
+                                     selected = c("REPORT_ID", "REPORT_NO", "DRUGNAME", "DRUGINVOLV_ENG", "ROUTEADMIN_ENG", "UNIT_DOSE_QTY", "DOSE_UNIT_ENG", "FREQUENCY", "FREQ_TIME",
                                                   "FREQUENCY_TIME_ENG", "FREQ_TIME_UNIT_ENG", "DOSAGEFORM_ENG", "INDICATION_NAME_ENG", "SERIOUSNESS_TYPE", "DEATH"),
                                      multiple = TRUE)),
                     conditionalPanel(
@@ -504,7 +504,7 @@ dashboardPage(
                       selectizeInput("column_select_reaction",
                                      "Select Columns",
                                      cv_reaction_names,
-                                     selected = c("REPORT_ID", "DURATION", "DURATION_UNIT_ENG", "PT_NAME_ENG", "SOC_NAME_ENG", "MEDDRA_VERSION", "SMQ", "SERIOUSNESS_TYPE", "DEATH"),
+                                     selected = c("REPORT_ID", "REPORT_NO", "DURATION", "DURATION_UNIT_ENG", "PT_NAME_ENG", "SOC_NAME_ENG", "MEDDRA_VERSION", "SMQ", "SERIOUSNESS_TYPE", "DEATH"),
                                      multiple = TRUE))),
                   column(
                     width = 9,
