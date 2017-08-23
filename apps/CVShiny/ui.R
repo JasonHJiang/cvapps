@@ -442,7 +442,7 @@ dashboardPage(
                 HTML(paste0(
                   "<p>",
                   "<strong>",
-                  "<a href = \"http://www.hc-sc.gc.ca/dhp-mps/medeff/databasdon/conditions_extract-extrait-eng.php\">",
+                  "<a href = \"https://www.canada.ca/en/health-canada/services/drugs-health-products/medeffect-canada/adverse-reaction-database/medeffect-canada-caveat-privacy-statement-interpretation-data-extract-vigilance-adverse-reaction-online-database.html\">",
                   "Before using, please read over the Canada Vigilance Adverse Reaction caveat document.",
                   "</a>",
                   "</strong>",

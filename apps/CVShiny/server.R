@@ -1,4 +1,5 @@
 library(plotly)
+library(stringr)
 shinyServer(function(input, output, session) {
   
   ### page loader setting ###
@@ -164,18 +165,40 @@ shinyServer(function(input, output, session) {
                })
   )
   
+  strtrans <- function(input)
+  {
+    input <- as.character(input)
+    input <- str_pad(input, 9, pad = "0")
+    input <- paste0("\t",input)
+    
+    return(input)
+  }
   
   cv_download_reports <- reactive({
     data_type <- ""
     
     if(input$search_dataset_type == "Report Data"){
-      reports_tab_master <- mainDataSelection() %>% as.data.frame() %>% `[`(, input$column_select_report) # FLAG
+      reports_tab_master <- mainDataSelection() %>% as.data.frame()
+      reports_tab_master$REPORT_ID <- strtrans(reports_tab_master$REPORT_ID)
+      reports_tab_master$REPORT_NO <- strtrans(reports_tab_master$REPORT_NO)
+      reports_tab_master %<>% `[`(, input$column_select_report) %>% as.data.frame()
+      colnames(reports_tab_master) <- input$column_select_report
       data_type <- "report"
-    } else if(input$search_dataset_type == "Drug Data"){
-      reports_tab_master <- drugDataSelection() %>% as.data.frame() %>% `[`(, input$column_select_drug)
+    } 
+    else if(input$search_dataset_type == "Drug Data"){
+      reports_tab_master <- drugDataSelection() %>% as.data.frame()
+      reports_tab_master$REPORT_ID <- strtrans(reports_tab_master$REPORT_ID)
+      reports_tab_master$REPORT_NO <- strtrans(reports_tab_master$REPORT_NO)
+      reports_tab_master %<>% `[`(, input$column_select_drug) %>% as.data.frame()
+      colnames(reports_tab_master) <- input$column_select_drug
       data_type <- "drug"
-    } else if(input$search_dataset_type == "Reaction Data"){
-      reports_tab_master <- rxnDataSelection() %>% as.data.frame() %>% `[`(, input$column_select_reaction)
+    } 
+    else if(input$search_dataset_type == "Reaction Data"){
+      reports_tab_master <- rxnDataSelection() %>% as.data.frame()
+      reports_tab_master$REPORT_ID <- strtrans(reports_tab_master$REPORT_ID)
+      reports_tab_master$REPORT_NO <- strtrans(reports_tab_master$REPORT_NO)
+      reports_tab_master %<>% `[`(, input$column_select_reaction) %>% as.data.frame()
+      colnames(reports_tab_master) <- input$column_select_reaction
       data_type <- "rxn"
     }
     
@@ -718,7 +741,7 @@ shinyServer(function(input, output, session) {
                 tipify(
                   el = icon("info-circle"), trigger = "hover click",
                   title = paste0(
-                    "This plot indicates how many reports include how many drugs. ",
+                    "This plot indicates the number of drugs (e.g. suspect, concomitant, past, treatment, etc) included in each report. ",
                     "The search query filters unique reports, which may have one or more drugs associated with them.")),
                 "<br>(", excluded_count, " reports with more than 20 drugs excluded)", "</h3>"))
   })

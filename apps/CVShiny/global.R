@@ -106,6 +106,6 @@ soc_choices <- cv_reactions %>%
 
 # Grabbing column names from the tbl metadata.
 # Used for selecting columns in the downloads tab.
-cv_report_drug_names <- cv_report_drug$ops$vars
-cv_reaction_names   <- cv_reactions$ops$vars
+cv_report_drug_names <- cv_report_drug$ops$args$vars$alias
+cv_reaction_names   <- cv_reactions$ops$args$vars$alias
 cv_reports_names     <- cv_reports$ops$vars
