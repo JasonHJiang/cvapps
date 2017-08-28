@@ -107,14 +107,14 @@ aboutAuthors <- function() {list(
       "Sophia He, BSc (in progress)", br(),
       "Jr. Data Scientist Co-op, Health Products and Food Branch", br(),
       "Data Science Unit / Business Informatics / Resource Management and Operations Directorate / Health Porducts and Food Branch / Health Canada", br(),
-      "sophia.he@canada.ca or yunqingh@sfu.ca",
+      "yunqingh@sfu.ca",
       width = 4
     ),
     box(
       "Kevin Thai, BSc (in progress)", br(),
       "Jr. Data Scientist Co-op, Health Products and Food Branch", br(),
       "Data Science Unit / Business Informatics / Resource Management and Operations Directorate / Health Porducts and Food Branch / Health Canada", br(),
-      "kevin.thai@canada.ca or kthai@uwaterloo.ca",
+      "kthai@uwaterloo.ca",
       width = 4
     )),
   fluidRow(
@@ -122,21 +122,21 @@ aboutAuthors <- function() {list(
       "Bryce Claughton, BMath (in progress)", br(),
       "Jr. Data Scientist Co-op, Health Products and Food Branch", br(),
       "Data Science Unit / Business Informatics / Resource Management and Operations Directorate / Health Porducts and Food Branch / Health Canada", br(),
-      "bryce.claughton2@canada.ca or bclaught@uwaterloo.ca",
+      "bclaught@uwaterloo.ca",
       width = 4
     ),
     box(
       "Nanqing Zhu, MSc (in progress)", br(),
       "Jr. Data Scientist, Health Products and Food Branch", br(),
       "Data Science Unit / Business Informatics / Resource Management and Operations Directorate / Health Porducts and Food Branch / Health Canada", br(),
-      "nanquing.zhu@canada.ca or nanqing.zhu@mail.mcgill.ca",
+      "nanqing.zhu@mail.mcgill.ca",
       width = 4
     ),
     box(
       "Jason Jiang, BSc (in progress)", br(),
       "Jr. Data Scientist Co-op, Health Products and Food Branch", br(),
       "Data Science Unit / Business Informatics / Resource Management and Operations Directorate / Health Porducts and Food Branch / Health Canada", br(),
-      "haiyang.jiang@canada.ca or haiyangj@sfu.ca",
+      "haiyangj@sfu.ca",
       width = 4
     )
   )

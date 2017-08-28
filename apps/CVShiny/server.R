@@ -43,8 +43,8 @@ shinyServer(function(input, output, session) {
                    name <- input$search_ing2
                  }
                  
-                 startDate <- paste(input$searchStartYear, input$searchStartMonth, '1', collapse = "-") %>% ymd(tz = 'EST')
-                 endDate <- paste(input$searchEndYear, input$searchEndMonth, '1', collapse = "-") %>% ymd(tz = 'EST') 
+                 startDate <- input$daterange[1] %>% ymd(tz = 'EST')
+                 endDate <- input$daterange[2] %>% ymd(tz = 'EST')
                  dateRange <- c(startDate, endDate)
                  
                  current_search$name_type <- input$name_type
@@ -59,8 +59,16 @@ shinyServer(function(input, output, session) {
                  current_search$checkbox_filter <- input$filter_over_100
                  incProgress(1/9, detail = 'Filtering Report Date Range')
                  
+                 if (month(input$daterange[2]) - month(input$daterange[1]) == 0)
+                 {
+                   endDate = input$daterange[2] + month(1)
+                 }
+                 startDate <- input$daterange[1] %>% ymd(tz = 'EST') %>% floor_date(unit="month")
+                 endDate <- endDate %>% ymd(tz = 'EST') %>% floor_date(unit="month")
+                 dateRange <- c(startDate, endDate)
+                 
                  cv_reports_filtered_ids <- cv_reports %>%
-                   filter(DATINTRECEIVED_CLEAN >= current_search$date_range[1], DATINTRECEIVED_CLEAN <= current_search$date_range[2])
+                   filter(DATINTRECEIVED_CLEAN >= dateRange[1], DATINTRECEIVED_CLEAN <= dateRange[2])
                  incProgress(1/9, detail = 'Filtering Seriousness Type and Gender')
                  
                  if (current_search$seriousness_type == "Death") {cv_reports_filtered_ids %<>% filter(DEATH == '1')}

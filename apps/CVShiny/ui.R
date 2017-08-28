@@ -103,27 +103,9 @@ dashboardPage(
                    multiple = TRUE),
     # cvshiny_selectinput_UI('search_soc', 'System Organ Class'),
     fluidRow(
-      column(6,
-        selectizeInput("searchStartYear",
-                       label = "Start Year",
-                       choices = c(1965:2016),
-                       selected = 2000)),
-      column(6,
-        selectizeInput("searchStartMonth",
-                     label = "Start Month",
-                     choices = c(1:12),
-                     selected = 1))),
-    fluidRow(
-      column(6,
-             selectizeInput("searchEndYear",
-                            label = "End Year",
-                            choices = c(1965:2016),
-                            selected = 2016)),
-      column(6,
-             selectizeInput("searchEndMonth",
-                            label = "End Month",
-                            choices = c(1:12),
-                            selected = 6))),
+      column(12,
+             dateRangeInput('daterange', 'Select date range',
+                  format="yyyy-mm-dd",min ="1965-01-01", max = "2016-06-30", start = "2000-01-01", end = "2016-06-30" ))),
       # hacky way to get borders correct
     conditionalPanel(
       condition = "input.search_rxn != 'disable'",
@@ -280,7 +262,7 @@ dashboardPage(
                 # ),
                 barTableUI("Reports per Indication (all reported drugs)","indicationchart","indicationtable",
                            paste0("Indication refers to the particular condition for which a health product was taken. ",
-                                  "This plot includes all indications for all drugs present in the matching reports. ",
+                                  "This plot includes the indications, when provided, for all drugs present in the matching reports. ",
                                   "The search query filters unique reports, which may have one or more drugs associated with them.")))
               ,
               fluidRow(
@@ -504,7 +486,7 @@ dashboardPage(
                       selectizeInput("column_select_reaction",
                                      "Select Columns",
                                      cv_reaction_names,
-                                     selected = c("REPORT_ID", "REPORT_NO", "DURATION", "DURATION_UNIT_ENG", "PT_NAME_ENG", "SOC_NAME_ENG", "MEDDRA_VERSION", "SMQ", "SERIOUSNESS_TYPE", "DEATH"),
+                                     selected = c("REPORT_ID", "REPORT_NO", "DURATION", "DURATION_UNIT_ENG", "PT_NAME_ENG", "SOC_NAME_ENG", "MEDDRA_VERSION", "SERIOUSNESS_TYPE", "DEATH"),
                                      multiple = TRUE))),
                   column(
                     width = 9,
