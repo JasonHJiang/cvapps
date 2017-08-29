@@ -275,7 +275,7 @@ shinyServer(function(input, output, session) {
     
     if ("" == drug_name) drug_name <- "All Drugs"
     if ("" == rxn_name) rxn_name <- "All Reactions"
-    plottitle <- paste0("Drug Adverse Event Reports for ", drug_name, " and ", rxn_name, " (", nreports, " reports)")
+    plottitle <- paste0("Drug Adverse Event Reports for ", drug_name, " and ", rxn_name, " (", nreports, " reports) from ",input$daterange[1], " to ",input$daterange[2])
     h3(strong(plottitle))
   })
   output$mychart <- renderLineChart({

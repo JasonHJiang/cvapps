@@ -28,7 +28,7 @@ bootstrapPage(
   hidden(
   div(id="main-content",
 dashboardPage(
-  dashboardHeader(title = titleWarning("CV Shiny (v0.22)"),
+  dashboardHeader(title = titleWarning("CV Shiny (v0.23)"),
                   titleWidth = 700),
   
   dashboardSidebar(
